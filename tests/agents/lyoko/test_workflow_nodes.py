@@ -3,16 +3,20 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from lyoko.application.chat.use_cases.handle_turn import HandleChatTurnUseCase
 from lyoko.application.context.formatter import IncidentContextFormatter
-from lyoko.application.routing.edges import WorkflowRouteSelector
-from lyoko.application.routing.recovery import (
+from lyoko.application.incidents.use_cases.diagnose import DiagnoseIncidentUseCase
+from lyoko.application.incidents.use_cases.notify import format_incident_report
+from lyoko.application.workflow.routing.canary import (
+    CANARY_ACKNOWLEDGEMENT,
+    CanaryNotificationDetector,
+)
+from lyoko.application.workflow.routing.edges import WorkflowRouteSelector
+from lyoko.application.workflow.routing.recovery import (
     RECOVERY_ACKNOWLEDGEMENT,
     RecoveryNotificationDetector,
 )
-from lyoko.application.use_cases.diagnose_incident import DiagnoseIncidentUseCase
-from lyoko.application.use_cases.handle_chat import HandleChatTurnUseCase
-from lyoko.application.use_cases.notify_report import format_incident_report
-from lyoko.application.use_cases.route_event import RouteEventUseCase
+from lyoko.application.workflow.routing.route_event import RouteEventUseCase
 from lyoko.domain.interfaces.llm import LLMClientInterface
 from lyoko.domain.models.state import is_message
 
@@ -22,6 +26,7 @@ origin = IncidentContextFormatter.format_origin
 truncate = IncidentContextFormatter.truncate
 choose_branch = WorkflowRouteSelector.choose_branch
 is_recovery_notification = RecoveryNotificationDetector.is_recovery_notification
+is_canary_notification = CanaryNotificationDetector.is_canary_notification
 
 
 def create_chat_node(**kwargs):
@@ -107,7 +112,7 @@ async def test_route_node_and_choose_branch():
 
 
 def test_status_callback_reads_only_config_configurable():
-    from lyoko.application.supervisor import status_callback
+    from lyoko.application.agents.supervisor import status_callback
 
     sentinel = object()
     assert status_callback({"configurable": {"on_status": sentinel}}) is sentinel
@@ -173,4 +178,62 @@ async def test_chat_node_acknowledges_recovery_without_supervisor():
     )
 
     assert res["reply"] == RECOVERY_ACKNOWLEDGEMENT
+    supervisor.coordinate.assert_not_called()
+
+
+def test_is_canary_notification():
+    gatus = (
+        "⛑ Gatus\nAn alert for External/Cloudflare public — canary has been triggered:\n"
+        "—\n    healthcheck failed 5 time(s) in a row\n"
+        "—\nCondition results\n"
+        "✅ - [STATUS] < 500\n"
+        "❌ - [BODY] (<!DOCTYPE html>\n"
+        "<html lan...(truncated)) != pat(*bloqueado\n"
+        "en cumplimiento*)"
+    )
+    assert is_canary_notification(gatus) is True
+    assert (
+        is_canary_notification(
+            "An alert for External/Cloudflare public — canary has been triggered"
+        )
+        is True
+    )
+    assert is_canary_notification("What is a canary deployment?") is False
+    assert is_canary_notification("cloudflare tunnel is down") is False
+    assert is_canary_notification("") is False
+
+
+@pytest.mark.asyncio
+async def test_route_node_sends_canary_to_chat_without_llm():
+    mock_llm = MagicMock(spec=LLMClientInterface)
+    mock_llm.chat = AsyncMock(side_effect=AssertionError("LLM must not be called for canary"))
+    node = create_route_node(llm=mock_llm)
+
+    res = await node(
+        {
+            "event_type": "message",
+            "text": "An alert for External/Cloudflare public — canary has been triggered",
+        },
+        MagicMock(),
+    )
+
+    assert res["route"] == "chat"
+    mock_llm.chat.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_chat_node_acknowledges_canary_without_supervisor():
+    supervisor = MagicMock()
+    supervisor.coordinate = AsyncMock()
+    node = create_chat_node(mcp_client=object(), llm=object(), supervisor=supervisor)
+
+    res = await node(
+        {
+            "event_type": "message",
+            "text": "An alert for External/Cloudflare public — canary has been triggered",
+        },
+        MagicMock(),
+    )
+
+    assert res["reply"] == CANARY_ACKNOWLEDGEMENT
     supervisor.coordinate.assert_not_called()

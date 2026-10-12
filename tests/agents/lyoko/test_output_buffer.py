@@ -3,7 +3,7 @@
 from pathlib import Path
 
 import pytest
-from lyoko.application.harness.buffer import SmartOutputBufferService
+from lyoko.application.context.buffer import SmartOutputBufferService
 from lyoko.domain.models.scratchpad import SmartBufferConfig
 from lyoko.infrastructure.storage.scratchpad_file_storage import ScratchpadFileStorage
 

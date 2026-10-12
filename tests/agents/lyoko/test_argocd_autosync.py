@@ -5,14 +5,14 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import yaml
-from lyoko.application.triage.argocd_autosync import ArgoCDAutosyncHandler
-from lyoko.application.triage.argocd_inspector import ArgoCDApplicationInspector
-from lyoko.application.triage.dispatcher import (
+from lyoko.application.incidents.triage.argocd_autosync import ArgoCDAutosyncHandler
+from lyoko.application.incidents.triage.argocd_inspector import ArgoCDApplicationInspector
+from lyoko.application.incidents.triage.dispatcher import (
     TRIAGE_DIAGNOSE,
     TRIAGE_HANDLED,
     choose_triage,
 )
-from lyoko.application.use_cases.triage_incident import TriageIncidentUseCase
+from lyoko.application.incidents.use_cases.triage import TriageIncidentUseCase
 from lyoko.config import settings
 
 autosync_disabled = ArgoCDApplicationInspector.autosync_disabled

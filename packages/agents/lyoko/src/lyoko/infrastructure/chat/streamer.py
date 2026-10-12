@@ -75,12 +75,19 @@ class TelegramStreamingReply:
         self._lock = asyncio.Lock()
         self._disabled = False
         self._stopped = asyncio.Event()
+        self._execution_task: asyncio.Task[Any] | None = None
         self._status_task: asyncio.Task[None] | None = None
         self._started_at = 0.0
 
+    def bind_task(self, task: asyncio.Task[Any]) -> None:
+        """Bind in-flight execution task to cancel it immediately upon stop request."""
+        self._execution_task = task
+
     def stop(self) -> None:
-        """Signal that message generation should stop immediately."""
+        """Signal that message generation should stop immediately and cancel bound task."""
         self._stopped.set()
+        if self._execution_task is not None and not self._execution_task.done():
+            self._execution_task.cancel()
 
     def is_stopped(self) -> bool:
         """Return True if message generation was stopped."""

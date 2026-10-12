@@ -3,8 +3,8 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from lyoko.application.hitl.manager import ApprovalManager
-from lyoko.application.workflow import create_lyoko_graph
+from lyoko.application.safety.hitl.manager import ApprovalManager
+from lyoko.application.workflow.graph import create_lyoko_graph
 from lyoko.domain.interfaces.mcp import ToolAuthorizer
 
 from tests.agents.lyoko.fakes import (
@@ -100,7 +100,7 @@ async def test_chat_change_denied_does_not_run():
 @pytest.mark.asyncio
 async def test_chat_runs_trusted_tools_without_asking(monkeypatch):
     monkeypatch.setattr(
-        "lyoko.application.workflow.settings.auto_approved_tools", ["resources_scale"]
+        "lyoko.application.workflow.graph.settings.auto_approved_tools", ["resources_scale"]
     )
     manager = ApprovalManager()
     operator = Operator(manager, approve=False)

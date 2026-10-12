@@ -7,29 +7,7 @@ from urllib.parse import quote_plus
 from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Tools whose names indicate they only read state. Matching is conservative on purpose: a tool
-# that does not match needs operator approval, so an unknown or ambiguous name fails safe.
-DEFAULT_READ_ONLY_TOOLS: tuple[str, ...] = (
-    "gateway_get_domain_tools",
-    "gateway_get_tool_schema",
-    "get_*",
-    "list_*",
-    "search_*",
-    "query_*",
-    "*_get",
-    "*_get_*",
-    "*_list",
-    "*_list_*",
-    "*_log",
-    "*_logs",
-    "*_top",
-    "*_search",
-    "*_search_*",
-    "*_query",
-    "*_query_*",
-    "*_stats_summary",
-    "*_tool_index",
-)
+from lyoko.domain.models.guardrail import DEFAULT_READ_ONLY_TOOLS
 
 
 class AgentSettings(BaseSettings):
@@ -120,6 +98,11 @@ class AgentSettings(BaseSettings):
     )
     verification_delay_seconds: int = Field(
         default=10, description="Seconds to wait before verifying pod health"
+    )
+    shutdown_drain_timeout_seconds: float = Field(
+        default=25.0,
+        ge=0.0,
+        description="Seconds to wait for in-flight incident tasks to drain during graceful shutdown",
     )
     read_only_tools: list[str] | str = Field(
         default_factory=lambda: list(DEFAULT_READ_ONLY_TOOLS),

@@ -1,7 +1,7 @@
 """Unit tests for the tool gate policy and the prompt answer parsers."""
 
 import pytest
-from lyoko.application.incident.parser import IncidentOutputParser
+from lyoko.application.incidents.parser import IncidentOutputParser
 from lyoko.application.safety.tool_gate import GateMode, ToolGate, matches_any
 from lyoko.config import DEFAULT_READ_ONLY_TOOLS
 
@@ -12,7 +12,7 @@ parse_verdict = IncidentOutputParser.parse_verdict
 
 def test_format_arguments_shortens_a_large_resource_manifest():
     """A full manifest argument must not flood the approval prompt with escaped YAML."""
-    from lyoko.application.hitl.descriptor import ApprovalActionDescriptor
+    from lyoko.application.safety.hitl.descriptor import ApprovalActionDescriptor
 
     huge_manifest = "apiVersion: argoproj.io/v1alpha1\nkind: Application\n" * 50
     text = ApprovalActionDescriptor.format_arguments(
@@ -172,7 +172,7 @@ async def test_approval_mode_without_a_channel_refuses():
 async def test_approval_mode_includes_action_summary_and_plan():
     from unittest.mock import AsyncMock
 
-    from lyoko.application.hitl.manager import ApprovalManager
+    from lyoko.application.safety.hitl.manager import ApprovalManager
     from lyoko.domain.models.chat import ApprovalResponse
 
     approval_manager = ApprovalManager()
@@ -214,7 +214,7 @@ async def test_approval_request_is_sent_into_the_message_thread():
     import asyncio
     from unittest.mock import AsyncMock
 
-    from lyoko.application.hitl.manager import ApprovalManager
+    from lyoko.application.safety.hitl.manager import ApprovalManager
     from lyoko.domain.models.chat import ApprovalResponse
 
     approval_manager = ApprovalManager()
@@ -245,7 +245,7 @@ async def test_approval_omits_unreadable_arguments_and_names_the_resource():
     import asyncio
     from unittest.mock import AsyncMock
 
-    from lyoko.application.hitl.manager import ApprovalManager
+    from lyoko.application.safety.hitl.manager import ApprovalManager
     from lyoko.domain.models.chat import ApprovalResponse
 
     approval_manager = ApprovalManager()
@@ -272,7 +272,7 @@ async def test_approval_omits_unreadable_arguments_and_names_the_resource():
 
 
 def test_describe_action_falls_back_without_a_manifest():
-    from lyoko.application.hitl.descriptor import ApprovalActionDescriptor
+    from lyoko.application.safety.hitl.descriptor import ApprovalActionDescriptor
 
     assert (
         ApprovalActionDescriptor.describe_action(

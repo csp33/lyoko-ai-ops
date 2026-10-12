@@ -3,8 +3,8 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from lyoko.application.hitl.manager import ApprovalManager
-from lyoko.application.workflow import create_lyoko_graph
+from lyoko.application.safety.hitl.manager import ApprovalManager
+from lyoko.application.workflow.graph import create_lyoko_graph
 from lyoko.domain.interfaces.mcp import ToolAuthorizer
 
 from tests.agents.lyoko.fakes import DIAGNOSIS_ACTIONABLE, FakeMCPClient, Operator, ScriptedLLM
@@ -14,8 +14,8 @@ SCALE_ARGS = {"name": "radarr", "namespace": "media", "replicas": 2}
 
 @pytest.fixture(autouse=True)
 def _settings(monkeypatch):
-    monkeypatch.setattr("lyoko.application.workflow.settings.verification_delay_seconds", 0)
-    monkeypatch.setattr("lyoko.application.workflow.settings.auto_approved_tools", [])
+    monkeypatch.setattr("lyoko.application.workflow.graph.settings.verification_delay_seconds", 0)
+    monkeypatch.setattr("lyoko.application.workflow.graph.settings.auto_approved_tools", [])
 
 
 def _state() -> dict:

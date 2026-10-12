@@ -362,3 +362,44 @@ async def test_channel_post_proceeds_after_mapping_timeout_without_forward():
     call_kwargs = bot.send_message.call_args.kwargs
     assert call_kwargs["chat_id"] == "-1004400196957"
     assert call_kwargs["reply_to_message_id"] == 50
+
+
+@pytest.mark.asyncio
+async def test_telegram_connector_stops_immediately_when_stop_button_clicked():
+    """When stop is triggered during message handling, execution task is cancelled and stopped notice finalized."""
+    connector = TelegramConnector(
+        bot_token="fake:token", allowed_user_ids={"12345"}, default_chat_id="12345"
+    )
+
+    task_started = asyncio.Event()
+
+    async def slow_handler(msg: IncomingMessage, on_status=None) -> str:
+        task_started.set()
+        await asyncio.sleep(60)
+        return "Should not arrive"
+
+    connector.register_message_handler(slow_handler)
+
+    bot = _mock_bot(message_id=555)
+    update = MagicMock()
+    update.effective_user.id = 12345
+    update.effective_user.username = "admin"
+    update.effective_user.first_name = "Admin"
+    update.effective_chat.id = 12345
+    update.effective_chat.type = "private"
+    update.message.message_id = 42
+    update.message.message_thread_id = None
+    update.message.text = "Hello"
+    update.message.set_reaction = AsyncMock()
+
+    msg_task = asyncio.create_task(connector._handle_telegram_message(update, _context(bot)))
+    await task_started.wait()
+
+    assert len(connector._active_streamers) == 1
+    streamer = list(connector._active_streamers.values())[0]
+    streamer.stop()
+
+    await msg_task
+
+    texts = [call.kwargs["text"] for call in bot.edit_message_text.call_args_list]
+    assert any("Generation stopped" in t for t in texts)

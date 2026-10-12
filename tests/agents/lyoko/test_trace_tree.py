@@ -7,7 +7,7 @@ import pytest
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
-from lyoko.application.workflow import create_lyoko_graph
+from lyoko.application.workflow.graph import create_lyoko_graph
 from lyoko.infrastructure.llm.openai import OpenAILLMAdapter
 from lyoko.infrastructure.mcp.client import FastMCPClient
 

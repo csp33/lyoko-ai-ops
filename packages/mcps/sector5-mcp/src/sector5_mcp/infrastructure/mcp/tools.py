@@ -4,6 +4,7 @@ import json
 from typing import Any
 
 from fastmcp import FastMCP
+
 from sector5_mcp.application.service import MCPGatewayService
 from sector5_mcp.domain.models.upstream import UpstreamType
 from sector5_mcp.infrastructure.mcp.formatting import shape_tool_content, tool_index

@@ -49,7 +49,7 @@ class TelegramFeedbackMixin:
             )
             return
 
-        from lyoko.application.use_cases.record_feedback import RecordFeedbackUseCase
+        from lyoko.application.memory.use_cases.feedback import RecordFeedbackUseCase
 
         use_case = RecordFeedbackUseCase(
             memory_repository=self.memory_repository,

@@ -3,11 +3,11 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from lyoko.application.agents.specialist_prompts import SpecialistPromptProvider
+from lyoko.application.agents.supervisor import SupervisorAgent
 from lyoko.application.context.loader import build_agent_context
-from lyoko.application.routing.edges import WorkflowRouteSelector
-from lyoko.application.specialists.prompts import SpecialistPromptProvider
-from lyoko.application.supervisor import SupervisorAgent
-from lyoko.application.workflow import create_lyoko_graph
+from lyoko.application.workflow.graph import create_lyoko_graph
+from lyoko.application.workflow.routing.edges import WorkflowRouteSelector
 from lyoko.composition import build_domain_specialists
 from lyoko.domain.interfaces.llm import LLMClientInterface
 from lyoko.domain.models.incident import CoordinatorNext, SpecialistDomain

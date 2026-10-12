@@ -3,12 +3,12 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from lyoko.application.use_cases.notify_report import (
+from lyoko.application.incidents.use_cases.notify import (
     NotifyIncidentReportUseCase,
 )
-from lyoko.application.use_cases.record_feedback import RecordFeedbackUseCase
-from lyoko.application.use_cases.retrieve_memory import RetrieveMemoryLessonsUseCase
-from lyoko.application.use_cases.route_event import RouteEventUseCase
+from lyoko.application.memory.use_cases.feedback import RecordFeedbackUseCase
+from lyoko.application.memory.use_cases.retrieve import RetrieveMemoryLessonsUseCase
+from lyoko.application.workflow.routing.route_event import RouteEventUseCase
 from lyoko.domain.interfaces.llm import LLMClientInterface
 from lyoko.domain.models.memory import FeedbackRequest, MemoryEntry, MemoryQueryResult
 from sector5_mcp.application.use_cases.discover_tools import DiscoverToolsUseCase
@@ -126,7 +126,7 @@ async def test_sector5_mcp_use_cases():
 
 @pytest.mark.asyncio
 async def test_triage_incident_use_case():
-    from lyoko.application.use_cases.triage_incident import (
+    from lyoko.application.incidents.use_cases.triage import (
         TRIAGE_DIAGNOSE,
         TriageIncidentUseCase,
     )
@@ -146,7 +146,7 @@ async def test_triage_incident_use_case():
 
 @pytest.mark.asyncio
 async def test_execute_specialist_task_use_case():
-    from lyoko.application.use_cases.execute_specialist_task import (
+    from lyoko.application.agents.task_runner import (
         ExecuteSpecialistTaskUseCase,
     )
 
@@ -173,7 +173,7 @@ async def test_execute_specialist_task_use_case():
 
 @pytest.mark.asyncio
 async def test_coordinate_workflow_use_case():
-    from lyoko.application.use_cases.coordinate_workflow import (
+    from lyoko.application.workflow.coordinator import (
         CoordinateWorkflowUseCase,
     )
 
@@ -200,7 +200,7 @@ async def test_coordinate_workflow_use_case():
 
 @pytest.mark.asyncio
 async def test_diagnose_incident_use_case_with_skill_matcher():
-    from lyoko.application.use_cases.diagnose_incident import DiagnoseIncidentUseCase
+    from lyoko.application.incidents.use_cases.diagnose import DiagnoseIncidentUseCase
 
     mock_llm = MagicMock(spec=LLMClientInterface)
     mock_runner = AsyncMock(

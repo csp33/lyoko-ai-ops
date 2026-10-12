@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from lyoko.application.workflow import create_lyoko_graph
+from lyoko.application.workflow.graph import create_lyoko_graph
 from lyoko.domain.interfaces.mcp import ToolAuthorizer
 
 from tests.agents.lyoko.fakes import (
@@ -18,8 +18,8 @@ SCALE_ARGS = {"name": "radarr", "namespace": "media", "replicas": 0}
 
 @pytest.fixture(autouse=True)
 def fast_verification(monkeypatch):
-    monkeypatch.setattr("lyoko.application.workflow.settings.verification_delay_seconds", 0)
-    monkeypatch.setattr("lyoko.application.workflow.settings.auto_approved_tools", [])
+    monkeypatch.setattr("lyoko.application.workflow.graph.settings.verification_delay_seconds", 0)
+    monkeypatch.setattr("lyoko.application.workflow.graph.settings.auto_approved_tools", [])
 
 
 def _state(labels: dict[str, str] | None = None) -> dict:
@@ -45,7 +45,7 @@ async def _read_only_check(authorize: ToolAuthorizer) -> str:
 @pytest.mark.asyncio
 async def test_auto_approved_tool_fixes_and_resolves(monkeypatch):
     monkeypatch.setattr(
-        "lyoko.application.workflow.settings.auto_approved_tools", ["resources_scale"]
+        "lyoko.application.workflow.graph.settings.auto_approved_tools", ["resources_scale"]
     )
     llm = ScriptedLLM(
         diagnose=DIAGNOSIS_ACTIONABLE,
@@ -130,7 +130,7 @@ async def test_run_without_any_change_is_not_reported_as_fixed():
 @pytest.mark.asyncio
 async def test_unresolved_after_fix_is_reported_as_unresolved(monkeypatch):
     monkeypatch.setattr(
-        "lyoko.application.workflow.settings.auto_approved_tools", ["resources_scale"]
+        "lyoko.application.workflow.graph.settings.auto_approved_tools", ["resources_scale"]
     )
     llm = ScriptedLLM(
         diagnose=DIAGNOSIS_ACTIONABLE,
@@ -172,7 +172,7 @@ async def test_without_llm_the_incident_is_escalated():
 
 @pytest.mark.asyncio
 async def test_agent_runs_are_bounded(monkeypatch):
-    monkeypatch.setattr("lyoko.application.workflow.settings.max_agent_steps", 7)
+    monkeypatch.setattr("lyoko.application.workflow.graph.settings.max_agent_steps", 7)
     llm = ScriptedLLM(diagnose=DIAGNOSIS_NOT_ACTIONABLE)
     workflow = create_lyoko_graph(mcp_client=FakeMCPClient(), llm=llm)
 
@@ -222,7 +222,7 @@ async def test_incident_workflow_live_status_updates(monkeypatch):
     from lyoko.domain.models.chat import SentMessage
 
     monkeypatch.setattr(
-        "lyoko.application.workflow.settings.auto_approved_tools", ["resources_scale"]
+        "lyoko.application.workflow.graph.settings.auto_approved_tools", ["resources_scale"]
     )
     chat = AsyncMock()
     chat.broadcast_message.return_value = [SentMessage(chat_id="12345", message_id="777")]

@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from lyoko.application.use_cases.enrich_trace_cost import EnrichTraceCostUseCase
+from lyoko.application.incidents.use_cases.enrich_trace_cost import EnrichTraceCostUseCase
 from lyoko.domain.interfaces.mcp import MCPClientInterface
 from lyoko.domain.interfaces.tracer import TracerInterface
 

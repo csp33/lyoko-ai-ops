@@ -276,3 +276,25 @@ async def test_discard_deletes_placeholder():
     await streamer.discard()
 
     bot.delete_message.assert_called_once_with(chat_id="12345", message_id=555)
+
+
+@pytest.mark.asyncio
+async def test_stop_cancels_bound_execution_task():
+    """Verify stop() immediately cancels any bound in-flight execution task."""
+    bot = _fake_bot()
+    streamer = TelegramStreamingReply(bot=bot, chat_id="12345")
+    await streamer.start()
+
+    async def _long_running():
+        await asyncio.sleep(60)
+
+    task = asyncio.create_task(_long_running())
+    streamer.bind_task(task)
+
+    assert not task.done()
+    streamer.stop()
+
+    assert streamer.is_stopped()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert task.cancelled()

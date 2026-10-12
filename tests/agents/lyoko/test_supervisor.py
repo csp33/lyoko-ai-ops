@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from lyoko.application.supervisor import SUPERVISOR_SYSTEM_PROMPT, SupervisorAgent
+from lyoko.application.agents.supervisor import SUPERVISOR_SYSTEM_PROMPT, SupervisorAgent
 from lyoko.domain.interfaces.llm import LLMClientInterface
 
 

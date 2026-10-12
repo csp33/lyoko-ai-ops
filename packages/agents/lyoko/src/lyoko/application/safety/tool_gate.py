@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from lyoko.application.hitl.descriptor import ApprovalActionDescriptor
+from lyoko.application.safety.hitl.descriptor import ApprovalActionDescriptor
 from lyoko.domain.interfaces.approval import ApprovalManagerInterface
 from lyoko.domain.interfaces.chat_service import ChatServiceInterface
 from lyoko.domain.models.chat import ApprovalAction, ApprovalRequest

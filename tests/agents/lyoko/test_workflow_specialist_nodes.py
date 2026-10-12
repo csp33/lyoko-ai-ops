@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from lyoko.application.use_cases.execute_specialist_task import ExecuteSpecialistTaskUseCase
+from lyoko.application.agents.task_runner import ExecuteSpecialistTaskUseCase
 
 
 def create_specialist_node(**kwargs):

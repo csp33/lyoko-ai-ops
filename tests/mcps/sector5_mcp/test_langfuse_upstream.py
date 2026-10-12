@@ -10,8 +10,8 @@ from sector5_mcp.infrastructure.upstream.http import StreamableHttpUpstreamClien
 
 def test_streamable_http_upstream_client_init():
     client = StreamableHttpUpstreamClient(
-        url="https://cloud.langfuse.com/api/public/mcp",
-        auth=("pk-lf-123", "sk-lf-456"),
+        url="https://example.invalid/mcp",
+        auth=("dummy-public-key", "dummy-secret-key"),
         upstream_type=UpstreamType.LANGFUSE,
         prefix="langfuse_",
     )
@@ -25,8 +25,8 @@ def test_streamable_http_upstream_client_init():
 @pytest.mark.asyncio
 async def test_streamable_http_upstream_client_list_tools():
     client = StreamableHttpUpstreamClient(
-        url="https://cloud.langfuse.com/api/public/mcp",
-        auth=("pk-lf-123", "sk-lf-456"),
+        url="https://example.invalid/mcp",
+        auth=("dummy-public-key", "dummy-secret-key"),
         upstream_type=UpstreamType.LANGFUSE,
         prefix="langfuse_",
     )
@@ -55,8 +55,8 @@ async def test_streamable_http_upstream_client_list_tools():
 @pytest.mark.asyncio
 async def test_streamable_http_upstream_client_call_tool():
     client = StreamableHttpUpstreamClient(
-        url="https://cloud.langfuse.com/api/public/mcp",
-        auth=("pk-lf-123", "sk-lf-456"),
+        url="https://example.invalid/mcp",
+        auth=("dummy-public-key", "dummy-secret-key"),
         upstream_type=UpstreamType.LANGFUSE,
         prefix="langfuse_",
     )

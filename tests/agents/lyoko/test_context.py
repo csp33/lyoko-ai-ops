@@ -1,6 +1,8 @@
 """Unit tests for modular homelab context loading and architectural knowledge injection."""
 
 import pytest
+from lyoko.application.agents.specialist_prompts import SpecialistPromptProvider
+from lyoko.application.agents.supervisor import SUPERVISOR_SYSTEM_PROMPT
 from lyoko.application.context.loader import (
     build_agent_context,
     get_homelab_context,
@@ -12,8 +14,6 @@ from lyoko.application.prompts.incident import (
     REMEDIATE_SYSTEM_PROMPT,
     VERIFY_SYSTEM_PROMPT,
 )
-from lyoko.application.specialists.prompts import SpecialistPromptProvider
-from lyoko.application.supervisor import SUPERVISOR_SYSTEM_PROMPT
 
 K8S_SPECIALIST_PROMPT = SpecialistPromptProvider.get_prompt("k8s")
 NETWORK_SPECIALIST_PROMPT = SpecialistPromptProvider.get_prompt("network")

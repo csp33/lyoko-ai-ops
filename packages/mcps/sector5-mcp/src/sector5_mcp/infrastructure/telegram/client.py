@@ -5,6 +5,7 @@ from typing import Any
 
 import httpx
 from pydantic import SecretStr
+
 from sector5_mcp.domain.interfaces.telegram import TelegramClientInterface
 from sector5_mcp.domain.models.telegram import (
     TelegramAlertRequest,

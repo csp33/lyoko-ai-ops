@@ -1,7 +1,7 @@
 """Routing and the two branches of the LYOKO graph: chat and incident."""
 
 import pytest
-from lyoko.application.workflow import create_lyoko_graph
+from lyoko.application.workflow.graph import create_lyoko_graph
 
 from tests.agents.lyoko.fakes import (
     DIAGNOSIS_ACTIONABLE,

@@ -8,10 +8,11 @@ from lyoko.application.chat.history import ChatHistoryTracker
 from lyoko.application.chat.sessions import (
     DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS,
     ChatSessionTracker,
-)
-from lyoko.application.use_cases.enrich_trace_cost import EnrichTraceCostUseCase
-from lyoko.application.use_cases.process_chat_message import (
+from lyoko.application.chat.use_cases.process_message import (
     ProcessChatMessageUseCase,
+)
+from lyoko.application.incidents.use_cases.enrich_trace_cost import (
+    EnrichTraceCostUseCase,
 )
 from lyoko.domain.interfaces.tracer import TracerInterface
 from lyoko.domain.models.chat import IncomingMessage

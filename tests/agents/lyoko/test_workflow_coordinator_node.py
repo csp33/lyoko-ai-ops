@@ -3,8 +3,8 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from lyoko.application.routing.edges import WorkflowRouteSelector
-from lyoko.application.use_cases.coordinate_workflow import CoordinateWorkflowUseCase
+from lyoko.application.workflow.coordinator import CoordinateWorkflowUseCase
+from lyoko.application.workflow.routing.edges import WorkflowRouteSelector
 
 choose_coordinator_next = WorkflowRouteSelector.choose_coordinator_next
 

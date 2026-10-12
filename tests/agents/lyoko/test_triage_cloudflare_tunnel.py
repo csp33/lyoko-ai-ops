@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from lyoko.application.triage.cloudflare_tunnel import CloudflareTunnelHandler
+from lyoko.application.incidents.triage.cloudflare_tunnel import CloudflareTunnelHandler
 
 
 def _approval_manager(approved: bool = True) -> MagicMock:
@@ -43,6 +43,12 @@ def test_can_handle_detects_alerts_and_messages():
         "text": "cloudflared pod is not ready in cloudflare-tunnel",
     }
     assert handler.can_handle(msg) is True
+
+    canary_msg = {
+        "event_type": "message",
+        "text": "An alert for External/Cloudflare public — canary has been triggered",
+    }
+    assert handler.can_handle(canary_msg) is False
 
     unrelated = {
         "event_type": "alert",

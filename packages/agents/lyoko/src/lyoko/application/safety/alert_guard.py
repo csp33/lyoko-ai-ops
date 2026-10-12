@@ -39,10 +39,12 @@ class AlertStormProtector:
         settings: AgentSettings | None = None,
         chat_manager: Any = None,
         dispatch_callback: Callable[[Incident], Awaitable[None]] | None = None,
+        task_tracker: Any = None,
     ) -> None:
         self._settings = settings or default_settings
         self._chat_manager = chat_manager
         self._dispatch_callback = dispatch_callback
+        self._task_tracker = task_tracker
 
         self._circuit_state = CircuitState.CLOSED
         self._circuit_tripped_at: float = 0.0
@@ -205,7 +207,13 @@ class AlertStormProtector:
                 if self._settings.alert_debounce_seconds <= 0:
                     await self._dispatch_with_semaphore(incident, key)
                 else:
-                    asyncio.create_task(self._dispatch_with_semaphore(incident, key))
+                    self._track_task(self._dispatch_with_semaphore(incident, key))
+
+    def _track_task(self, coro: Awaitable[Any]) -> asyncio.Task[Any]:
+        task = asyncio.create_task(coro)
+        if self._task_tracker is not None:
+            self._task_tracker.track(task)
+        return task
 
     async def _dispatch_with_semaphore(self, incident: Incident, key: str) -> None:
         try:
@@ -226,7 +234,7 @@ class AlertStormProtector:
         self._cooldown_cache.pop(key, None)
         self.mark_in_flight(key)
         if self._dispatch_callback:
-            asyncio.create_task(self._dispatch_with_semaphore(incident, key))
+            self._track_task(self._dispatch_with_semaphore(incident, key))
         return True
 
     async def _notify_storm(self, alerts: list[dict[str, Any]], count: int) -> None:

@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from lyoko.application.workflow import create_lyoko_graph
+from lyoko.application.workflow.graph import create_lyoko_graph
 from lyoko.domain.models.memory import MemoryEntry, MemoryQueryResult
 
 from tests.agents.lyoko.fakes import (
@@ -41,7 +41,7 @@ async def test_workflow_diagnose_injects_operator_memory():
     mock_embeddings = AsyncMock()
     mock_embeddings.embed_text.return_value = [0.05] * 1536
 
-    with patch("lyoko.application.workflow.settings.verification_delay_seconds", 0):
+    with patch("lyoko.application.workflow.graph.settings.verification_delay_seconds", 0):
         workflow = create_lyoko_graph(
             mcp_client=mock_mcp,
             llm=llm,

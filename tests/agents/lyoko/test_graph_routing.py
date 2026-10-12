@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from lyoko.application.workflow import create_lyoko_graph
+from lyoko.application.workflow.graph import create_lyoko_graph
 from lyoko.domain.interfaces.mcp import ToolAuthorizer
 
 from tests.agents.lyoko.fakes import (

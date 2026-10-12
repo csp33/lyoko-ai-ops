@@ -79,7 +79,7 @@ lyoko-ai-ops/
 │                   │   ├── models/     # incident.py
 │                   │   ├── exceptions/ # base.py, incident.py
 │                   │   └── interfaces/ # mcp.py, llm.py
-│                   ├── application/    # StateGraph workflow, use_cases/, supervisor, specialists, prompts
+│                   ├── application/    # Feature-bounded packages: incidents/, chat/, workflow/, agents/, memory/, safety/, context/, prompts/
 │                   ├── infrastructure/ # FastAPI webhook controller & MCP client
 │                   ├── config.py
 │                   └── main.py         # Composition root
@@ -99,9 +99,10 @@ Every package in `lyoko-ai-ops` strictly adheres to **Clean Architecture** (Port
    - Domain layers must only depend on standard Python libraries or shared domain primitives.
 
 2. **`application/` (Use Cases & Workflow Orchestration)**:
-   - Encapsulates discrete application workflows and operations into dedicated **`UseCase` classes** under `application/use_cases/` (e.g. `DiagnoseIncidentUseCase`, `RemediateIncidentUseCase`, `VerifyIncidentUseCase`, `NotifyIncidentReportUseCase`, `RouteEventUseCase`, `HandleChatTurnUseCase`, `ProcessChatMessageUseCase`, `RecordFeedbackUseCase`, `RetrieveMemoryLessonsUseCase`, `DiscoverToolsUseCase`, `ExecuteToolUseCase`).
-   - Workflow nodes (`application/nodes/*.py`), web controllers, and chat connectors act as thin callers/adapters that delegate execution to their corresponding `UseCase` instances.
-   - Contains use-case services (`MCPGatewayService`, `GuardrailEngine`, `ApprovalManager`, `ChatManager`, `SupervisorAgent`, `DomainSpecialistAgent`) and workflow topology definitions (`workflow.py`).
+   - Organized into clean, cohesive feature packages (`incidents/`, `chat/`, `workflow/`, `agents/`, `memory/`, `safety/`, `context/`, `prompts/`, `skills/`).
+   - Encapsulates discrete application workflows and operations into dedicated **`UseCase` classes** colocated within their bounded context (e.g. `incidents.use_cases.DiagnoseIncidentUseCase`, `incidents.use_cases.RemediateIncidentUseCase`, `incidents.use_cases.VerifyIncidentUseCase`, `incidents.use_cases.NotifyIncidentReportUseCase`, `incidents.use_cases.TriageIncidentUseCase`, `chat.use_cases.ProcessChatMessageUseCase`, `chat.use_cases.HandleChatTurnUseCase`, `workflow.routing.route_event.RouteEventUseCase`, `memory.use_cases.RetrieveMemoryLessonsUseCase`, `memory.use_cases.RecordFeedbackUseCase`).
+   - Workflow nodes, web controllers, and chat connectors act as thin callers/adapters that delegate execution to their corresponding `UseCase` instances.
+   - Contains cognitive agent definitions (`agents.SupervisorAgent`, `agents.DomainSpecialistAgent`), workflow graph definitions (`workflow.graph.create_lyoko_graph`), safety gates, and HITL managers (`safety.hitl.ApprovalManager`).
    - Coordinates domain models and interacts with external capabilities **exclusively through domain interfaces / ports** (`LLMClientInterface`, `MCPClientInterface`, `ChatConnector`, `AuthVerifierInterface`).
    - **ZERO infrastructure imports allowed**: Strictly forbidden to import concrete infrastructure classes or vendor SDKs (e.g., `ChatOpenAI`, `OpenAILLMAdapter`, `FastMCPClient`, `TelegramConnector`, `AsyncConnectionPool`, `LangfuseTracer`). All external services must be injected into application constructors.
 

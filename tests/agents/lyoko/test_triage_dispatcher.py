@@ -3,8 +3,8 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from lyoko.application.triage.base import TriageResult
-from lyoko.application.use_cases.triage_incident import TriageIncidentUseCase
+from lyoko.application.incidents.triage.base import TriageResult
+from lyoko.application.incidents.use_cases.triage import TriageIncidentUseCase
 
 
 def create_triage_node(handlers=None):

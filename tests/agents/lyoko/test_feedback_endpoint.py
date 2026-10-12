@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 
 from fastapi.testclient import TestClient
 from lyoko.domain.models.memory import MemoryEntry
-from lyoko.main import create_app
+from lyoko.infrastructure.api.server import create_app
 
 
 def test_submit_feedback_endpoint_success():

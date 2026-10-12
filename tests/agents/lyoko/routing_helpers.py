@@ -42,8 +42,8 @@ def _scale(outcomes: list):
 
 @pytest.fixture(autouse=True)
 def _settings(monkeypatch):
-    monkeypatch.setattr("lyoko.application.workflow.settings.verification_delay_seconds", 0)
-    monkeypatch.setattr("lyoko.application.workflow.settings.auto_approved_tools", [])
+    monkeypatch.setattr("lyoko.application.workflow.graph.settings.verification_delay_seconds", 0)
+    monkeypatch.setattr("lyoko.application.workflow.graph.settings.auto_approved_tools", [])
 
 
 class _Recorder(BaseCallbackHandler):
