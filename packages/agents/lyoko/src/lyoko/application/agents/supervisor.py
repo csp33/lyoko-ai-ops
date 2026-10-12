@@ -1,6 +1,7 @@
 """Multi-Agent Supervisor and Cross-Domain Orchestrator for LYOKO."""
 
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from langchain_core.runnables import RunnableConfig
@@ -162,9 +163,17 @@ class SupervisorAgent(SupervisorInterface):
                 on_status=on_status,
             )
 
+        now = datetime.now(UTC)
+        temporal_context = (
+            f"--- RUNTIME TEMPORAL CONTEXT ---\n"
+            f"Current time: {now.strftime('%Y-%m-%d %H:%M:%SZ')} ({now.strftime('%A')})\n"
+            f"--------------------------------"
+        )
+        effective_prompt = f"{system_prompt or SUPERVISOR_SYSTEM_PROMPT}\n\n{temporal_context}"
+
         return await self.llm.chat(
             prompt=prompt,
-            system_prompt=system_prompt or SUPERVISOR_SYSTEM_PROMPT,
+            system_prompt=effective_prompt,
             tools=delegation_tools,
             session_id=session_id,
             user_id=user_id,

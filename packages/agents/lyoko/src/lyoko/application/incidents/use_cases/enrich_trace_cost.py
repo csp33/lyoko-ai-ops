@@ -63,8 +63,8 @@ class EnrichTraceCostUseCase:
         if self.mcp_client is not None:
             try:
                 now = datetime.now(UTC)
-                from_iso = (now - timedelta(hours=1)).isoformat()
-                to_iso = (now + timedelta(minutes=5)).isoformat()
+                from_iso = (now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                to_iso = (now + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
                 resp = await self.mcp_client.call_tool(
                     name="langfuse_queryMetrics",
                     arguments={

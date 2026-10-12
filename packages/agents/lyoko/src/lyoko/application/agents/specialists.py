@@ -1,6 +1,7 @@
 """Domain specialist agent implementation for LYOKO."""
 
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from lyoko.config import settings
@@ -129,11 +130,19 @@ class DomainSpecialistAgent(SpecialistAgentInterface):
         return []
 
     async def get_system_prompt(self) -> str:
-        """Return the base prompt with this domain's tool index injected dynamically."""
+        """Return the base prompt with this domain's tool index and temporal context injected."""
+        now = datetime.now(UTC)
+        temporal_context = (
+            f"--- RUNTIME TEMPORAL CONTEXT ---\n"
+            f"Current time: {now.strftime('%Y-%m-%d %H:%M:%SZ')} ({now.strftime('%A')})\n"
+            f"Use this timestamp as the authoritative baseline for relative time calculations (e.g. today, this week).\n"
+            f"--------------------------------"
+        )
+        parts = [self.system_prompt, temporal_context]
         index = await self._domain_tool_index()
-        if not index:
-            return self.system_prompt
-        return f"{self.system_prompt}\n\n{index}"
+        if index:
+            parts.append(index)
+        return "\n\n".join(parts)
 
     async def _domain_tool_index(self) -> str:
         if self._cached_tool_index is not None:
