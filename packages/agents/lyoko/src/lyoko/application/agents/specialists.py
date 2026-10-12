@@ -14,17 +14,49 @@ logger = logging.getLogger("lyoko.specialists")
 class SpecialistToolCatalogFormatter:
     """Formats upstream domain tool catalogs for injection into specialist system prompts."""
 
-    @staticmethod
-    def format_signature(name: str, parameters: Any) -> str:
-        """Render a compact call signature (name + argument names, optional marked with ?)."""
+    _MAX_ENUM_ITEMS: int = 8
+
+    @classmethod
+    def _format_default(cls, val: Any) -> str:
+        if isinstance(val, bool):
+            return f"={str(val).lower()}"
+        if isinstance(val, str):
+            return f"='{val}'"
+        if isinstance(val, (int, float)):
+            return f"={val}"
+        return ""
+
+    @classmethod
+    def _format_enum(cls, enum_vals: list[Any]) -> str:
+        if not enum_vals:
+            return ""
+        formatted = [f"'{v}'" if isinstance(v, str) else str(v) for v in enum_vals]
+        if len(formatted) > cls._MAX_ENUM_ITEMS:
+            return f"[{'|'.join(formatted[:6])}|...]"
+        return f"[{'|'.join(formatted)}]"
+
+    @classmethod
+    def format_signature(cls, name: str, parameters: Any) -> str:
+        """Render a compact call signature (name, argument names, defaults, and enums)."""
         if not isinstance(parameters, dict):
             return f"{name}()"
         properties = parameters.get("properties")
         if not isinstance(properties, dict) or not properties:
             return f"{name}()"
         required = parameters.get("required")
-        required = set(required) if isinstance(required, list) else set()
-        args = [arg if arg in required else f"{arg}?" for arg in properties]
+        required_set = set(required) if isinstance(required, list) else set()
+
+        args: list[str] = []
+        for arg, prop_schema in properties.items():
+            arg_str = arg if arg in required_set else f"{arg}?"
+            if isinstance(prop_schema, dict):
+                default_val = prop_schema.get("default")
+                if default_val is not None:
+                    arg_str += cls._format_default(default_val)
+                enum_vals = prop_schema.get("enum")
+                if isinstance(enum_vals, list) and enum_vals:
+                    arg_str += cls._format_enum(enum_vals)
+            args.append(arg_str)
         return f"{name}({', '.join(args)})"
 
     @classmethod
