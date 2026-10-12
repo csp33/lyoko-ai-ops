@@ -31,9 +31,8 @@ RUN uv sync --package lyoko --no-dev --frozen
 # Copy Hermes runtime specification
 COPY packages/agents/lyoko/hermes_runtime/ packages/agents/lyoko/hermes_runtime/
 
-# Create isolated virtual environment for Hermes Agent (hermes-agent CLI / library)
-RUN uv venv /app/.venv-hermes && \
-    uv pip install --python /app/.venv-hermes/bin/python -r packages/agents/lyoko/hermes_runtime/requirements.txt
+# Create isolated virtual environment for Hermes Agent using its dedicated uv.lock
+RUN UV_PROJECT_ENVIRONMENT=/app/.venv-hermes uv sync --project packages/agents/lyoko/hermes_runtime --no-dev --frozen
 
 # Create persistent HERMES_HOME directory
 RUN mkdir -p /app/.hermes
