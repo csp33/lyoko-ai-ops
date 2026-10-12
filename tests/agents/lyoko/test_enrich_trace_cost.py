@@ -170,3 +170,38 @@ async def test_enrich_trace_cost_with_parsed_dict_envelope():
     use_case = EnrichTraceCostUseCase(mcp_client=mock_mcp, tracer=None, enabled=True)
     result = await use_case.execute("Action taken", "t-dict2")
     assert "💸 **Cost:** $0.0150" in result
+
+
+@pytest.mark.asyncio
+async def test_enrich_trace_cost_idempotent_no_duplicate():
+    use_case = EnrichTraceCostUseCase(mcp_client=None, tracer=None, enabled=True)
+    already_enriched = "Report body\n\n💸 **Cost:** $0.0100 · 🔍 [View Trace](https://cloud.langfuse.com/traces/t-1)"
+    result = await use_case.execute(already_enriched, "t-1")
+    assert result == already_enriched
+    assert result.count("[View Trace]") == 1
+
+
+@pytest.mark.asyncio
+async def test_enrich_trace_cost_sub_cent_formatting():
+    mock_mcp = AsyncMock(spec=MCPClientInterface)
+    mock_mcp.call_tool.return_value = {
+        "status": "success",
+        "content": {"data": [{"traceId": "t-micro", "totalCost": 0.000035}]},
+        "is_error": False,
+    }
+    use_case = EnrichTraceCostUseCase(mcp_client=mock_mcp, tracer=None, enabled=True)
+    result = await use_case.execute("Short chat", "t-micro")
+    assert "💸 **Cost:** <$0.0001" in result
+
+
+@pytest.mark.asyncio
+async def test_enrich_trace_cost_retries_on_initial_empty_data():
+    mock_mcp = AsyncMock(spec=MCPClientInterface)
+    mock_mcp.call_tool.side_effect = [
+        {"status": "success", "content": {"data": []}, "is_error": False},
+        {"status": "success", "content": {"data": [{"totalCost": 0.008}]}, "is_error": False},
+    ]
+    use_case = EnrichTraceCostUseCase(mcp_client=mock_mcp, tracer=None, enabled=True)
+    result = await use_case.execute("Action done", "t-retry")
+    assert mock_mcp.call_tool.await_count == 2
+    assert "💸 **Cost:** $0.0080" in result

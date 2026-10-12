@@ -55,14 +55,15 @@ class NotifyIncidentReportUseCase:
     ) -> dict[str, Any]:
         """Build the incident report. Alerts broadcast it; a message gets it as the reply."""
         summary = format_incident_report(state)
+        if is_message(state):
+            # For messages, the chat pipeline (process_message) enriches and sends the reply.
+            return {"reply": summary}
+
         trace_id = state.get("trace_id")
         if self.enrich_trace_cost is not None and trace_id:
             summary = await self.enrich_trace_cost.execute(summary, trace_id)
 
         logger.info(summary)
-        if is_message(state):
-            # The Telegram handler sends the reply to the message that started the incident.
-            return {"reply": summary}
         if self.chat_manager is not None:
             progress_message_id = state.get("progress_message_id")
             progress_chat_id = state.get("progress_chat_id")
