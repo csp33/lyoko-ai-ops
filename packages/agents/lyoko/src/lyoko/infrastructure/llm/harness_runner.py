@@ -148,9 +148,33 @@ class ReActHarnessRunner(HarnessRunnerInterface):
 
             call_history.append(current_sig)
             budget_exceeded = False
+            seen_in_turn: set[tuple[str, str]] = set()
 
             for tool_call in response.tool_calls:
                 tool_name = tool_call["name"]
+                tool_args = tool_call.get("args") or {}
+                call_key = (tool_name, json.dumps(tool_args, sort_keys=True))
+
+                if call_key in seen_in_turn:
+                    logger.info(
+                        "Deduplicating identical tool call in same turn: %s",
+                        tool_name,
+                    )
+                    messages.append(
+                        ToolMessage(
+                            content=(
+                                "[System Note: Duplicate tool call with identical arguments "
+                                "in the same turn. Execution omitted to prevent redundant "
+                                "context; refer to the preceding tool result.]"
+                            ),
+                            tool_call_id=tool_call["id"],
+                            name=tool_name,
+                        )
+                    )
+                    continue
+
+                seen_in_turn.add(call_key)
+
                 if executed_tool_calls >= tool_call_budget:
                     budget_exceeded = True
                     messages.append(

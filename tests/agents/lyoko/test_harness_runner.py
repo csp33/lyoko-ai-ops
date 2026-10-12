@@ -108,3 +108,75 @@ async def test_harness_runner_loop_break_appends_cancellation_tool_messages():
     assert expected_ids.issubset(tool_msg_ids), (
         "All tool calls must have corresponding ToolMessages before summary"
     )
+
+
+@pytest.mark.asyncio
+async def test_harness_runner_deduplicates_identical_tool_calls_in_same_turn():
+    """Verify identical tool calls within the same turn are executed only once and deduplicated."""
+    runner = ReActHarnessRunner()
+
+    turn1_msg = MagicMock()
+    turn1_msg.tool_calls = [
+        {
+            "name": "k8s_resources_get",
+            "args": {"name": "bentopdf", "namespace": "argocd"},
+            "id": "call_1",
+        },
+        {
+            "name": "k8s_resources_get",
+            "args": {"name": "bentopdf", "namespace": "argocd"},
+            "id": "call_2",
+        },
+        {
+            "name": "k8s_resources_get",
+            "args": {"name": "bentopdf", "namespace": "argocd"},
+            "id": "call_3",
+        },
+    ]
+
+    turn2_msg = MagicMock()
+    turn2_msg.tool_calls = []
+    turn2_msg.content = "All checks done."
+
+    model_with_tools = AsyncMock()
+    model_with_tools.ainvoke.side_effect = [turn1_msg, turn2_msg]
+
+    mock_tool = MagicMock()
+    mock_tool.name = "k8s_resources_get"
+    mock_tool.ainvoke = AsyncMock(
+        return_value="apiVersion: argoproj.io/v1alpha1\nkind: Application"
+    )
+
+    summary_client = MagicMock()
+
+    result = await runner.run(
+        prompt_text="Check bentopdf",
+        system_prompt="You are Lyoko",
+        model_with_tools=model_with_tools,
+        summary_client=summary_client,
+        tools_by_name={"k8s_resources_get": mock_tool},
+        max_iterations=5,
+    )
+
+    assert result == "All checks done."
+
+    # Tool must only be called ONCE despite 3 tool calls in turn1
+    assert mock_tool.ainvoke.await_count == 1
+
+    # Verify that turn 2 receives ToolMessages for all 3 call IDs
+    turn2_messages = model_with_tools.ainvoke.call_args_list[1].args[0]
+    tool_messages = [m for m in turn2_messages if isinstance(m, ToolMessage)]
+    assert len(tool_messages) == 3
+
+    assert tool_messages[0].tool_call_id == "call_1"
+    assert "apiVersion: argoproj.io/v1alpha1" in tool_messages[0].content
+
+    assert tool_messages[1].tool_call_id == "call_2"
+    assert (
+        "Duplicate tool call with identical arguments in the same turn" in tool_messages[1].content
+    )
+
+    assert tool_messages[2].tool_call_id == "call_3"
+    assert (
+        "Duplicate tool call with identical arguments in the same turn" in tool_messages[2].content
+    )
