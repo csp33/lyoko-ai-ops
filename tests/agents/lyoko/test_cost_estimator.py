@@ -26,6 +26,23 @@ def test_estimates_fallback_pricing():
     assert pytest.approx(cost, rel=1e-5) == 0.0045
 
 
+def test_matches_dated_model_snapshots():
+    estimator = ModelCostEstimator()
+    cost = estimator.estimate_cost_usd("gpt-4o-mini-2024-07-18", 1000, 500)
+    assert pytest.approx(cost, rel=1e-5) == 0.00045
+
+
+def test_custom_injected_pricing_table():
+    from lyoko.infrastructure.llm.cost_estimator import ModelPricing
+
+    custom_table = {
+        "deepseek-chat": ModelPricing(input_usd_per_1m=0.14, output_usd_per_1m=0.28),
+    }
+    estimator = ModelCostEstimator(pricing_table=custom_table)
+    cost = estimator.estimate_cost_usd("deepseek-chat", 1000, 1000)
+    assert pytest.approx(cost, rel=1e-5) == 0.00042
+
+
 def test_extracts_usage_from_usage_metadata():
     estimator = ModelCostEstimator()
     msg = MagicMock()
