@@ -65,6 +65,10 @@ class HomelabContextLoader:
             return self.get_homelab_context(
                 include_overview=True, include_ingress=False, include_storage=True
             )
+        if normalized_role in {"langfuse", "llm_observability"}:
+            return self.get_homelab_context(
+                include_overview=True, include_ingress=False, include_storage=False
+            )
 
         return self.get_homelab_context()
 

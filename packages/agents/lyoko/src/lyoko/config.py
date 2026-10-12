@@ -87,6 +87,10 @@ class AgentSettings(BaseSettings):
         validation_alias=AliasChoices("telegram_discussion_group_id", "discussion_group_id"),
         description="Telegram Discussion Group / Supergroup ID linked to the broadcast channel",
     )
+    telegram_show_trace_cost: bool = Field(
+        default=True,
+        description="Append Langfuse trace cost and link to Telegram messages and incident reports",
+    )
 
     # Guardrails
     max_remediation_retries: int = Field(

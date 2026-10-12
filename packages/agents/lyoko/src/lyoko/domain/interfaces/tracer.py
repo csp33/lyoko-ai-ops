@@ -19,9 +19,18 @@ class TracerInterface(ABC):
         """
         return await run()
 
+    def get_trace_url(self, trace_id: str) -> str | None:
+        """Return the URL to view the trace in the observability UI, if available."""
+        return None
+
+    def flush(self) -> None:
+        """Flush any pending trace observations to the observability backend."""
+        return None
+
     def get_trace_config(
         self,
         *,
+        trace_id: str | None = None,
         session_id: str | None = None,
         user_id: str | None = None,
         trace_name: str | None = None,

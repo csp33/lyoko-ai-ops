@@ -9,6 +9,7 @@ from sector5_mcp.infrastructure.auth.google import GoogleAuthVerifier
 from sector5_mcp.infrastructure.mcp.server import create_gateway_mcp_server
 from sector5_mcp.infrastructure.telegram.client import TelegramClient
 from sector5_mcp.infrastructure.upstream.client import ProcessUpstreamClient
+from sector5_mcp.infrastructure.upstream.http import StreamableHttpUpstreamClient
 from sector5_mcp.infrastructure.upstream.kubernetes import KubernetesUpstreamClient
 from sector5_mcp.infrastructure.upstream.telegram import TelegramUpstreamClient
 from sector5_mcp.infrastructure.upstream.unifi import UnifiUpstreamClient
@@ -132,6 +133,20 @@ def build_gateway_application() -> tuple[MCPGatewayService, any]:
             default_chat_id=settings.telegram_default_chat_id,
         )
         upstreams[UpstreamType.TELEGRAM] = TelegramUpstreamClient(telegram_client)
+
+    # 7. Langfuse MCP (https://cloud.langfuse.com/api/public/mcp)
+    if settings.langfuse_enabled and settings.langfuse_public_key and settings.langfuse_secret_key:
+        secret_val = (
+            settings.langfuse_secret_key.get_secret_value()
+            if hasattr(settings.langfuse_secret_key, "get_secret_value")
+            else str(settings.langfuse_secret_key)
+        )
+        upstreams[UpstreamType.LANGFUSE] = StreamableHttpUpstreamClient(
+            url=settings.langfuse_url,
+            auth=(settings.langfuse_public_key, secret_val),
+            upstream_type=UpstreamType.LANGFUSE,
+            prefix="langfuse_",
+        )
 
     auth_verifier = GoogleAuthVerifier()
     gateway_service = MCPGatewayService(upstreams=upstreams, auth_port=auth_verifier)

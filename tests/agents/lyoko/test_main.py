@@ -19,12 +19,19 @@ async def test_healthz_endpoint():
         assert "unifi" in app.state.specialists
         assert "homeassistant" in app.state.specialists
         assert "grafana" in app.state.specialists
+        assert "langfuse" in app.state.specialists
         assert app.state.supervisor is not None
 
 
 def test_build_domain_specialists_and_supervisor():
     specialists = build_domain_specialists(mcp_client=None, llm=None)
-    assert set(specialists.keys()) == {"kubernetes", "unifi", "homeassistant", "grafana"}
+    assert set(specialists.keys()) == {
+        "kubernetes",
+        "unifi",
+        "homeassistant",
+        "grafana",
+        "langfuse",
+    }
     supervisor = build_supervisor(specialists, llm=None)
     assert supervisor.specialists == specialists
 

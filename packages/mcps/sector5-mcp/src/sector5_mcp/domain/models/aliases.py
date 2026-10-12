@@ -38,6 +38,10 @@ UPSTREAM_ALIASES: dict[str, str] = {
     "gitops": "kubernetes",
     "argocd": "kubernetes",
     "argo": "kubernetes",
+    # Langfuse / LLM Observability
+    "langfuse": "langfuse",
+    "llm_observability": "langfuse",
+    "traces": "langfuse",
 }
 
 

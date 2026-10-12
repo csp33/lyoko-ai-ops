@@ -19,6 +19,7 @@ class SpecialistPromptProvider:
             "homeassistant": "specialists/smarthome.md",
             "observability": "specialists/observability.md",
             "grafana": "specialists/observability.md",
+            "langfuse": "specialists/langfuse.md",
         }
         template_name = mapping.get(domain_normalized, f"specialists/{domain_normalized}.md")
         return f"{load_prompt(template_name)}\n\n{build_agent_context(domain_normalized)}"

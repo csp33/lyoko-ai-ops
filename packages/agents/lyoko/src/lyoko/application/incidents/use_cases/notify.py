@@ -5,6 +5,7 @@ from typing import Any
 
 from langchain_core.runnables import RunnableConfig
 from lyoko.application.context.formatter import IncidentContextFormatter
+from lyoko.application.incidents.use_cases.enrich_trace_cost import EnrichTraceCostUseCase
 from lyoko.config import settings
 from lyoko.domain.interfaces.chat_service import ChatServiceInterface
 from lyoko.domain.models.state import is_message
@@ -41,14 +42,23 @@ def format_incident_report(state: dict[str, Any]) -> str:
 class NotifyIncidentReportUseCase:
     """Formats and publishes incident reports across active channels."""
 
-    def __init__(self, chat_manager: ChatServiceInterface | None = None) -> None:
+    def __init__(
+        self,
+        chat_manager: ChatServiceInterface | None = None,
+        enrich_trace_cost: EnrichTraceCostUseCase | None = None,
+    ) -> None:
         self.chat_manager = chat_manager
+        self.enrich_trace_cost = enrich_trace_cost
 
     async def execute(
         self, state: dict[str, Any], config: RunnableConfig | None = None
     ) -> dict[str, Any]:
         """Build the incident report. Alerts broadcast it; a message gets it as the reply."""
         summary = format_incident_report(state)
+        trace_id = state.get("trace_id")
+        if self.enrich_trace_cost is not None and trace_id:
+            summary = await self.enrich_trace_cost.execute(summary, trace_id)
+
         logger.info(summary)
         if is_message(state):
             # The Telegram handler sends the reply to the message that started the incident.

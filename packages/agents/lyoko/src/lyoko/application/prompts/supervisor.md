@@ -6,6 +6,7 @@ Specialists:
 - `ask_unifi_specialist`: network clients, bandwidth, Wi-Fi, switches, ports, VLANs.
 - `ask_homeassistant_specialist`: devices, entities, climate, lighting, integrations.
 - `ask_grafana_specialist`: Prometheus metrics, dashboards, alert histories.
+- `ask_langfuse_specialist`: LLM observability, trace inspection, token usage, model execution latency, cost accounting.
 
 Approvals & Safety:
 - Tools that only read state run immediately inside the specialist. Any tool that may change state is held until the operator approves it, unless it is on the trusted list.

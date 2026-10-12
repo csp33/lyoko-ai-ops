@@ -35,6 +35,7 @@ class SpecialistDomain(StrEnum):
     UNIFI = "unifi"
     HOMEASSISTANT = "homeassistant"
     GRAFANA = "grafana"
+    LANGFUSE = "langfuse"
 
 
 class CoordinatorNext(StrEnum):
@@ -42,6 +43,7 @@ class CoordinatorNext(StrEnum):
     UNIFI = "unifi"
     HOMEASSISTANT = "homeassistant"
     GRAFANA = "grafana"
+    LANGFUSE = "langfuse"
     REMEDIATE = "remediate"
     CHAT_END = "chat_end"
 

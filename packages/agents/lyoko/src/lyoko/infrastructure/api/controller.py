@@ -1,5 +1,6 @@
 """FastAPI web controllers for webhooks and operator feedback."""
 
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
@@ -42,10 +43,12 @@ def create_webhook_router(
 
         async def _dispatch(incident: Incident) -> None:
             thread_id = f"incident-{compute_incident_key(incident)}"
+            trace_id = uuid.uuid4().hex
             initial_state = {
                 "event_type": "alert",
                 "event_id": thread_id,
                 "session_id": thread_id,
+                "trace_id": trace_id,
                 "alert_name": incident.alert_name,
                 "labels": incident.labels,
                 "annotations": incident.annotations,
@@ -71,6 +74,7 @@ def create_webhook_router(
 
             if active_tracer:
                 config = active_tracer.get_trace_config(
+                    trace_id=trace_id,
                     session_id=thread_id,
                     user_id=f"alert:{incident.alert_name}",
                     trace_name=trace_name,

@@ -12,6 +12,7 @@ class UpstreamType(StrEnum):
     GRAFANA = "grafana"
     GITHUB = "github"
     TELEGRAM = "telegram"
+    LANGFUSE = "langfuse"
 
 
 @dataclass(frozen=True)
