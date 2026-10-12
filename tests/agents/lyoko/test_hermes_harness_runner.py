@@ -202,6 +202,7 @@ async def test_hermes_runner_delegates_to_subprocess_bridge():
         summary_client=real_summary_client,
         tools_by_name={"k8s_get": tool_mock},
         max_iterations=4,
+        session_id="telegram-12345",
     )
 
     assert result == "Subprocess result from Hermes Agent"
@@ -210,3 +211,4 @@ async def test_hermes_runner_delegates_to_subprocess_bridge():
     assert call_kwargs["prompt"] == "Investigate issue"
     assert call_kwargs["model"] == "gpt-4o-mini"
     assert call_kwargs["max_iterations"] == 4
+    assert call_kwargs["session_id"] == "telegram-12345"

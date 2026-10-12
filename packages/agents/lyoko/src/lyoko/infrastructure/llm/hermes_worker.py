@@ -32,6 +32,7 @@ def main() -> None:
     base_url = config.get("base_url") or "https://api.openai.com/v1"
     max_iterations = int(config.get("max_iterations", 5))
     tool_defs = config.get("tools", [])
+    session_id = config.get("session_id")
 
     # Register tools into hermes tool registry
     try:
@@ -131,6 +132,7 @@ def main() -> None:
             model=model,
             api_key=api_key,
             base_url=base_url,
+            session_id=session_id,
             enabled_toolsets=["lyoko"] if registered_names else None,
             max_iterations=max_iterations,
             tool_start_callback=on_tool_start,

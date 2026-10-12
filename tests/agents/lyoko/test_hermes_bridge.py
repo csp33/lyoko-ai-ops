@@ -33,11 +33,13 @@ async def test_bridge_ipc_protocol_mock_worker(tmp_path: Path):
     worker_script = tmp_path / "mock_worker.py"
     worker_script.write_text(
         """
-import sys, json
+import sys, json, os
 
 # 1. Read config
 line = sys.stdin.readline()
 cfg = json.loads(line)
+assert cfg.get("session_id") == "test-session-123"
+assert os.environ.get("HERMES_SESSION_ID") == "test-session-123"
 
 # 2. Emit status
 sys.stdout.write(json.dumps({"type": "status", "text": "Starting analysis"}) + "\\n")
@@ -76,6 +78,7 @@ sys.stdout.flush()
         prompt="Check pods",
         model="gpt-4o-mini",
         api_key="sk-test",
+        session_id="test-session-123",
         on_tool_call=on_tool_call,
         on_status=on_status,
     )

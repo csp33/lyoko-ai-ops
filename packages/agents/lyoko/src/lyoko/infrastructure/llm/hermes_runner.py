@@ -276,6 +276,7 @@ class HermesHarnessRunner(HarnessRunnerInterface):
             base_url=str(base_url) if base_url else None,
             max_iterations=effective_max_turns,
             tools_by_name=tools_by_name,
+            session_id=session_id,
             on_tool_call=on_bridge_tool_call,
             on_status=on_status,
             on_llm_usage=on_bridge_llm_usage,
