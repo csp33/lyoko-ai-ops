@@ -52,4 +52,7 @@ async def test_tool_registry_discovery_and_routing():
     # Route resolution
     route = registry.resolve_tool_routing("ha_get_state")
     assert route is not None
-    assert route[0] == UpstreamType.HOME_ASSISTANT
+    resolved_name, upstream_type, client = route
+    assert resolved_name == "ha_get_state"
+    assert upstream_type == UpstreamType.HOME_ASSISTANT
+    assert client == mock_ha

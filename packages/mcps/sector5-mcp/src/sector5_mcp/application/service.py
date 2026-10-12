@@ -66,7 +66,7 @@ class MCPGatewayService:
         """Return one tool's definition (with its parameter schema) by name, or None."""
         return await self._discover_use_case.execute_get_definition(name)
 
-    def _resolve_tool_routing(self, name: str) -> tuple[str, UpstreamMCPInterface] | None:
+    def _resolve_tool_routing(self, name: str) -> tuple[str, str, UpstreamMCPInterface] | None:
         """Resolve a tool name to its registered upstream handler."""
         return self.registry.resolve_tool_routing(name)
 

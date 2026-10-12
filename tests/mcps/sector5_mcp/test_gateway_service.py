@@ -99,8 +99,64 @@ async def test_gateway_tool_execution(mock_auth):
 @pytest.mark.asyncio
 async def test_gateway_tool_not_found_raises(mock_auth):
     gateway = MCPGatewayService(upstreams={}, auth_port=mock_auth)
-    with pytest.raises(ToolNotFoundError):
+    with pytest.raises(ToolNotFoundError) as exc_info:
         await gateway.execute_tool("unknown_tool", {})
+    assert "not found" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_gateway_tool_not_found_suggests_did_you_mean(mock_auth):
+    mock_unifi = MagicMock(spec=UpstreamMCPInterface)
+    mock_unifi.list_tools = AsyncMock(
+        return_value=[
+            ToolDefinition(
+                name="unifi_list_devices",
+                description="List UniFi devices",
+                upstream_type=UpstreamType.UNIFI,
+            ),
+            ToolDefinition(
+                name="unifi_list_clients",
+                description="List UniFi clients",
+                upstream_type=UpstreamType.UNIFI,
+            ),
+        ]
+    )
+    gateway = MCPGatewayService(
+        upstreams={UpstreamType.UNIFI: mock_unifi},
+        auth_port=mock_auth,
+    )
+    # Hallucinated or mistyped tool
+    with pytest.raises(ToolNotFoundError) as exc_info:
+        await gateway.execute_tool("unifi_list_divices", {})
+    assert "Did you mean:" in str(exc_info.value)
+    assert "unifi_list_devices" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_gateway_tool_dot_notation_and_alias_resolution(mock_auth):
+    mock_unifi = MagicMock(spec=UpstreamMCPInterface)
+    mock_unifi.list_tools = AsyncMock(
+        return_value=[
+            ToolDefinition(
+                name="unifi_list_devices",
+                description="List UniFi devices",
+                upstream_type=UpstreamType.UNIFI,
+            )
+        ]
+    )
+    mock_unifi.call_tool = AsyncMock(
+        return_value=ToolResult(status="success", content=[{"name": "UDM-Pro"}])
+    )
+    gateway = MCPGatewayService(
+        upstreams={UpstreamType.UNIFI: mock_unifi},
+        auth_port=mock_auth,
+    )
+
+    # Calling unifi.get_devices should normalize to unifi_get_devices, resolve alias to unifi_list_devices
+    result = await gateway.execute_tool("unifi.get_devices", {})
+    assert result.status == "success"
+    assert result.content == [{"name": "UDM-Pro"}]
+    mock_unifi.call_tool.assert_awaited_once_with("unifi_list_devices", {})
 
 
 @pytest.mark.asyncio

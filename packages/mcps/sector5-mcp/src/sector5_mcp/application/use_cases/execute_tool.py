@@ -27,14 +27,24 @@ class ExecuteToolUseCase:
             route = self.registry.resolve_tool_routing(name)
 
         if route is None:
-            raise ToolNotFoundError(
-                f"Tool '{name}' not found on any upstream MCP server or blocked by policy."
-            )
+            suggestions = []
+            if hasattr(self.registry, "suggest_tool_names"):
+                suggestions = self.registry.suggest_tool_names(name)
+            msg = f"Tool '{name}' not found on any upstream MCP server or blocked by policy."
+            if suggestions:
+                msg += f" Did you mean: {', '.join(suggestions)}?"
+            raise ToolNotFoundError(msg)
 
-        upstream_name, upstream_client = route
+        if len(route) == 3:
+            resolved_name, upstream_name, upstream_client = route
+        else:
+            resolved_name = name
+            upstream_name, upstream_client = route
 
         # Enforce all active security guardrails (namespace, command exec whitelist/blacklist, tool rules)
-        self.guardrail.validate_tool_call(name, arguments, upstream_name=upstream_name)
+        self.guardrail.validate_tool_call(resolved_name, arguments, upstream_name=upstream_name)
 
-        logger.info(f"Routing tool '{name}' to upstream '{upstream_name}'...")
-        return await upstream_client.call_tool(name, arguments)
+        logger.info(
+            f"Routing tool '{resolved_name}' (requested as '{name}') to upstream '{upstream_name}'..."
+        )
+        return await upstream_client.call_tool(resolved_name, arguments)
