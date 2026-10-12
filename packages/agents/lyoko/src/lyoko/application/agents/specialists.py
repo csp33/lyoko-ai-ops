@@ -1,9 +1,9 @@
 """Domain specialist agent implementation for LYOKO."""
 
 import logging
-from datetime import UTC, datetime
 from typing import Any
 
+from lyoko.application.context.temporal import build_temporal_context
 from lyoko.config import settings
 from lyoko.domain.interfaces.llm import LLMClientInterface
 from lyoko.domain.interfaces.mcp import MCPClientInterface
@@ -131,14 +131,7 @@ class DomainSpecialistAgent(SpecialistAgentInterface):
 
     async def get_system_prompt(self) -> str:
         """Return the base prompt with this domain's tool index and temporal context injected."""
-        now = datetime.now(UTC)
-        temporal_context = (
-            f"--- RUNTIME TEMPORAL CONTEXT ---\n"
-            f"Current time: {now.strftime('%Y-%m-%d %H:%M:%SZ')} ({now.strftime('%A')})\n"
-            f"Use this timestamp as the authoritative baseline for relative time calculations (e.g. today, this week).\n"
-            f"--------------------------------"
-        )
-        parts = [self.system_prompt, temporal_context]
+        parts = [self.system_prompt, build_temporal_context()]
         index = await self._domain_tool_index()
         if index:
             parts.append(index)
