@@ -170,3 +170,13 @@ async def test_enrich_trace_cost_with_parsed_dict_envelope():
     use_case = EnrichTraceCostUseCase(mcp_client=mock_mcp, tracer=None, enabled=True)
     result = await use_case.execute("Action taken", "t-dict2")
     assert "💸 **Cost:** $0.0150" in result
+
+
+@pytest.mark.asyncio
+async def test_enrich_trace_cost_resolves_from_run_cost_tracker():
+    from lyoko.domain.models.cost import RunCostTracker
+
+    RunCostTracker.record_cost("sess-100", 0.0042)
+    use_case = EnrichTraceCostUseCase(mcp_client=None, tracer=None, enabled=True)
+    result = await use_case.execute("Hello world", "trace-nonexistent", session_id="sess-100")
+    assert "💸 **Cost:** $0.0042" in result

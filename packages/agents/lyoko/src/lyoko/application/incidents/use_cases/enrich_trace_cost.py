@@ -7,6 +7,7 @@ from typing import Any
 
 from lyoko.domain.interfaces.mcp import MCPClientInterface
 from lyoko.domain.interfaces.tracer import TracerInterface
+from lyoko.domain.models.cost import RunCostTracker
 
 logger = logging.getLogger("lyoko.application.use_cases.enrich_trace_cost")
 
@@ -48,7 +49,7 @@ class EnrichTraceCostUseCase:
                     pass
         return None
 
-    async def execute(self, text: str, trace_id: str | None) -> str:
+    async def execute(self, text: str, trace_id: str | None, session_id: str | None = None) -> str:
         """Append trace cost and trace link footer to text if available."""
         if not self.enabled or not trace_id or not text:
             return text
@@ -59,8 +60,10 @@ class EnrichTraceCostUseCase:
             except Exception as exc:
                 logger.debug("Failed to flush tracer: %s", exc)
 
-        cost: float | None = None
-        if self.mcp_client is not None:
+        cost: float | None = RunCostTracker.get_cost(trace_id) or RunCostTracker.get_cost(
+            session_id
+        )
+        if cost is None and self.mcp_client is not None:
             try:
                 now = datetime.now(UTC)
                 from_iso = (now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")

@@ -57,7 +57,9 @@ class NotifyIncidentReportUseCase:
         summary = format_incident_report(state)
         trace_id = state.get("trace_id")
         if self.enrich_trace_cost is not None and trace_id:
-            summary = await self.enrich_trace_cost.execute(summary, trace_id)
+            summary = await self.enrich_trace_cost.execute(
+                summary, trace_id, session_id=state.get("session_id")
+            )
 
         logger.info(summary)
         if is_message(state):

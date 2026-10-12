@@ -13,6 +13,7 @@ from lyoko.domain.models.budget import (
     BudgetTripReason,
     BudgetUsage,
 )
+from lyoko.domain.models.cost import RunCostTracker
 from lyoko.infrastructure.llm.content import extract_message_text
 from lyoko.infrastructure.llm.hermes_bridge import HermesSubprocessBridge
 from lyoko.infrastructure.llm.hermes_pricing import (
@@ -188,6 +189,8 @@ class HermesHarnessRunner(HarnessRunnerInterface):
         if on_status is not None:
             await on_status("✍️ Formulating final response")
         final_response = await summary_client.ainvoke(messages)
+        if session_id and usage.total_cost_usd > 0:
+            RunCostTracker.record_cost(session_id, usage.total_cost_usd)
         return extract_message_text(final_response.content)
 
     async def run(
@@ -265,7 +268,7 @@ class HermesHarnessRunner(HarnessRunnerInterface):
             )
         base_url = getattr(summary_client, "base_url", None)
 
-        return await self._bridge.execute(
+        res = await self._bridge.execute(
             prompt=prompt_text,
             system_prompt=system_prompt,
             model=model_name,
@@ -277,3 +280,6 @@ class HermesHarnessRunner(HarnessRunnerInterface):
             on_status=on_status,
             on_llm_usage=on_bridge_llm_usage,
         )
+        if session_id and usage.total_cost_usd > 0:
+            RunCostTracker.record_cost(session_id, usage.total_cost_usd)
+        return res

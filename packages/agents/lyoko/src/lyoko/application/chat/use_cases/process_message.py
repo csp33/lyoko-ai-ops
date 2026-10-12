@@ -112,7 +112,7 @@ class ProcessChatMessageUseCase:
             )
             reply = raw_reply
             if self.enrich_trace_cost is not None and reply:
-                reply = await self.enrich_trace_cost.execute(reply, trace_id)
+                reply = await self.enrich_trace_cost.execute(reply, trace_id, session_id=session_id)
         except Exception as exc:
             logger.error("Failed to process chat message: %s", exc, exc_info=True)
             self.history_tracker.record_turn(

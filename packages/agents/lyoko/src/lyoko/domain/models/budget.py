@@ -31,6 +31,11 @@ class BudgetUsage:
     output_tokens: int = 0
     accumulated_cost_usd: float = 0.0
 
+    @property
+    def total_cost_usd(self) -> float:
+        """Alias for accumulated_cost_usd."""
+        return self.accumulated_cost_usd
+
     def add_usage(
         self,
         *,
