@@ -28,11 +28,13 @@ from lyoko.domain.exceptions.mcp import MCPGatewayError
 from lyoko.domain.interfaces.llm import LLMClientInterface
 from lyoko.domain.interfaces.lock import DistributedLock
 from lyoko.domain.interfaces.mcp import MCPClientInterface
+from lyoko.domain.models.budget import BudgetConfig
 from lyoko.infrastructure.chat.manager import ChatManager
 from lyoko.infrastructure.chat.telegram import TelegramConnector
 from lyoko.infrastructure.db.memory_repository import PostgresMemoryRepository
 from lyoko.infrastructure.embeddings import EmbeddingsService
 from lyoko.infrastructure.llm.harness_runner import ReActHarnessRunner
+from lyoko.infrastructure.llm.hermes_runner import HermesHarnessRunner
 from lyoko.infrastructure.llm.openai import OpenAILLMAdapter
 from lyoko.infrastructure.observability.langfuse import LangfuseTracer
 from lyoko.infrastructure.skills.markdown_skill_repository import MarkdownSkillRepository
@@ -70,7 +72,21 @@ def build_llm_adapter(
 
     storage = ScratchpadFileStorage()
     buffer_service = SmartOutputBufferService(storage=storage)
-    harness_runner = ReActHarnessRunner(buffer_service=buffer_service)
+
+    if settings.harness_engine.lower() == "hermes":
+        budget_config = BudgetConfig(
+            max_turns=settings.max_turns_chat
+            if "mini" in (model_name or settings.openai_model)
+            else settings.max_turns_diagnose,
+            max_budget_usd=settings.max_budget_usd_per_event,
+            cycle_detection_window=settings.cycle_detection_window,
+        )
+        harness_runner = HermesHarnessRunner(
+            buffer_service=buffer_service,
+            budget_config=budget_config,
+        )
+    else:
+        harness_runner = ReActHarnessRunner(buffer_service=buffer_service)
 
     return OpenAILLMAdapter(
         api_key=_secret(settings.openai_api_key),
