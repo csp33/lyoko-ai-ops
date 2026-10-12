@@ -1,5 +1,6 @@
 """Use case for formatting and broadcasting incident notification reports."""
 
+import asyncio
 import logging
 from typing import Any
 
@@ -69,6 +70,10 @@ class NotifyIncidentReportUseCase:
         if self.chat_manager is not None:
             progress_message_id = state.get("progress_message_id")
             progress_chat_id = state.get("progress_chat_id")
+            target_chat_id = (
+                progress_chat_id or state.get("chat_id") or settings.telegram_default_chat_id or ""
+            )
+            target_msg_id = progress_message_id
             edited = False
             if progress_message_id and progress_chat_id:
                 results = await self.chat_manager.edit_message(
@@ -78,8 +83,28 @@ class NotifyIncidentReportUseCase:
                 )
                 edited = bool(results)
             if not edited:
-                chat_id = state.get("chat_id") or settings.telegram_default_chat_id or ""
-                await self.chat_manager.broadcast_message(
-                    chat_id=chat_id, text=summary, session_id=state.get("session_id")
+                sent_results = await self.chat_manager.broadcast_message(
+                    chat_id=target_chat_id, text=summary, session_id=state.get("session_id")
+                )
+                if sent_results and sent_results[0]:
+                    target_msg_id = sent_results[0].message_id
+                    target_chat_id = sent_results[0].chat_id
+
+            if (
+                self.enrich_trace_cost is not None
+                and trace_id
+                and target_msg_id
+                and target_chat_id
+                and "💸 **Cost:** calculating..." in summary
+            ):
+                asyncio.create_task(
+                    self.enrich_trace_cost.update_message_cost_async(
+                        chat_manager=self.chat_manager,
+                        chat_id=target_chat_id,
+                        message_id=target_msg_id,
+                        text_with_placeholder=summary,
+                        trace_id=trace_id,
+                        session_id=state.get("session_id"),
+                    )
                 )
         return {}

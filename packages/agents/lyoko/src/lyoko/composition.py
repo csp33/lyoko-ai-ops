@@ -248,6 +248,7 @@ def wire_chat_agent(app: FastAPI, chat_manager: ChatManager) -> None:
         session_tracker=chat_manager.session_tracker,
         history_tracker=history_tracker,
         enrich_trace_cost=enrich_trace_cost,
+        chat_manager=chat_manager,
     )
     chat_manager.register_message_handler(chat_agent.handle_message)
 

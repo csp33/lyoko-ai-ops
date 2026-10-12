@@ -221,13 +221,44 @@ async def test_enrich_trace_cost_sub_cent_formatting():
 
 
 @pytest.mark.asyncio
-async def test_enrich_trace_cost_retries_on_initial_empty_data():
+async def test_enrich_trace_cost_placeholder_when_langfuse_pending():
     mock_mcp = AsyncMock(spec=MCPClientInterface)
-    mock_mcp.call_tool.side_effect = [
-        {"status": "success", "content": {"data": []}, "is_error": False},
-        {"status": "success", "content": {"data": [{"totalCost": 0.008}]}, "is_error": False},
-    ]
+    mock_mcp.call_tool.return_value = {
+        "status": "success",
+        "content": {"data": []},
+        "is_error": False,
+    }
     use_case = EnrichTraceCostUseCase(mcp_client=mock_mcp, tracer=None, enabled=True)
-    result = await use_case.execute("Action done", "t-retry")
-    assert mock_mcp.call_tool.await_count == 2
-    assert "💸 **Cost:** $0.0080" in result
+    result = await use_case.execute("Action done", "t-pending")
+    assert "💸 **Cost:** calculating..." in result
+
+
+@pytest.mark.asyncio
+async def test_update_message_cost_async_edits_telegram_message():
+    mock_mcp = AsyncMock(spec=MCPClientInterface)
+    mock_mcp.call_tool.return_value = {
+        "status": "success",
+        "content": {"data": [{"totalCost": 0.0436}]},
+        "is_error": False,
+    }
+    mock_chat_manager = AsyncMock()
+    use_case = EnrichTraceCostUseCase(mcp_client=mock_mcp, tracer=None, enabled=True)
+    initial_text = (
+        "Action done\n\n💸 **Cost:** calculating... · 🔍 [View Trace](https://example.com)"
+    )
+
+    await use_case.update_message_cost_async(
+        chat_manager=mock_chat_manager,
+        chat_id="-1001",
+        message_id="42",
+        text_with_placeholder=initial_text,
+        trace_id="t-async",
+        delay_seconds=0.01,
+    )
+
+    mock_chat_manager.edit_message.assert_awaited_once()
+    _, kwargs = mock_chat_manager.edit_message.call_args
+    assert kwargs["chat_id"] == "-1001"
+    assert kwargs["message_id"] == "42"
+    assert "💸 **Cost:** $0.0436" in kwargs["text"]
+    assert "calculating..." not in kwargs["text"]

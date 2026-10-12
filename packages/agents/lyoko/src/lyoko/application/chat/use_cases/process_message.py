@@ -38,12 +38,14 @@ class ProcessChatMessageUseCase:
         session_tracker: ChatSessionTracker | None = None,
         history_tracker: ChatHistoryTracker | None = None,
         enrich_trace_cost: EnrichTraceCostUseCase | None = None,
+        chat_manager: Any = None,
     ) -> None:
         self._graph_provider = graph_provider
         self.tracer = tracer
         self.session_tracker = session_tracker or ChatSessionTracker(session_idle_timeout_seconds)
         self.history_tracker = history_tracker or ChatHistoryTracker()
         self.enrich_trace_cost = enrich_trace_cost
+        self.chat_manager = chat_manager
 
     def _trace_config(
         self, message: IncomingMessage, session_id: str, trace_id: str | None = None
@@ -113,6 +115,24 @@ class ProcessChatMessageUseCase:
             reply = raw_reply
             if self.enrich_trace_cost is not None and reply:
                 reply = await self.enrich_trace_cost.execute(reply, trace_id, session_id=session_id)
+                if (
+                    self.chat_manager is not None
+                    and "💸 **Cost:** calculating..." in reply
+                    and message.message_id
+                    and message.chat_id
+                ):
+                    import asyncio
+
+                    asyncio.create_task(
+                        self.enrich_trace_cost.update_message_cost_async(
+                            chat_manager=self.chat_manager,
+                            chat_id=message.chat_id,
+                            message_id=message.message_id,
+                            text_with_placeholder=reply,
+                            trace_id=trace_id,
+                            session_id=session_id,
+                        )
+                    )
         except Exception as exc:
             logger.error("Failed to process chat message: %s", exc, exc_info=True)
             self.history_tracker.record_turn(
