@@ -5,7 +5,7 @@ import logging
 
 from sector5_mcp.application.guardrail import GuardrailEngine
 from sector5_mcp.domain.interfaces.upstream import UpstreamMCPInterface
-from sector5_mcp.domain.models.aliases import resolve_canonical_domain
+from sector5_mcp.domain.models.aliases import resolve_canonical_domain, resolve_tool_alias
 from sector5_mcp.domain.models.upstream import ToolDefinition
 
 logger = logging.getLogger("sector5_mcp.tool_registry")
@@ -60,15 +60,44 @@ class ToolRegistry:
         self._cached_tools = aggregated_tools
         return aggregated_tools
 
-    def resolve_tool_routing(self, name: str) -> tuple[str, UpstreamMCPInterface] | None:
-        """Resolve a tool name or namespaced identifier to its registered upstream handler."""
-        if name in self._tool_routing:
-            return self._tool_routing[name]
-        if "." in name:
-            _, base_name = name.split(".", 1)
-            if base_name in self._tool_routing:
-                return self._tool_routing[base_name]
+    def resolve_tool_routing(self, name: str) -> tuple[str, str, UpstreamMCPInterface] | None:
+        """Resolve a tool name, normalized name, or alias to (resolved_name, upstream_name, client)."""
+        candidates = [name]
+        # Normalize dot and colon notation (e.g. unifi.get_devices -> unifi_get_devices)
+        normalized = name.replace(".", "_").replace(":", "_")
+        if normalized != name:
+            candidates.append(normalized)
+
+        for cand in candidates:
+            if cand in self._tool_routing:
+                return cand, self._tool_routing[cand][0], self._tool_routing[cand][1]
+            if "." in cand:
+                _, base_name = cand.split(".", 1)
+                if base_name in self._tool_routing:
+                    return (
+                        base_name,
+                        self._tool_routing[base_name][0],
+                        self._tool_routing[base_name][1],
+                    )
+            alias = resolve_tool_alias(cand)
+            if alias != cand and alias in self._tool_routing:
+                return alias, self._tool_routing[alias][0], self._tool_routing[alias][1]
+
         return None
+
+    def suggest_tool_names(self, name: str, n: int = 3) -> list[str]:
+        """Find closest matching registered tool names for a mistyped or hallucinated tool name."""
+        import difflib
+
+        all_names = list(self._tool_routing.keys())
+        if not all_names:
+            return []
+        # Try both the original and normalized name
+        normalized = name.replace(".", "_").replace(":", "_")
+        matches = difflib.get_close_matches(normalized, all_names, n=n, cutoff=0.45)
+        if not matches and normalized != name:
+            matches = difflib.get_close_matches(name, all_names, n=n, cutoff=0.45)
+        return matches
 
     async def get_domain_tools(self, domain: str) -> list[ToolDefinition]:
         """Retrieve all allowed tools belonging to a specific upstream domain."""

@@ -129,6 +129,11 @@ async def lifespan(app: FastAPI):
 
     skill_matcher = getattr(app.state, "skill_matcher", None) or build_skill_matcher()
 
+    graph_supervisor = None if settings.lyoko_orchestrator.lower() == "hermes" else supervisor
+    graph_diagnose_supervisor = (
+        None if settings.lyoko_orchestrator.lower() == "hermes" else diagnose_supervisor
+    )
+
     # Rebuilt now that the checkpointer exists. Everything reads the graph from app.state.
     workflow_engine = create_lyoko_graph(
         mcp_client,
@@ -136,12 +141,12 @@ async def lifespan(app: FastAPI):
         chat_manager=chat_manager,
         checkpointer=checkpointer,
         llm=llm,
-        supervisor=supervisor,
+        supervisor=graph_supervisor,
         specialists=specialists,
         memory_repository=memory_repo,
         embeddings_service=embeddings_service,
         diagnose_llm=diagnose_llm,
-        diagnose_supervisor=diagnose_supervisor,
+        diagnose_supervisor=graph_diagnose_supervisor,
         tracer=getattr(app.state, "tracer", None),
         triage_handlers=triage_handlers,
         skill_matcher_service=skill_matcher,
@@ -192,16 +197,21 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="LYOKO Auto-Remediation Agent", lifespan=lifespan)
 
+    graph_supervisor = None if settings.lyoko_orchestrator.lower() == "hermes" else supervisor
+    graph_diagnose_supervisor = (
+        None if settings.lyoko_orchestrator.lower() == "hermes" else diagnose_supervisor
+    )
+
     # Initial graph (without persistent checkpointer until lifespan runs)
     workflow_engine = create_lyoko_graph(
         mcp_client,
         approval_manager=approval_manager,
         chat_manager=chat_manager,
         llm=llm,
-        supervisor=supervisor,
+        supervisor=graph_supervisor,
         specialists=specialists,
         diagnose_llm=diagnose_llm,
-        diagnose_supervisor=diagnose_supervisor,
+        diagnose_supervisor=graph_diagnose_supervisor,
         tracer=tracer,
     )
     app.state.llm = llm

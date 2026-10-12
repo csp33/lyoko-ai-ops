@@ -128,6 +128,47 @@ class AgentSettings(BaseSettings):
         ge=1,
         description="Maximum supervisor delegation iterations per phase",
     )
+    # Agent Orchestrator & Budget Controls
+    lyoko_orchestrator: str = Field(
+        default="hermes",
+        validation_alias=AliasChoices("lyoko_orchestrator", "orchestrator"),
+        description="Execution orchestrator for LLM tool use ('hermes' or 'langgraph')",
+    )
+    hermes_venv_path: str = Field(
+        default=".venv-hermes",
+        validation_alias=AliasChoices("hermes_venv_path", "hermes_path"),
+        description="Path to the virtual environment containing hermes-agent",
+    )
+    hermes_home: str = Field(
+        default=".hermes",
+        validation_alias=AliasChoices("hermes_home", "HERMES_HOME"),
+        description="Path to persistent HERMES_HOME directory for sessions, skills, and memory",
+    )
+    max_turns_diagnose: int = Field(
+        default=8,
+        ge=1,
+        description="Maximum LLM turns for incident diagnosis",
+    )
+    max_turns_remediate: int = Field(
+        default=5,
+        ge=1,
+        description="Maximum LLM turns for incident remediation",
+    )
+    max_turns_chat: int = Field(
+        default=10,
+        ge=1,
+        description="Maximum LLM turns for chat turns",
+    )
+    max_budget_usd_per_event: float = Field(
+        default=0.10,
+        ge=0.01,
+        description="Maximum spending ceiling in USD per incident or chat event",
+    )
+    cycle_detection_window: int = Field(
+        default=2,
+        ge=1,
+        description="Number of identical consecutive tool calls triggering cycle detection",
+    )
     max_tool_calls_per_run: int = Field(
         default=20,
         ge=1,

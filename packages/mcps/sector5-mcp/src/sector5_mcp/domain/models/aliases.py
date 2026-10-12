@@ -44,8 +44,35 @@ UPSTREAM_ALIASES: dict[str, str] = {
     "traces": "langfuse",
 }
 
+# Common LLM tool hallucination / alias mappings
+TOOL_ALIASES: dict[str, str] = {
+    # UniFi
+    "unifi_get_devices": "unifi_list_devices",
+    "unifi_get_clients": "unifi_list_clients",
+    "unifi_get_networks": "unifi_list_networks",
+    "unifi_get_wlans": "unifi_list_wlans",
+    "unifi_get_firewall_rules": "unifi_list_firewall_rules",
+    "unifi_get_port_profiles": "unifi_list_port_profiles",
+    # Kubernetes
+    "k8s_get_nodes": "k8s_nodes_list",
+    "k8s_list_nodes": "k8s_nodes_list",
+    "k8s_get_namespaces": "k8s_namespaces_list",
+    "k8s_list_namespaces": "k8s_namespaces_list",
+    "k8s_get_pods": "k8s_pods_list",
+    "k8s_list_pods": "k8s_pods_list",
+    # Home Assistant
+    "ha_list_entities": "ha_get_states",
+    "ha_get_entities": "ha_get_states",
+}
+
 
 def resolve_canonical_domain(domain: str) -> str:
     """Map a raw domain string or alias to its canonical upstream identifier."""
     raw = domain.strip().lower()
     return UPSTREAM_ALIASES.get(raw, raw)
+
+
+def resolve_tool_alias(name: str) -> str:
+    """Map common hallucinated tool names or variants to their canonical tool name."""
+    raw = name.strip()
+    return TOOL_ALIASES.get(raw, raw)

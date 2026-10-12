@@ -5,22 +5,14 @@ import logging
 from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from lyoko.application.chat.status_formatter import ToolStatusFormatter
 from lyoko.application.context.buffer import SmartOutputBufferService
+from lyoko.application.safety.error_detector import ToolErrorDetector
 from lyoko.config import settings
 from lyoko.domain.interfaces.harness import HarnessRunnerInterface
 from lyoko.infrastructure.llm.content import extract_message_text
 
 logger = logging.getLogger("lyoko.infrastructure.llm.harness_runner")
-
-_ERROR_MARKERS = (
-    "'is_error': true",
-    '"is_error": true',
-    '"is_error":true',
-    "error executing tool",
-    "not found on any upstream",
-    "is forbidden:",
-    "permission denied",
-)
 
 
 class ReActHarnessRunner(HarnessRunnerInterface):
@@ -30,27 +22,20 @@ class ReActHarnessRunner(HarnessRunnerInterface):
         self,
         buffer_service: SmartOutputBufferService | None = None,
         max_consecutive_errors: int = 3,
+        error_detector: ToolErrorDetector | None = None,
+        status_formatter: ToolStatusFormatter | None = None,
     ) -> None:
         self._custom_buffer = buffer_service is not None
         self._buffer = buffer_service or SmartOutputBufferService()
         self._max_consecutive_errors = max_consecutive_errors
+        self._error_detector = error_detector or ToolErrorDetector()
+        self._status_formatter = status_formatter or ToolStatusFormatter()
 
     def _is_tool_error(self, output: str) -> bool:
-        lowered = output.lower()
-        return any(marker in lowered for marker in _ERROR_MARKERS)
+        return self._error_detector.is_tool_error(output)
 
     def _tool_status(self, tool_call: dict[str, Any]) -> str:
-        name = str(tool_call.get("name") or "tool")
-        args = tool_call.get("args") or {}
-        if name.startswith("ask_") and name.endswith("_specialist"):
-            return f"🧩 Consulting the {name[4:-11]} specialist"
-        if name == "gateway_call_tool":
-            return f"🛰️ Calling <code>{args.get('tool_name', 'tool')}</code>"
-        if name == "gateway_get_domain_tools":
-            return f"🔍 Discovering {args.get('domain', 'domain')} tools"
-        if name == "gateway_get_tool_schema":
-            return f"🔍 Reading the <code>{args.get('tool_name', 'tool')}</code> schema"
-        return f"🛰️ Calling <code>{name}</code>"
+        return self._status_formatter.format_tool_status(tool_call)
 
     def _detect_cycle(self, history: list[tuple[tuple[str, str], ...]]) -> int | None:
         n = len(history)
@@ -110,6 +95,7 @@ class ReActHarnessRunner(HarnessRunnerInterface):
         tools_by_name: dict[str, Any],
         max_iterations: int,
         session_id: str | None = None,
+        trace_id: str | None = None,
         on_status: Any = None,
     ) -> str:
         """Run the bounded ReAct loop until the model completes or a limit trips."""

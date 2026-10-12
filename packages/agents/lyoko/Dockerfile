@@ -28,7 +28,18 @@ RUN ln -sf /app/packages/agents/lyoko/alembic.ini /app/alembic.ini
 # Install package into venv
 RUN uv sync --package lyoko --no-dev --frozen
 
+# Copy Hermes runtime specification
+COPY packages/agents/lyoko/hermes_runtime/ packages/agents/lyoko/hermes_runtime/
+
+# Create isolated virtual environment for Hermes Agent using its dedicated uv.lock
+RUN UV_PROJECT_ENVIRONMENT=/app/.venv-hermes uv sync --project packages/agents/lyoko/hermes_runtime --no-dev --frozen
+
+# Create persistent HERMES_HOME directory
+RUN mkdir -p /app/.hermes
+
 ENV PATH="/app/.venv/bin:$PATH"
+ENV HERMES_VENV_PATH="/app/.venv-hermes"
+ENV HERMES_HOME="/app/.hermes"
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 9000

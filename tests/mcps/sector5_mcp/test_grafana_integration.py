@@ -1,7 +1,6 @@
-"""Unit tests for Grafana MCP integration in sector5-mcp."""
-
 from unittest.mock import patch
 
+import pytest
 from sector5_mcp.config import GatewaySettings
 from sector5_mcp.domain.models.upstream import UpstreamType
 from sector5_mcp.server import build_gateway_application
@@ -12,8 +11,9 @@ def test_upstream_type_grafana_enum():
     assert "grafana" in [u.value for u in UpstreamType]
 
 
-def test_gateway_settings_grafana_defaults():
-    settings = GatewaySettings()
+def test_gateway_settings_grafana_defaults(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("GRAFANA_TOKEN", raising=False)
+    settings = GatewaySettings(_env_file=None)
     assert settings.grafana_enabled is True
     assert "grafana" in settings.grafana_command.lower()
     assert "grafana" in settings.grafana_url

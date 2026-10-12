@@ -8,6 +8,7 @@ from typing import Any
 
 from lyoko.domain.interfaces.mcp import MCPClientInterface
 from lyoko.domain.interfaces.tracer import TracerInterface
+from lyoko.domain.models.cost import RunCostTracker
 
 logger = logging.getLogger("lyoko.application.use_cases.enrich_trace_cost")
 
@@ -84,7 +85,7 @@ class EnrichTraceCostUseCase:
             logger.debug("Failed to query trace cost from MCP gateway: %s", exc)
             return None
 
-    async def execute(self, text: str, trace_id: str | None) -> str:
+    async def execute(self, text: str, trace_id: str | None, session_id: str | None = None) -> str:
         """Append trace cost and trace link footer to text if available."""
         if not self.enabled or not trace_id or not text:
             return text
@@ -98,11 +99,15 @@ class EnrichTraceCostUseCase:
             except Exception as exc:
                 logger.debug("Failed to flush tracer: %s", exc)
 
-        cost = await self._query_trace_cost(trace_id)
+        cost: float | None = RunCostTracker.get_cost(trace_id) or RunCostTracker.get_cost(
+            session_id
+        )
         if cost is None and self.mcp_client is not None:
-            # Langfuse computes token metrics asynchronously; wait briefly if ClickHouse ingestion lags.
-            await asyncio.sleep(0.8)
             cost = await self._query_trace_cost(trace_id)
+            if cost is None:
+                # Langfuse computes token metrics asynchronously; wait briefly if ClickHouse ingestion lags.
+                await asyncio.sleep(0.8)
+                cost = await self._query_trace_cost(trace_id)
 
         trace_url: str | None = None
         if self.tracer is not None:

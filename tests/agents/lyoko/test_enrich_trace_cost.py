@@ -172,6 +172,32 @@ async def test_enrich_trace_cost_with_parsed_dict_envelope():
     assert "💸 **Cost:** $0.0150" in result
 
 
+async def test_enrich_trace_cost_resolves_from_run_cost_tracker():
+    from lyoko.domain.models.cost import RunCostTracker
+
+    RunCostTracker.clear()
+    RunCostTracker.record_cost("sess-100", 0.0042)
+    use_case = EnrichTraceCostUseCase(mcp_client=None, tracer=None, enabled=True)
+    result = await use_case.execute("Hello world", "trace-nonexistent", session_id="sess-100")
+    assert "💸 **Cost:** $0.0042" in result
+
+
+def test_run_cost_tracker_bounded_eviction():
+    from lyoko.domain.models.cost import RunCostTracker
+
+    RunCostTracker.clear()
+    # Fill up to max capacity + 5
+    for i in range(1005):
+        RunCostTracker.record_cost(f"sess-{i}", 0.01)
+
+    assert len(RunCostTracker._cache) == 1000
+    # Oldest 5 keys should have been evicted
+    assert RunCostTracker.get_cost("sess-0") is None
+    assert RunCostTracker.get_cost("sess-4") is None
+    assert RunCostTracker.get_cost("sess-5") == 0.01
+    assert RunCostTracker.get_cost("sess-1004") == 0.01
+
+
 @pytest.mark.asyncio
 async def test_enrich_trace_cost_idempotent_no_duplicate():
     use_case = EnrichTraceCostUseCase(mcp_client=None, tracer=None, enabled=True)

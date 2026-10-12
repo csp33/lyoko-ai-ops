@@ -19,6 +19,7 @@ class HarnessRunnerInterface(ABC):
         tools_by_name: dict[str, Any],
         max_iterations: int,
         session_id: str | None = None,
+        trace_id: str | None = None,
         on_status: Callable[[str], Any] | None = None,
     ) -> str:
         """Run the bounded harness loop until the model completes or a limit trips."""
