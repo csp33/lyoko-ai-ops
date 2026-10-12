@@ -139,12 +139,13 @@ New environment variables in `.env.example` and `config.py` (settings have no en
 
 ```bash
 # Agent Orchestrator & Execution Limits
-LYOKO_ORCHESTRATOR=hermes            # "hermes" | "langgraph"
+LYOKO_ORCHESTRATOR=hermes            # "hermes" (Hermes Agent in .venv-hermes) | "langgraph" (LangGraph ReAct)
 HERMES_VENV_PATH=.venv-hermes        # Isolated hermes-agent virtualenv (alias: HERMES_PATH)
+HERMES_HOME=/app/.hermes             # Directory for persistent sessions, state and cache (configurable)
 MAX_TURNS_DIAGNOSE=4                 # Max turns during incident diagnosis
 MAX_TURNS_REMEDIATE=3                # Max turns during incident remediation
 MAX_TURNS_CHAT=5                     # Max turns during conversational chat
-MAX_BUDGET_USD_PER_EVENT=0.10        # Hard ceiling in USD per event (see Known Limitations)
+MAX_BUDGET_USD_PER_EVENT=0.10        # Hard ceiling in USD per event
 CYCLE_DETECTION_WINDOW=2             # Identical consecutive calls that trigger a cycle reject
 ```
 
@@ -156,9 +157,11 @@ The smart output buffer thresholds (50 lines, 25 head + 25 tail) are defaults of
 
 1. **Subprocess Initialization**:
    - `HermesSubprocessBridge` resolves `.venv-hermes/bin/python` and verifies availability.
-   - Spawns `hermes_worker.py` and streams configuration payload via stdin.
+   - Spawns `hermes_worker.py` with `HERMES_HOME` configured for persistent local state.
+   - Streams configuration payload via stdin.
 2. **Turn & Budget Exhaustion**:
-   - Bridge mode: each tool request from Hermes counts as one turn. Once `turns_used >= max_turns`, `BudgetGuardService` answers further tool requests with a termination instruction instead of executing them, and Hermes's own `max_iterations` is set to the same ceiling. The USD cap is not evaluated in bridge mode (see Known Limitations).
+   - Bridge mode: each tool request from Hermes counts as one turn. The `post_api_request` hook reports token usage (`prompt_tokens`, `completion_tokens`, `total_tokens`) back to the host via IPC, which updates `BudgetUsage.accumulated_cost_usd`.
+   - Once `turns_used >= max_turns` or `accumulated_cost_usd >= max_budget_usd`, `BudgetGuardService` answers further tool requests with a termination instruction instead of executing them. Hermes's own `max_iterations` acts as a hard boundary.
    - In-process fallback: turns and the USD cap (estimated from response token usage) are both enforced before each LLM call.
 3. **Cycle Rejection**:
    - If the same tool call with identical arguments occurs consecutively, the runner rejects the call and instructs the model: *"Cycle detected. Tool was already executed with identical parameters. Synthesize existing results or adjust approach."*
@@ -166,6 +169,9 @@ The smart output buffer thresholds (50 lines, 25 head + 25 tail) are defaults of
    - Mutating tool requests sent by the worker are paused at `ToolGate.authorize()`.
    - Telegram sends interactive `[✅ Approve]` and `[❌ Deny]` buttons.
    - If the operator clicks `❌ Deny` or the approval times out, `ToolGate` returns a refusal message back over IPC. Hermes Agent receives the denial and reports what was found without executing the action.
+5. **Observability & Langfuse Span Propagation**:
+   - When Hermes executes an LLM call inside the subprocess, the `post_api_request` hook captures model parameters, token counts, and durations.
+   - This data is transmitted back to LYOKO over IPC (`llm_usage` message), allowing LYOKO to register generation spans in the parent Langfuse trace and enrich trace cost footers in Telegram.
 
 ---
 
@@ -176,7 +182,7 @@ The smart output buffer thresholds (50 lines, 25 head + 25 tail) are defaults of
    - Verify trip conditions for turn limits and USD budget limits.
 2. **Unit Tests (`tests/agents/lyoko/test_hermes_bridge.py`)**:
    - Verify bridge availability and missing venv handling.
-   - Verify bidirectional IPC message exchange (`status`, `call_tool`, `result`, `error`).
+   - Verify bidirectional IPC message exchange (`status`, `call_tool`, `llm_usage`, `result`, `error`).
    - Verify tool denial forwarding over IPC.
 3. **Unit Tests (`tests/agents/lyoko/test_hermes_harness_runner.py`)**:
    - Verify runner delegates to `HermesSubprocessBridge` in live execution.
@@ -184,14 +190,22 @@ The smart output buffer thresholds (50 lines, 25 head + 25 tail) are defaults of
    - Verify turn ceiling, cost cap, and cycle detection behavior.
 4. **Architectural & Integration Tests**:
    - Run `tests/test_clean_architecture.py` to verify AST rules, zero banned imports, empty `__init__.py` files, and file line ceilings (<= 280 lines).
-   - Full test suite verification with `uv run pytest` (556 passed).
+   - Full test suite verification with `uv run pytest`.
    - Linter verification with `uv run ruff check .` and `uv run ruff format --check .`.
 
 ---
 
-## 8. Known Limitations & Follow-ups
+## 8. Implementation Tasks (Active Plan)
 
-1. **USD cap not enforced in bridge mode**: `hermes_worker.py` does not report token usage back to the host, so `BudgetUsage.accumulated_cost_usd` stays at zero and `MAX_BUDGET_USD_PER_EVENT` never trips during real Hermes runs. Spend is bounded only by the turn ceiling, Hermes's `max_iterations`, and cycle detection. Follow-up: emit a `usage` IPC message per LLM call (Hermes exposes normalized usage) and feed it into `BudgetUsage`.
-2. **Hermes LLM calls not traced in Langfuse**: the OpenAI calls made inside the subprocess bypass the LangChain callbacks, so they appear neither as spans nor in the cost footer computed by `EnrichTraceCostUseCase`. Tool executions are still traced because they run in the host process.
-3. **Hermes local state**: `AIAgent` writes session and debug files under `~/.hermes/`. In a container, this directory should be ephemeral or mounted explicitly.
-4. **Container image**: the Dockerfile does not yet build `.venv-hermes`. Until it does, a deployed pod has no bridge available and silently uses the in-process loop.
+1. **Langfuse LLM Tracing & Token Accounting via IPC**:
+   - Register Hermes `post_api_request` hook in `hermes_worker.py`.
+   - Emit an IPC `llm_usage` event carrying model name, input/output tokens, and duration.
+   - In `HermesSubprocessBridge` / `HermesHarnessRunner`, record usage into `BudgetUsage` and create child generation spans under the active Langfuse trace.
+2. **Persistent `HERMES_HOME` State**:
+   - Set and pass `HERMES_HOME` (defaulting to `/app/.hermes` in container and `.hermes` locally) to the worker subprocess environment.
+   - Declare persistent volume in `docker-compose.yml` (`hermes_data:/app/.hermes`).
+3. **Container Image Integration (`Dockerfile`)**:
+   - Add step in `packages/agents/lyoko/Dockerfile` to create `.venv-hermes` via `uv venv` and install `hermes-agent==0.19.0`.
+   - Ensure container runtime can execute both the primary LYOKO Python environment and the isolated Hermes worker seamlessly.
+4. **Dual Engine Support Preservation**:
+   - Keep both `LYOKO_ORCHESTRATOR=hermes` and `LYOKO_ORCHESTRATOR=langgraph` completely supported, allowing runtime switching via environment variable.
