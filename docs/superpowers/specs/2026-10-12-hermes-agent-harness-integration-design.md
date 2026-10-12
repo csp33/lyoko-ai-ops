@@ -4,36 +4,38 @@
 
 Currently, LYOKO's cognitive execution is driven by a procedural ReAct loop (`ReActHarnessRunner`) and rigid LangGraph state machines. While this guarantees structured phase transitions for incidents, it introduces several operational limitations in a real-world homelab environment:
 
-1. **Repetitive Exploratory Cost**: Every new firing alert starts with a clean slate. Even for known recurring issues (e.g., recurring PVC locks or transient CrashLoopBackOffs), the agent executes 4-6 redundant tool discovery and diagnosis calls, incurring repetitive token expenses on OpenAI.
+1. **Repetitive Exploratory Cost**: Every new firing alert starts with a clean slate. Even for known recurring issues (e.g., recurring PVC locks or transient CrashLoopBackOffs), the agent executes redundant tool discovery and diagnosis calls, incurring repetitive token expenses on OpenAI.
 2. **Lack of Long-Term Learning**: The agent does not synthesize successful remediation patterns into self-improving operational skills.
-3. **Rigid Delegation vs. Adaptive Execution**: When investigating complex cross-domain failures (e.g., UniFi network degradation affecting Home Assistant and K8s API connectivity), 1-level specialist handoffs struggle compared to autonomous subagent task branching.
+3. **Rigid Delegation vs. Adaptive Execution**: When investigating complex cross-domain failures (e.g., UniFi network degradation affecting Home Assistant and K8s API connectivity), 1-level specialist handoffs struggle compared to autonomous reasoning loops.
 4. **Unbounded Spend Risk**: Without an explicit hard-dollar budget ceiling per execution, runaway tool loops or large tool payloads can lead to unexpected API costs.
 
-By integrating the autonomous reasoning loop, persistent memory, and skill-synthesis capabilities inspired by **Hermes Agent** (Nous Research) while strictly enforcing **hard cost budget caps**, **turn limits**, and **ToolGate human-in-the-loop (HITL)** approvals, LYOKO gains adaptive reasoning and self-improving memory without sacrificing safety or financial control.
+By integrating the real **Hermes Agent** (`NousResearch/hermes-agent` v0.19.0) as LYOKO's cognitive engine/brain while executing in an isolated virtual environment (`.venv-hermes`), LYOKO gains adaptive reasoning and native tool dispatching without dependency conflicts (`openai 2.x` vs `3.x`). Critically, all tool executions remain strictly intercepted by LYOKO's **`ToolGate`**, guaranteeing human-in-the-loop (HITL) approval via Telegram for mutating actions, enforcing **hard cost budget caps**, and keeping `sector5-mcp` decoupled from Telegram.
 
 ---
 
 ## 2. Architectural Objectives
 
-1. **Strict Cost & Budget Ceilings**:
+1. **Real Hermes Agent Execution (No Reinventing the Wheel)**:
+   - Execute genuine `run_agent.AIAgent` and `tools.registry.registry` from `hermes-agent` rather than a simulated ReAct loop.
+   - Run in an isolated virtual environment (`.venv-hermes`) to cleanly separate `hermes-agent` dependencies from LYOKO's core workspace.
+2. **Strict Cost & Budget Ceilings**:
    - Explicit `max_turns` per operational phase: Diagnose (4), Remediate (3), Chat (5).
    - Hard budget cap per event (default: `$0.10 USD`). Execution halts gracefully when the ceiling is reached, preventing runaway costs.
    - Cycle detection to immediately terminate repetitive identical tool invocations.
    - Large output buffering (`SmartOutputBufferService`) to truncate payloads >50 lines to head+tail (25+25) and offload dumps to `.lyoko/scratchpad/`.
-2. **Guaranteed Safety & HITL (Zero-Trust Tool Execution)**:
+3. **Guaranteed Safety & HITL (Zero-Trust ToolGate Interception)**:
    - All state-mutating tool calls (e.g., Kubernetes patches, restarts, Home Assistant service calls) are strictly routed through LYOKO's `ToolGate`.
    - Mutating calls are suspended and dispatch interactive Telegram approval buttons (`[✅ Approve]` / `[❌ Deny]`). The harness cannot bypass human confirmation.
-3. **Hexagonal Clean Architecture Compliance**:
-   - Domain layer defines pure budget models and ports (`BudgetTracker`, `HarnessRunnerInterface`, `AgentHarnessInterface`).
-   - Application layer provides safety gates (`BudgetGuardService`).
-   - Infrastructure layer implements the concrete runner (`HermesHarnessRunner`).
+   - `sector5-mcp` remains completely decoupled from Telegram and approval concerns.
+4. **Hexagonal Clean Architecture Compliance**:
+   - Domain layer defines pure budget models and ports (`BudgetConfig`, `BudgetUsage`, `HarnessRunnerInterface`).
+   - Application layer provides safety gates (`BudgetGuardService`, `ToolGate`).
+   - Infrastructure layer implements the concrete runner (`HermesHarnessRunner`), subprocess bridge (`HermesSubprocessBridge`), pricing helpers (`hermes_pricing`), and isolated worker (`hermes_worker.py`).
    - Strict adherence to project rules: empty `__init__.py`, no wildcard imports, module line count <= 280 lines.
-4. **Observability & Trace Continuity**:
-   - Single Langfuse trace per event with nested child spans for iterations and tool executions.
+5. **Observability & Trace Continuity**:
+   - Single Langfuse trace per event; each agent run (and each tool executed through the gate) remains a child span of the graph node that started it.
    - Real-time status reporting via `on_status` callbacks to drive Telegram draft heartbeats.
-   - Cost transparency footer in Telegram messages displaying token counts and total spend.
-5. **Self-Improving Skill Synthesis**:
-   - Successful resolutions with operator approvals synthesize candidate skill documents in Markdown with YAML frontmatter under `.lyoko/learned_skills/`.
+   - The LLM calls Hermes makes inside the subprocess are not yet traced (see Known Limitations).
 
 ---
 
@@ -46,35 +48,47 @@ Alertmanager Webhook / Telegram Operator Message
             [ LYOKO Application Entry ]
                        │
                        ▼
-          [ ToolGate & BudgetGuardService ]
+           [ ToolGate & BudgetGuardService ]
                        │
                        ▼
-          [ HermesHarnessRunner (Infrastructure Adapter) ]
-         ┌────────────────────────────────────────────────────────┐
-         │ 1. Turn & Budget Check:                                │
-         │    - turns < max_turns?                                │
-         │    - cost < max_budget_usd ($0.10)?                    │
-         │                                                        │
-         │ 2. Context & Skill Injection:                          │
-         │    - Load matching skills from MarkdownSkillRepo       │
-         │                                                        │
-         │ 3. LLM Reasoning Call (OpenAI gpt-4o / gpt-4o-mini):   │
-         │    - Calculate tokens & track accumulated cost         │
-         │                                                        │
-         │ 4. Cycle Detection:                                    │
-         │    - Identical tool + args repeated? -> Reject cycle   │
-         │                                                        │
-         │ 5. Tool Execution via ToolGate:                        │
-         │    - Read-only? -> Direct call to sector5-mcp          │
-         │    - Mutating?  -> Telegram HITL [Approve] [Deny]      │
-         │                                                        │
-         │ 6. Smart Output Buffer:                                │
-         │    - <=50 lines: Keep in context                       │
-         │    - >50 lines: Truncate 25+25 & offload to disk       │
-         └────────────────────────────────────────────────────────┘
+           [ HermesHarnessRunner (Infrastructure Adapter) ]
                        │
                        ▼
-            [ Langfuse Trace & Telegram Footer ]
+           [ HermesSubprocessBridge (IPC Controller) ]
+                       │ (stdin / stdout JSON-lines)
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│ .venv-hermes Subprocess (hermes_worker.py)                   │
+│                                                             │
+│ 1. Initializes real NousResearch AIAgent                    │
+│ 2. Registers dynamic tool schemas into tools.registry       │
+│ 3. Executes cognitive reasoning loop                        │
+│ 4. Tool Call Dispatch:                                      │
+│    - Emits {"type": "call_tool", "tool_name", "args"}       │
+│    - Waits for response from host                           │
+└─────────────────────────────────────────────────────────────┘
+                       │
+                       │ (tool request via IPC)
+                       ▼
+           [ ToolGate Evaluation in LYOKO ]
+          ┌───────────────────────────────────┐
+          │ - Read-only? -> Allow             │
+          │ - Mutating?  -> Telegram HITL     │
+          │   [✅ Approve] [❌ Deny]          │
+          │ - Approved?  -> sector5-mcp call  │
+          │ - Denied?    -> Return error      │
+          └───────────────────────────────────┘
+                       │
+                       │ (tool result via IPC)
+                       ▼
+           [ SmartOutputBufferService ]
+          (Truncate >50 lines to 25+25 & scratchpad)
+                       │
+                       ▼
+           [ Returns to hermes_worker.py ]
+                       │
+                       ▼
+           [ Final Response -> Langfuse & Telegram ]
 ```
 
 ---
@@ -92,49 +106,66 @@ Alertmanager Webhook / Telegram Operator Message
 ### 4.2 Application Layer (`packages/agents/lyoko/src/lyoko/application/`)
 - `application/safety/budget_guard.py`:
   - `BudgetGuardService`: Evaluates whether a new iteration can proceed. Formats graceful fallback instructions when a ceiling trips so the agent summarizes collected diagnostics instead of crashing.
+- `application/safety/tool_gate.py`:
+  - `ToolGate`: Authorizes tool calls, consults read-only lookups, triggers Telegram approval requests for mutating tools, and waits for human confirmation.
 - `application/skills/`:
-  - Uses existing `SkillMatcherService` to inject relevant operational runbooks into the initial prompt.
+  - Uses `SkillMatcherService` to inject relevant operational runbooks into the initial prompt.
 
 ### 4.3 Infrastructure Layer (`packages/agents/lyoko/src/lyoko/infrastructure/`)
+- `infrastructure/llm/hermes_worker.py`:
+  - Standalone worker script executed with `.venv-hermes/bin/python`.
+  - Imports official `run_agent.AIAgent` and `tools.registry.registry`.
+  - Dynamically registers tool definitions with handlers that send JSON tool requests over stdout and await results on stdin.
+- `infrastructure/llm/hermes_bridge.py`:
+  - `HermesSubprocessBridge`: Manages the lifecycle and IPC with `hermes_worker.py`.
+  - Streams live status messages (`on_status`) to drive Telegram draft updates.
+  - Passes tool calls to the host tool execution callback.
+  - Enforces graceful termination and cleanup on exit or cancellation.
+- `infrastructure/llm/hermes_pricing.py`:
+  - Utilities for OpenAI token cost estimation (`estimate_cost_usd`), usage extraction (`extract_usage`), status formatting (`format_tool_status`), and error detection (`is_tool_error`).
 - `infrastructure/llm/hermes_runner.py`:
   - `HermesHarnessRunner`: Implements `HarnessRunnerInterface`.
-  - Bounded iteration loop driven by `BudgetGuardService`.
-  - Dynamic pricing calculation for OpenAI models (`gpt-4o`, `gpt-4o-mini`).
+  - Delegates real executions to `HermesSubprocessBridge`, with seamless fallback to an in-process bounded loop when running under unit tests with mocks.
   - Integrates `SmartOutputBufferService` for payload truncation.
-  - Intercepts tool execution to delegate to `ToolGate` for HITL approvals.
-  - Emits status callbacks for Telegram draft heartbeats.
-- `infrastructure/llm/openai.py`:
-  - Configures and wires `HermesHarnessRunner` based on `settings.lyoko_orchestrator`.
+- `composition.py` (`build_llm_adapter`):
+  - Selects `HermesHarnessRunner` when `settings.lyoko_orchestrator == "hermes"`, otherwise `ReActHarnessRunner`, and injects it into `OpenAILLMAdapter`. The LangGraph graph, supervisor, specialists, `ToolGate`, and Telegram wiring are unchanged; only the tool-use loop inside each agent run is swapped.
+- Tool interception path: `SupervisedAgentRunner` builds the tools with `mcp_client.get_langchain_tools(authorizer=gate.authorize)`. When Hermes requests a tool over IPC, the runner invokes that same LangChain tool, so `ToolGate.authorize()` runs before any call reaches `sector5-mcp`.
 
 ---
 
 ## 5. Configuration & Defaults (`lyoko/config.py`)
 
-New environment variables added to `.env.example` and `config.py`:
+New environment variables in `.env.example` and `config.py` (settings have no env prefix; `LYOKO_ORCHESTRATOR` is the field name itself, and `ORCHESTRATOR` is accepted as an alias):
 
 ```bash
 # Agent Orchestrator & Execution Limits
-LYOKO_ORCHESTRATOR="hermes"                   # "hermes" | "langgraph"
-LYOKO_MAX_TURNS_DIAGNOSE=4                    # Max LLM turns during incident diagnosis
-LYOKO_MAX_TURNS_REMEDIATE=3                   # Max LLM turns during incident remediation
-LYOKO_MAX_TURNS_CHAT=5                        # Max LLM turns during conversational chat
-LYOKO_MAX_BUDGET_USD_PER_EVENT=0.10           # Hard ceiling in USD per incident/chat trace
-LYOKO_CYCLE_DETECTION_WINDOW=2                # Number of identical calls triggering a cycle reject
-LYOKO_SMART_BUFFER_MAX_LINES=50               # Max lines in LLM tool context (25 head + 25 tail)
+LYOKO_ORCHESTRATOR=hermes            # "hermes" | "langgraph"
+HERMES_VENV_PATH=.venv-hermes        # Isolated hermes-agent virtualenv (alias: HERMES_PATH)
+MAX_TURNS_DIAGNOSE=4                 # Max turns during incident diagnosis
+MAX_TURNS_REMEDIATE=3                # Max turns during incident remediation
+MAX_TURNS_CHAT=5                     # Max turns during conversational chat
+MAX_BUDGET_USD_PER_EVENT=0.10        # Hard ceiling in USD per event (see Known Limitations)
+CYCLE_DETECTION_WINDOW=2             # Identical consecutive calls that trigger a cycle reject
 ```
+
+The smart output buffer thresholds (50 lines, 25 head + 25 tail) are defaults of `SmartOutputBufferService` and are not configurable through the environment.
 
 ---
 
 ## 6. Execution Lifecycle & Failure Modes
 
-1. **Turn Exhaustion**:
-   - When `turns_used >= max_turns`, the runner injects a final system instruction: *"Turn limit reached. Summarize all collected evidence, root causes identified, and recommended next steps immediately without calling further tools."*
-2. **Budget Cap Trip**:
-   - If `accumulated_cost_usd >= max_budget_usd`, tool execution is halted immediately. The runner logs a warning and returns the accumulated findings tagged with `[Budget Cap Reached]`.
+1. **Subprocess Initialization**:
+   - `HermesSubprocessBridge` resolves `.venv-hermes/bin/python` and verifies availability.
+   - Spawns `hermes_worker.py` and streams configuration payload via stdin.
+2. **Turn & Budget Exhaustion**:
+   - Bridge mode: each tool request from Hermes counts as one turn. Once `turns_used >= max_turns`, `BudgetGuardService` answers further tool requests with a termination instruction instead of executing them, and Hermes's own `max_iterations` is set to the same ceiling. The USD cap is not evaluated in bridge mode (see Known Limitations).
+   - In-process fallback: turns and the USD cap (estimated from response token usage) are both enforced before each LLM call.
 3. **Cycle Rejection**:
    - If the same tool call with identical arguments occurs consecutively, the runner rejects the call and instructs the model: *"Cycle detected. Tool was already executed with identical parameters. Synthesize existing results or adjust approach."*
-4. **Tool Denial / Timeout**:
-   - When the operator clicks `❌ Deny` or the approval times out, `ToolGate` returns a refusal message. The runner acknowledges the denial and does not retry the rejected action.
+4. **Mutating Tool Interception & Telegram Denial**:
+   - Mutating tool requests sent by the worker are paused at `ToolGate.authorize()`.
+   - Telegram sends interactive `[✅ Approve]` and `[❌ Deny]` buttons.
+   - If the operator clicks `❌ Deny` or the approval times out, `ToolGate` returns a refusal message back over IPC. Hermes Agent receives the denial and reports what was found without executing the action.
 
 ---
 
@@ -143,12 +174,24 @@ LYOKO_SMART_BUFFER_MAX_LINES=50               # Max lines in LLM tool context (2
 1. **Unit Tests (`tests/agents/lyoko/test_budget_guard.py`)**:
    - Verify turn counting and budget accumulation logic.
    - Verify trip conditions for turn limits and USD budget limits.
-2. **Unit Tests (`tests/agents/lyoko/test_hermes_harness_runner.py`)**:
-   - Test execution halts cleanly when `max_turns` is reached.
-   - Test execution halts when `cost_limit` is exceeded.
-   - Test cycle detector blocks repetitive tool loops.
-   - Test tool calls correctly delegate to `ToolGate` and respect read-only vs. mutating permissions.
-   - Test output buffering truncates oversized responses.
-3. **Architectural & Integration Tests**:
-   - Run `tests/test_clean_architecture.py` to verify AST rules, zero banned imports, and file line ceilings.
-   - Verify full test suite passes with `uv run pytest`.
+2. **Unit Tests (`tests/agents/lyoko/test_hermes_bridge.py`)**:
+   - Verify bridge availability and missing venv handling.
+   - Verify bidirectional IPC message exchange (`status`, `call_tool`, `result`, `error`).
+   - Verify tool denial forwarding over IPC.
+3. **Unit Tests (`tests/agents/lyoko/test_hermes_harness_runner.py`)**:
+   - Verify runner delegates to `HermesSubprocessBridge` in live execution.
+   - Verify in-process mock fallback for fast unit testing.
+   - Verify turn ceiling, cost cap, and cycle detection behavior.
+4. **Architectural & Integration Tests**:
+   - Run `tests/test_clean_architecture.py` to verify AST rules, zero banned imports, empty `__init__.py` files, and file line ceilings (<= 280 lines).
+   - Full test suite verification with `uv run pytest` (556 passed).
+   - Linter verification with `uv run ruff check .` and `uv run ruff format --check .`.
+
+---
+
+## 8. Known Limitations & Follow-ups
+
+1. **USD cap not enforced in bridge mode**: `hermes_worker.py` does not report token usage back to the host, so `BudgetUsage.accumulated_cost_usd` stays at zero and `MAX_BUDGET_USD_PER_EVENT` never trips during real Hermes runs. Spend is bounded only by the turn ceiling, Hermes's `max_iterations`, and cycle detection. Follow-up: emit a `usage` IPC message per LLM call (Hermes exposes normalized usage) and feed it into `BudgetUsage`.
+2. **Hermes LLM calls not traced in Langfuse**: the OpenAI calls made inside the subprocess bypass the LangChain callbacks, so they appear neither as spans nor in the cost footer computed by `EnrichTraceCostUseCase`. Tool executions are still traced because they run in the host process.
+3. **Hermes local state**: `AIAgent` writes session and debug files under `~/.hermes/`. In a container, this directory should be ephemeral or mounted explicitly.
+4. **Container image**: the Dockerfile does not yet build `.venv-hermes`. Until it does, a deployed pod has no bridge available and silently uses the in-process loop.
