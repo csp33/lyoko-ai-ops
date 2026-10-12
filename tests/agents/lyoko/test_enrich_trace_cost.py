@@ -123,3 +123,50 @@ async def test_process_chat_message_enriches_reply():
 
     mock_enrich.execute.assert_awaited_once()
     assert result == "Here is the cluster status.\n\n💸 **Cost:** $0.0010"
+
+
+@pytest.mark.asyncio
+async def test_enrich_trace_cost_with_dict_mcp_response_and_args():
+    mock_mcp = AsyncMock(spec=MCPClientInterface)
+    mock_mcp.call_tool.return_value = {
+        "status": "success",
+        "content": '{"data": [{"traceId": "t-dict", "sum_totalCost": 0.0037}]}',
+        "is_error": False,
+    }
+
+    mock_tracer = MagicMock(spec=TracerInterface)
+    mock_tracer.get_trace_url.return_value = "https://cloud.langfuse.com/project/p1/traces/t-dict"
+
+    use_case = EnrichTraceCostUseCase(
+        mcp_client=mock_mcp,
+        tracer=mock_tracer,
+        enabled=True,
+    )
+
+    result = await use_case.execute("Diagnostic complete", "t-dict")
+
+    mock_mcp.call_tool.assert_awaited_once()
+    call_kwargs = mock_mcp.call_tool.call_args.kwargs
+    name = call_kwargs.get("name")
+    args = call_kwargs.get("arguments", {})
+
+    assert name == "langfuse_queryMetrics"
+    assert args["orderBy"] == [{"field": "totalCost", "direction": "desc"}]
+    assert args["config"] == {"row_limit": 10}
+    assert args["filters"][0]["value"] == "t-dict"
+    assert "💸 **Cost:** $0.0037" in result
+    assert "🔍 [View Trace](https://cloud.langfuse.com/project/p1/traces/t-dict)" in result
+
+
+@pytest.mark.asyncio
+async def test_enrich_trace_cost_with_parsed_dict_envelope():
+    mock_mcp = AsyncMock(spec=MCPClientInterface)
+    mock_mcp.call_tool.return_value = {
+        "status": "success",
+        "content": {"data": [{"traceId": "t-dict2", "totalCost": 0.015}]},
+        "is_error": False,
+    }
+
+    use_case = EnrichTraceCostUseCase(mcp_client=mock_mcp, tracer=None, enabled=True)
+    result = await use_case.execute("Action taken", "t-dict2")
+    assert "💸 **Cost:** $0.0150" in result

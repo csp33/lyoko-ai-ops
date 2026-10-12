@@ -34,6 +34,8 @@ class EnrichTraceCostUseCase:
                 data = json.loads(content)
             except Exception:
                 return None
+        if isinstance(data, dict) and "data" in data and isinstance(data["data"], (list, dict)):
+            data = data["data"]
         if isinstance(data, list) and data:
             data = data[0]
         if isinstance(data, dict):
@@ -77,11 +79,18 @@ class EnrichTraceCostUseCase:
                                 "value": trace_id,
                             }
                         ],
+                        "orderBy": [{"field": "totalCost", "direction": "desc"}],
+                        "config": {"row_limit": 10},
                         "fromTimestamp": from_iso,
                         "toTimestamp": to_iso,
                     },
                 )
-                cost = self._parse_cost_from_result(getattr(resp, "content", None))
+                raw_content = (
+                    resp.get("content")
+                    if isinstance(resp, dict)
+                    else getattr(resp, "content", resp)
+                )
+                cost = self._parse_cost_from_result(raw_content)
             except Exception as exc:
                 logger.debug("Failed to query trace cost from MCP gateway: %s", exc)
 
