@@ -5,6 +5,7 @@ from typing import Any
 
 from langchain_core.runnables import RunnableConfig
 from lyoko.application.prompts.router import ROUTER_SYSTEM_PROMPT
+from lyoko.application.workflow.routing.canary import CanaryNotificationDetector
 from lyoko.application.workflow.routing.classifier import RouteClassifier
 from lyoko.application.workflow.routing.recovery import RecoveryNotificationDetector
 from lyoko.domain.interfaces.llm import LLMClientInterface
@@ -31,6 +32,11 @@ class RouteEventUseCase:
         if RecoveryNotificationDetector.is_recovery_notification(text):
             # A recovery needs no investigation; answer it in chat without an LLM call.
             logger.info("Recovery notification detected; routing to chat.")
+            return {"route": Route.CHAT.value}
+
+        if CanaryNotificationDetector.is_canary_notification(text):
+            # A canary alert needs no investigation; answer it in chat without an LLM call.
+            logger.info("Canary notification detected; routing to chat.")
             return {"route": Route.CHAT.value}
 
         if self.llm is None:

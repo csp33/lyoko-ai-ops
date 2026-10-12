@@ -36,6 +36,8 @@ def is_cloudflare_tunnel_event(state: dict[str, Any]) -> bool:
     """Return True if state corresponds to a Cloudflare Tunnel disruption."""
     if is_message(state):
         text = (state.get("text") or "").lower()
+        if "canary" in text:
+            return False
         return "cloudflare" in text or "cloudflared" in text
 
     alert_name = state.get("alert_name") or ""

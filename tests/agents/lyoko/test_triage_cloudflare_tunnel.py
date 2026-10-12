@@ -44,6 +44,12 @@ def test_can_handle_detects_alerts_and_messages():
     }
     assert handler.can_handle(msg) is True
 
+    canary_msg = {
+        "event_type": "message",
+        "text": "An alert for External/Cloudflare public — canary has been triggered",
+    }
+    assert handler.can_handle(canary_msg) is False
+
     unrelated = {
         "event_type": "alert",
         "alert_name": "NodeCpuTemperatureHigh",
