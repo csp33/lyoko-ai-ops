@@ -8,9 +8,15 @@ from lyoko.infrastructure.llm.hermes_bridge import HermesSubprocessBridge
 
 
 @pytest.mark.asyncio
-async def test_bridge_is_available():
-    bridge = HermesSubprocessBridge()
-    # In this workspace, .venv-hermes exists
+async def test_bridge_is_available(tmp_path: Path):
+    # Test availability detection when venv python and worker script exist
+    fake_python = tmp_path / "bin" / "python"
+    fake_python.parent.mkdir(parents=True, exist_ok=True)
+    fake_python.touch()
+    fake_worker = tmp_path / "worker.py"
+    fake_worker.touch()
+
+    bridge = HermesSubprocessBridge(python_bin=fake_python, worker_script=fake_worker)
     assert bridge.is_available() is True
 
 
