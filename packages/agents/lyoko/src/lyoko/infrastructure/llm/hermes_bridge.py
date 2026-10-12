@@ -104,6 +104,21 @@ class HermesSubprocessBridge:
             **os.environ,
             "HERMES_HOME": str(self.hermes_home),
         }
+        if settings.langfuse_enabled and settings.langfuse_public_key:
+            env["HERMES_LANGFUSE_PUBLIC_KEY"] = settings.langfuse_public_key
+            env["LANGFUSE_PUBLIC_KEY"] = settings.langfuse_public_key
+            if settings.langfuse_secret_key:
+                sec_val = (
+                    settings.langfuse_secret_key.get_secret_value()
+                    if hasattr(settings.langfuse_secret_key, "get_secret_value")
+                    else str(settings.langfuse_secret_key)
+                )
+                env["HERMES_LANGFUSE_SECRET_KEY"] = sec_val
+                env["LANGFUSE_SECRET_KEY"] = sec_val
+            if settings.langfuse_host:
+                env["HERMES_LANGFUSE_BASE_URL"] = settings.langfuse_host
+                env["LANGFUSE_BASE_URL"] = settings.langfuse_host
+            env["HERMES_LANGFUSE_ENV"] = settings.get_langfuse_environment()
 
         proc = await asyncio.create_subprocess_exec(
             str(self.python_bin),

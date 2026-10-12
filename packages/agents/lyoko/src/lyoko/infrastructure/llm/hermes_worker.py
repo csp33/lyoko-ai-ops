@@ -86,7 +86,9 @@ def main() -> None:
         sys.stdout.flush()
 
     try:
-        from hermes_cli.plugins import get_plugin_manager
+        from hermes_cli.plugins import PluginContext, PluginManifest, get_plugin_manager
+
+        pm = get_plugin_manager()
 
         def on_post_api_request(**kwargs):
             usage = kwargs.get("usage") or {}
@@ -101,10 +103,20 @@ def main() -> None:
             sys.stdout.write(json.dumps(usage_msg) + "\n")
             sys.stdout.flush()
 
-        pm = get_plugin_manager()
         pm._hooks.setdefault("post_api_request", []).append(on_post_api_request)
+
+        # Register built-in Hermes Langfuse observability plugin if available
+        try:
+            import plugins.observability.langfuse as lp
+
+            ctx = PluginContext(PluginManifest(name="observability/langfuse"), pm)
+            lp.register(ctx)
+            logger.debug("Registered Hermes built-in Langfuse observability plugin")
+        except Exception as lp_err:
+            logger.debug("Hermes Langfuse plugin not initialized: %s", lp_err)
+
     except Exception as hook_err:
-        logger.debug("Could not register post_api_request hook: %s", hook_err)
+        logger.debug("Could not register plugin hooks: %s", hook_err)
 
     try:
         import run_agent
