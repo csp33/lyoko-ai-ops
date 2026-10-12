@@ -76,7 +76,7 @@ async def test_domain_specialist_run_executes_with_scoped_domain():
     assert call_kwargs["prompt"] == "Top bandwidth consumers"
     assert call_kwargs["system_prompt"].startswith(network_prompt)
     assert "AVAILABLE TOOLS IN YOUR DOMAIN" in call_kwargs["system_prompt"]
-    assert "unifi_list_clients(network, limit?)" in call_kwargs["system_prompt"]
+    assert "unifi_list_clients(network: string, limit?: integer)" in call_kwargs["system_prompt"]
     assert "specialist:unifi" in call_kwargs["tags"]
     assert call_kwargs["tools"] == ["mock_tool_1", "mock_tool_2"]
 
@@ -95,7 +95,7 @@ def test_specialist_tool_catalog_formatter_signatures():
     }
     assert (
         SpecialistToolCatalogFormatter.format_signature("tool_basic", params_basic)
-        == "tool_basic(req, opt?)"
+        == "tool_basic(req: string, opt?: string)"
     )
 
     # 3. Defaults (str, int, bool)
@@ -109,9 +109,7 @@ def test_specialist_tool_catalog_formatter_signatures():
         },
         "required": [],
     }
-    expected_defaults = (
-        "tool_defaults(name?='logbook', count?=10, enabled?=true, disabled?=false, no_default?)"
-    )
+    expected_defaults = "tool_defaults(name?: string='logbook', count?: integer=10, enabled?: boolean=true, disabled?: boolean=false, no_default?: string)"
     assert (
         SpecialistToolCatalogFormatter.format_signature("tool_defaults", params_defaults)
         == expected_defaults
@@ -126,7 +124,7 @@ def test_specialist_tool_catalog_formatter_signatures():
     }
     assert (
         SpecialistToolCatalogFormatter.format_signature("tool_enum", params_enum)
-        == "tool_enum(mode['fast'|'slow'])"
+        == "tool_enum(mode: string['fast'|'slow'])"
     )
 
     # 5. Default and Enum combined
@@ -140,7 +138,7 @@ def test_specialist_tool_catalog_formatter_signatures():
         },
         "required": [],
     }
-    expected_combo = "ha_get_logs(source?='logbook'['logbook'|'system'|'error_log'])"
+    expected_combo = "ha_get_logs(source?: string='logbook'['logbook'|'system'|'error_log'])"
     assert (
         SpecialistToolCatalogFormatter.format_signature("ha_get_logs", params_combo)
         == expected_combo
@@ -156,7 +154,7 @@ def test_specialist_tool_catalog_formatter_signatures():
         },
         "required": ["item"],
     }
-    expected_large = "tool_large(item['opt_0'|'opt_1'|'opt_2'|'opt_3'|'opt_4'|'opt_5'|...])"
+    expected_large = "tool_large(item: string['opt_0'|'opt_1'|'opt_2'|'opt_3'|'opt_4'|'opt_5'|...])"
     assert (
         SpecialistToolCatalogFormatter.format_signature("tool_large", params_large_enum)
         == expected_large
