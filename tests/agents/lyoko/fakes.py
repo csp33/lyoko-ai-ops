@@ -5,7 +5,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
-from lyoko.application.hitl.manager import ApprovalManager
+from lyoko.application.safety.hitl.manager import ApprovalManager
 from lyoko.domain.interfaces.llm import LLMClientInterface
 from lyoko.domain.interfaces.mcp import ToolAuthorizer
 from lyoko.domain.models.chat import ApprovalResponse

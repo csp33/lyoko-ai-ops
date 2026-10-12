@@ -255,10 +255,23 @@ class TelegramInboundMixin:
                     except (ValueError, TypeError):
                         pass
 
-                    if accepts_on_status:
-                        reply = await handler(incoming, on_status=streamer.set_status)
-                    else:
-                        reply = await handler(incoming)
+                    coro = (
+                        handler(incoming, on_status=streamer.set_status)
+                        if accepts_on_status
+                        else handler(incoming)
+                    )
+                    handler_task = asyncio.create_task(coro)
+                    streamer.bind_task(handler_task)
+                    try:
+                        reply = await handler_task
+                    except (asyncio.CancelledError, GeneratorExit):
+                        if streamer.is_stopped():
+                            logger.info(
+                                "Streaming reply for msg %s was stopped by the operator.", chat_id
+                            )
+                            await streamer.finalize_stopped()
+                            return
+                        raise
 
                     if not reply:
                         logger.info(

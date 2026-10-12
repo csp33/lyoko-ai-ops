@@ -9,6 +9,7 @@ from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+
 from sector5_mcp.domain.interfaces.upstream import UpstreamMCPInterface
 from sector5_mcp.domain.models.upstream import ToolDefinition, ToolResult, UpstreamType
 

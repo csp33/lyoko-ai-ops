@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import yaml
-from lyoko.application.triage.argocd_sync_failed import ArgoCDSyncFailedHandler
+from lyoko.application.incidents.triage.argocd_sync_failed import ArgoCDSyncFailedHandler
 
 
 def _app_manifest(phase: str, sync_status: str, msg: str = "") -> dict:

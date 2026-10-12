@@ -5,6 +5,7 @@ from typing import Any
 
 from fastmcp.server.auth import AccessToken, MultiAuth, TokenVerifier
 from fastmcp.server.auth.oidc_proxy import OIDCProxy
+
 from sector5_mcp.application.service import MCPGatewayService
 from sector5_mcp.config import settings
 from sector5_mcp.infrastructure.auth.google import GoogleJWTVerifier

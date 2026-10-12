@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 import yaml
+
 from sector5_mcp.domain.models.upstream import ToolResult
 from sector5_mcp.infrastructure.upstream.client import ProcessUpstreamClient
 

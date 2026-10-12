@@ -1,10 +1,13 @@
 """Telegram chat connector adapter implementation using python-telegram-bot."""
 
+import asyncio
+import contextlib
 import logging
 from collections.abc import Awaitable, Callable
 
 from lyoko.domain.interfaces.chat_connector import ChatConnector
 from lyoko.domain.interfaces.embeddings import EmbeddingsServiceInterface
+from lyoko.domain.interfaces.lock import DistributedLock
 from lyoko.domain.interfaces.memory import MemoryRepositoryInterface
 from lyoko.domain.models.chat import ApprovalResponse, IncomingMessage
 from lyoko.infrastructure.chat.callbacks import TelegramCallbackMixin
@@ -48,6 +51,7 @@ class TelegramConnector(
         discussion_group_id: str | int | None = None,
         memory_repository: MemoryRepositoryInterface | None = None,
         embeddings_service: EmbeddingsServiceInterface | None = None,
+        lock: DistributedLock | None = None,
     ) -> None:
         if isinstance(bot_token, SecretStr):
             self.bot_token = bot_token.get_secret_value()
@@ -88,6 +92,8 @@ class TelegramConnector(
 
         self.memory_repository = memory_repository
         self.embeddings_service = embeddings_service
+        self.lock = lock
+        self._leader_polling_task: asyncio.Task[None] | None = None
 
         # The channel post and its discussion-group forward can arrive in either order; bound how
         # long a channel post waits for the forward so its reply threads under the alert.
@@ -169,15 +175,45 @@ class TelegramConnector(
             except Exception as exc:
                 logger.debug("Could not auto-discover linked discussion group: %s", exc)
 
-        if self._app.updater:
-            await self._app.updater.start_polling()
-        logger.info("TelegramConnector started polling updates.")
+        if self.lock is not None:
+            self._leader_polling_task = asyncio.create_task(self._poll_with_leader_lock())
+            logger.info("TelegramConnector registered leader election task for polling.")
+        else:
+            if self._app.updater:
+                await self._app.updater.start_polling()
+            logger.info("TelegramConnector started polling updates.")
+
+    async def _poll_with_leader_lock(self) -> None:
+        """Wait for distributed leader lock before starting the Telegram polling loop."""
+        try:
+            acquired = await self.lock.acquire()
+            if not acquired:
+                logger.info("Telegram leader lock was not acquired, exiting polling loop.")
+                return
+
+            if self._app and self._app.updater and not self._app.updater.running:
+                await self._app.updater.start_polling()
+                logger.info("TelegramConnector acquired leader lock and started polling updates.")
+        except asyncio.CancelledError:
+            logger.debug("Telegram leader polling task cancelled.")
+            raise
+        except Exception as exc:
+            logger.error("Error in Telegram leader polling task: %s", exc, exc_info=True)
 
     async def stop(self) -> None:
         """Gracefully stop polling and terminate Telegram application."""
+        if self._leader_polling_task and not self._leader_polling_task.done():
+            self._leader_polling_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._leader_polling_task
+            self._leader_polling_task = None
+
         if self._app:
             if self._app.updater and self._app.updater.running:
                 await self._app.updater.stop()
             await self._app.stop()
             await self._app.shutdown()
             logger.info("TelegramConnector stopped.")
+
+        if self.lock and self.lock.is_locked:
+            await self.lock.release()

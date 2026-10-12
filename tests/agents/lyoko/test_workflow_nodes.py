@@ -3,16 +3,16 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from lyoko.application.chat.use_cases.handle_turn import HandleChatTurnUseCase
 from lyoko.application.context.formatter import IncidentContextFormatter
-from lyoko.application.routing.edges import WorkflowRouteSelector
-from lyoko.application.routing.recovery import (
+from lyoko.application.incidents.use_cases.diagnose import DiagnoseIncidentUseCase
+from lyoko.application.incidents.use_cases.notify import format_incident_report
+from lyoko.application.workflow.routing.edges import WorkflowRouteSelector
+from lyoko.application.workflow.routing.recovery import (
     RECOVERY_ACKNOWLEDGEMENT,
     RecoveryNotificationDetector,
 )
-from lyoko.application.use_cases.diagnose_incident import DiagnoseIncidentUseCase
-from lyoko.application.use_cases.handle_chat import HandleChatTurnUseCase
-from lyoko.application.use_cases.notify_report import format_incident_report
-from lyoko.application.use_cases.route_event import RouteEventUseCase
+from lyoko.application.workflow.routing.route_event import RouteEventUseCase
 from lyoko.domain.interfaces.llm import LLMClientInterface
 from lyoko.domain.models.state import is_message
 
@@ -107,7 +107,7 @@ async def test_route_node_and_choose_branch():
 
 
 def test_status_callback_reads_only_config_configurable():
-    from lyoko.application.supervisor import status_callback
+    from lyoko.application.agents.supervisor import status_callback
 
     sentinel = object()
     assert status_callback({"configurable": {"on_status": sentinel}}) is sentinel

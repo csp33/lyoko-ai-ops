@@ -9,7 +9,7 @@ from lyoko.application.chat.sessions import (
     DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS,
     ChatSessionTracker,
 )
-from lyoko.application.use_cases.process_chat_message import (
+from lyoko.application.chat.use_cases.process_message import (
     ProcessChatMessageUseCase,
 )
 from lyoko.domain.interfaces.tracer import TracerInterface

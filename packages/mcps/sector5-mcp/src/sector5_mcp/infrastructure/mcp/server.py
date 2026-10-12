@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastmcp import FastMCP
 from fastmcp.server.middleware.caching import ResponseCachingMiddleware
+
 from sector5_mcp.application.service import MCPGatewayService
 from sector5_mcp.infrastructure.mcp.auth import build_auth_provider
 from sector5_mcp.infrastructure.mcp.tools import register_gateway_tools

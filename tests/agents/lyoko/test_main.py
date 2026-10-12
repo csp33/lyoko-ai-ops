@@ -5,8 +5,8 @@ import pytest
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from lyoko.composition import build_domain_specialists, build_llm_adapter, build_supervisor
 from lyoko.config import settings
+from lyoko.infrastructure.api.server import create_app, lifespan
 from lyoko.logging_config import HealthEndpointFilter
-from lyoko.main import create_app, lifespan
 
 
 @pytest.mark.asyncio
@@ -52,8 +52,8 @@ def test_create_app_wires_a_stronger_diagnose_model(monkeypatch):
 
 
 @pytest.mark.asyncio
-@patch("lyoko.main.AsyncPostgresSaver")
-@patch("lyoko.main.AsyncConnectionPool")
+@patch("lyoko.infrastructure.api.server.AsyncPostgresSaver")
+@patch("lyoko.infrastructure.api.server.AsyncConnectionPool")
 async def test_lifespan_with_postgres_configured(mock_pool_cls, mock_saver_cls):
     mock_pool = MagicMock()
     mock_pool.open = AsyncMock()
@@ -64,7 +64,7 @@ async def test_lifespan_with_postgres_configured(mock_pool_cls, mock_saver_cls):
     mock_saver.setup = AsyncMock()
     mock_saver_cls.return_value = mock_saver
 
-    with patch("lyoko.main.settings.postgres_password", "testpassword"):
+    with patch("lyoko.infrastructure.api.server.settings.postgres_password", "testpassword"):
         app = create_app()
         async with lifespan(app):
             mock_pool.open.assert_awaited_once()

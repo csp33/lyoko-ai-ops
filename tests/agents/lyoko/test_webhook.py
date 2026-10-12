@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from lyoko.infrastructure.web.controller import create_webhook_router
+from lyoko.infrastructure.api.controller import create_webhook_router
 
 
 @pytest.fixture(autouse=True)

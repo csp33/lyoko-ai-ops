@@ -10,6 +10,7 @@ from fastmcp.server.auth.jwt_issuer import derive_jwt_key
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
+
 from sector5_mcp.config import settings
 from sector5_mcp.domain.exceptions.auth import AuthenticationError
 from sector5_mcp.domain.interfaces.auth import AuthVerifierInterface

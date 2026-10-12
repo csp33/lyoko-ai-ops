@@ -1,6 +1,8 @@
 """Unit tests for markdown prompt loading and prompt integrity."""
 
 import pytest
+from lyoko.application.agents.specialist_prompts import SpecialistPromptProvider
+from lyoko.application.agents.supervisor import SUPERVISOR_SYSTEM_PROMPT
 from lyoko.application.prompts.chat import CHAT_SYSTEM_PROMPT
 from lyoko.application.prompts.incident import (
     DIAGNOSE_SYSTEM_PROMPT,
@@ -9,8 +11,6 @@ from lyoko.application.prompts.incident import (
 )
 from lyoko.application.prompts.loader import load_prompt
 from lyoko.application.prompts.router import ROUTER_SYSTEM_PROMPT
-from lyoko.application.specialists.prompts import SpecialistPromptProvider
-from lyoko.application.supervisor import SUPERVISOR_SYSTEM_PROMPT
 
 K8S_SPECIALIST_PROMPT = SpecialistPromptProvider.get_prompt("k8s")
 NETWORK_SPECIALIST_PROMPT = SpecialistPromptProvider.get_prompt("network")

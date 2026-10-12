@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from lyoko.application.triage.cloudflare_tunnel import CloudflareTunnelHandler
+from lyoko.application.incidents.triage.cloudflare_tunnel import CloudflareTunnelHandler
 
 
 def _approval_manager(approved: bool = True) -> MagicMock:
