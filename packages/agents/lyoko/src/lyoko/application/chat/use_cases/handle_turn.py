@@ -7,6 +7,10 @@ from lyoko.application.agents.supervisor import run_supervised, status_callback
 from lyoko.application.memory.use_cases.retrieve import RetrieveMemoryLessonsUseCase
 from lyoko.application.prompts.chat import CHAT_SYSTEM_PROMPT
 from lyoko.application.safety.tool_gate import GateMode, make_gate
+from lyoko.application.workflow.routing.canary import (
+    CANARY_ACKNOWLEDGEMENT,
+    CanaryNotificationDetector,
+)
 from lyoko.application.workflow.routing.recovery import (
     RECOVERY_ACKNOWLEDGEMENT,
     RecoveryNotificationDetector,
@@ -56,6 +60,11 @@ class HandleChatTurnUseCase:
             # A recovery notification has nothing to investigate; acknowledge it and stop.
             logger.info("Recovery notification acknowledged without investigation.")
             return {"reply": RECOVERY_ACKNOWLEDGEMENT}
+
+        if CanaryNotificationDetector.is_canary_notification(text):
+            # An external canary alert has nothing to investigate; acknowledge it and stop.
+            logger.info("Canary notification acknowledged without investigation.")
+            return {"reply": CANARY_ACKNOWLEDGEMENT}
 
         if self.llm is None:
             return {"reply": _NO_LLM_REPLY.format(text=text)}
