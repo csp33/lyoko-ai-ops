@@ -144,6 +144,11 @@ class AgentSettings(BaseSettings):
         validation_alias=AliasChoices("hermes_home", "HERMES_HOME"),
         description="Path to persistent HERMES_HOME directory for sessions, skills, and memory",
     )
+    hermes_memory_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("hermes_memory_enabled", "HERMES_MEMORY_ENABLED"),
+        description="Enable native Hermes memory persistence (MEMORY.md/USER.md) across runs",
+    )
     max_turns_diagnose: int = Field(
         default=8,
         ge=1,

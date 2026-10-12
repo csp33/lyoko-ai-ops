@@ -102,6 +102,7 @@ class HermesSubprocessBridge:
             "tools": tool_defs,
             "session_id": session_id,
             "trace_id": trace_id,
+            "memory_enabled": getattr(settings, "hermes_memory_enabled", True),
         }
 
         self.hermes_home.mkdir(parents=True, exist_ok=True)

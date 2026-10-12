@@ -142,18 +142,23 @@ def main() -> None:
             {"enabled": True, "effort": "medium"} if is_reasoning else {"enabled": False}
         )
 
+        memory_enabled = bool(config.get("memory_enabled", True))
+        enabled_ts = ["lyoko"] if registered_names else []
+        if memory_enabled:
+            enabled_ts.append("memory")
+
         agent = run_agent.AIAgent(
             provider="openai",
             model=model,
             api_key=api_key,
             base_url=base_url,
             session_id=session_id,
-            enabled_toolsets=["lyoko"] if registered_names else None,
+            enabled_toolsets=enabled_ts or None,
             max_iterations=max_iterations,
             tool_start_callback=on_tool_start,
             reasoning_config=reasoning_cfg,
             quiet_mode=True,
-            skip_memory=True,
+            skip_memory=not memory_enabled,
             skip_context_files=True,
         )
 
