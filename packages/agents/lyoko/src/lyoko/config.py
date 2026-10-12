@@ -128,11 +128,11 @@ class AgentSettings(BaseSettings):
         ge=1,
         description="Maximum supervisor delegation iterations per phase",
     )
-    # Harness Engine & Budget Controls
-    harness_engine: str = Field(
+    # Agent Orchestrator & Budget Controls
+    lyoko_orchestrator: str = Field(
         default="hermes",
-        validation_alias=AliasChoices("harness_engine", "lyoko_orchestrator", "orchestrator"),
-        description="Execution harness engine for LLM tool use ('hermes' or 'langgraph'/'react')",
+        validation_alias=AliasChoices("lyoko_orchestrator", "orchestrator"),
+        description="Execution orchestrator for LLM tool use ('hermes' or 'langgraph')",
     )
     max_turns_diagnose: int = Field(
         default=4,

@@ -104,7 +104,7 @@ Alertmanager Webhook / Telegram Operator Message
   - Intercepts tool execution to delegate to `ToolGate` for HITL approvals.
   - Emits status callbacks for Telegram draft heartbeats.
 - `infrastructure/llm/openai.py`:
-  - Configures and wires `HermesHarnessRunner` based on `settings.HARNESS_ENGINE`.
+  - Configures and wires `HermesHarnessRunner` based on `settings.lyoko_orchestrator`.
 
 ---
 
@@ -113,8 +113,8 @@ Alertmanager Webhook / Telegram Operator Message
 New environment variables added to `.env.example` and `config.py`:
 
 ```bash
-# Agent Harness & Execution Limits
-LYOKO_HARNESS_ENGINE="hermes"                 # "hermes" | "react"
+# Agent Orchestrator & Execution Limits
+LYOKO_ORCHESTRATOR="hermes"                   # "hermes" | "langgraph"
 LYOKO_MAX_TURNS_DIAGNOSE=4                    # Max LLM turns during incident diagnosis
 LYOKO_MAX_TURNS_REMEDIATE=3                   # Max LLM turns during incident remediation
 LYOKO_MAX_TURNS_CHAT=5                        # Max LLM turns during conversational chat

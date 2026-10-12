@@ -73,7 +73,7 @@ def build_llm_adapter(
     storage = ScratchpadFileStorage()
     buffer_service = SmartOutputBufferService(storage=storage)
 
-    if settings.harness_engine.lower() == "hermes":
+    if settings.lyoko_orchestrator.lower() == "hermes":
         budget_config = BudgetConfig(
             max_turns=settings.max_turns_chat
             if "mini" in (model_name or settings.openai_model)
