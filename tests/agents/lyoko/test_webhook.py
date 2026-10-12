@@ -1,6 +1,6 @@
 """Unit tests for LYOKO FastAPI Alertmanager webhook receiver."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
 from fastapi import FastAPI
@@ -126,6 +126,7 @@ def test_alertmanager_webhook_with_tracer(mock_workflow):
     response = client.post("/webhook/alertmanager", json=payload)
     assert response.status_code == 200
     mock_tracer.get_trace_config.assert_called_once_with(
+        trace_id=ANY,
         session_id="incident-api-123",
         user_id="alert:OOMKilled",
         trace_name="lyoko-OOMKilled-api-123",

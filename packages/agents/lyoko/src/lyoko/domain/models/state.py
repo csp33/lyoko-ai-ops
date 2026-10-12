@@ -15,6 +15,8 @@ class LyokoState(TypedDict, total=False):
     """Short id of this run. It prefixes approval ids, which end up in Telegram callback data."""
     session_id: str
     """Observability session the run belongs to (a chat session, or the incident)."""
+    trace_id: str | None
+    """Langfuse trace ID for this run, used for linking and cost metrics."""
     chat_id: str
     message_thread_id: str | None
     """Telegram forum topic / thread of the originating message, for threaded replies."""

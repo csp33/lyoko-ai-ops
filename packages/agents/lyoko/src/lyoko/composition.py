@@ -22,6 +22,7 @@ from lyoko.application.triage.argocd_sync_failed import ArgoCDSyncFailedHandler
 from lyoko.application.triage.base import TriageHandler
 from lyoko.application.triage.cloudflare_tunnel import CloudflareTunnelHandler
 from lyoko.application.triage.pod_crashloop import PodCrashLoopHandler
+from lyoko.application.use_cases.enrich_trace_cost import EnrichTraceCostUseCase
 from lyoko.config import settings
 from lyoko.domain.exceptions.mcp import MCPGatewayError
 from lyoko.domain.interfaces.llm import LLMClientInterface
@@ -109,6 +110,13 @@ def build_domain_specialists(
             name="observability_specialist",
             domain="grafana",
             system_prompt=SpecialistPromptProvider.get_prompt("grafana"),
+            llm=llm,
+            mcp_client=mcp_client,
+        ),
+        "langfuse": DomainSpecialistAgent(
+            name="langfuse_specialist",
+            domain="langfuse",
+            system_prompt=SpecialistPromptProvider.get_prompt("langfuse"),
             llm=llm,
             mcp_client=mcp_client,
         ),
@@ -202,11 +210,23 @@ def build_tracer() -> LangfuseTracer:
 def wire_chat_agent(app: FastAPI, chat_manager: ChatManager) -> None:
     """Send incoming chat messages to the graph stored in ``app.state.workflow_engine``."""
     history_tracker = ChatHistoryTracker()
+    tracer = getattr(app.state, "tracer", None)
+    mcp_client = getattr(app.state, "mcp_client", None)
+    enrich_trace_cost = (
+        EnrichTraceCostUseCase(
+            mcp_client=mcp_client,
+            tracer=tracer,
+            enabled=settings.telegram_show_trace_cost,
+        )
+        if mcp_client is not None
+        else None
+    )
     chat_agent = InteractiveChatAgent(
         lambda: app.state.workflow_engine,
-        tracer=getattr(app.state, "tracer", None),
+        tracer=tracer,
         session_tracker=chat_manager.session_tracker,
         history_tracker=history_tracker,
+        enrich_trace_cost=enrich_trace_cost,
     )
     chat_manager.register_message_handler(chat_agent.handle_message)
 

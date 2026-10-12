@@ -109,6 +109,17 @@ class GatewaySettings(BaseSettings):
         description="Blocked repositories glob patterns (e.g. ['*/secrets-*'])",
     )
 
+    # Upstream: Langfuse MCP (https://cloud.langfuse.com/api/public/mcp)
+    langfuse_enabled: bool = Field(default=False, description="Enable Langfuse MCP upstream")
+    langfuse_url: str = Field(
+        default="https://cloud.langfuse.com/api/public/mcp",
+        description="Langfuse MCP endpoint URL",
+    )
+    langfuse_public_key: str = Field(default="", description="Langfuse Public Key for MCP")
+    langfuse_secret_key: SecretStr | None = Field(
+        default=None, description="Langfuse Secret Key for MCP"
+    )
+
     # Telegram Bot settings
     telegram_enabled: bool = Field(
         default=False, description="Enable Telegram notifications and alerts"

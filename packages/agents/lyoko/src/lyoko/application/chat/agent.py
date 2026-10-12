@@ -9,6 +9,7 @@ from lyoko.application.chat.sessions import (
     DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS,
     ChatSessionTracker,
 )
+from lyoko.application.use_cases.enrich_trace_cost import EnrichTraceCostUseCase
 from lyoko.application.use_cases.process_chat_message import (
     ProcessChatMessageUseCase,
 )
@@ -33,6 +34,7 @@ class InteractiveChatAgent:
         session_idle_timeout_seconds: float = DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS,
         session_tracker: ChatSessionTracker | None = None,
         history_tracker: ChatHistoryTracker | None = None,
+        enrich_trace_cost: EnrichTraceCostUseCase | None = None,
     ) -> None:
         self._use_case = ProcessChatMessageUseCase(
             graph_provider=graph_provider,
@@ -40,6 +42,7 @@ class InteractiveChatAgent:
             session_idle_timeout_seconds=session_idle_timeout_seconds,
             session_tracker=session_tracker,
             history_tracker=history_tracker,
+            enrich_trace_cost=enrich_trace_cost,
         )
 
     @property

@@ -10,6 +10,7 @@ from lyoko.application.chat.sessions import (
     DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS,
     ChatSessionTracker,
 )
+from lyoko.application.use_cases.enrich_trace_cost import EnrichTraceCostUseCase
 from lyoko.domain.interfaces.tracer import TracerInterface
 from lyoko.domain.models.chat import IncomingMessage
 from lyoko.domain.models.state import EVENT_MESSAGE
@@ -36,13 +37,17 @@ class ProcessChatMessageUseCase:
         session_idle_timeout_seconds: float = DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS,
         session_tracker: ChatSessionTracker | None = None,
         history_tracker: ChatHistoryTracker | None = None,
+        enrich_trace_cost: EnrichTraceCostUseCase | None = None,
     ) -> None:
         self._graph_provider = graph_provider
         self.tracer = tracer
         self.session_tracker = session_tracker or ChatSessionTracker(session_idle_timeout_seconds)
         self.history_tracker = history_tracker or ChatHistoryTracker()
+        self.enrich_trace_cost = enrich_trace_cost
 
-    def _trace_config(self, message: IncomingMessage, session_id: str) -> dict[str, Any]:
+    def _trace_config(
+        self, message: IncomingMessage, session_id: str, trace_id: str | None = None
+    ) -> dict[str, Any]:
         tags = ["telegram", "interactive-chat", f"chat:{message.chat_id}"]
         metadata = {
             "chat_id": message.chat_id,
@@ -51,6 +56,7 @@ class ProcessChatMessageUseCase:
         }
         if self.tracer is not None:
             return self.tracer.get_trace_config(
+                trace_id=trace_id,
                 session_id=session_id,
                 user_id=str(message.user.user_id),
                 trace_name=TRACE_NAME,
@@ -79,11 +85,13 @@ class ProcessChatMessageUseCase:
             message.chat_id, message.message_thread_id
         )
         event_id = f"chat-{uuid.uuid4().hex[:8]}"
+        trace_id = uuid.uuid4().hex
 
         state = {
             "event_type": EVENT_MESSAGE,
             "event_id": event_id,
             "session_id": session_id,
+            "trace_id": trace_id,
             "chat_id": message.chat_id,
             "message_thread_id": message.message_thread_id,
             "text": message.text,
@@ -91,20 +99,24 @@ class ProcessChatMessageUseCase:
             "labels": {},
             "annotations": {},
         }
-        config = self._trace_config(message, session_id)
+        config = self._trace_config(message, session_id, trace_id=trace_id)
         config.setdefault("configurable", {})["thread_id"] = event_id
         if on_status is not None:
             config["configurable"]["on_status"] = on_status
 
         try:
             result = await self._graph_provider().ainvoke(state, config=config)
+            raw_reply = str(result.get("reply") or "")
             self.history_tracker.record_turn(
-                message.chat_id, message.text, result.get("reply", ""), message.message_thread_id
+                message.chat_id, message.text, raw_reply, message.message_thread_id
             )
+            reply = raw_reply
+            if self.enrich_trace_cost is not None and reply:
+                reply = await self.enrich_trace_cost.execute(reply, trace_id)
         except Exception as exc:
             logger.error("Failed to process chat message: %s", exc, exc_info=True)
             self.history_tracker.record_turn(
                 message.chat_id, message.text, f"Error: {exc}", message.message_thread_id
             )
             return f"⚠️ Error processing your question: {exc}"
-        return str(result.get("reply") or "")
+        return reply

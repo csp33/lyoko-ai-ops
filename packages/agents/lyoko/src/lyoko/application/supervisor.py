@@ -30,6 +30,9 @@ _DOMAIN_DESCRIPTIONS = {
     "grafana": (
         "Observability: Grafana dashboards, Prometheus metrics, alert history, and datasources."
     ),
+    "langfuse": (
+        "LLM Observability: Langfuse traces, token metrics, model cost accounting, and execution latency."
+    ),
 }
 
 

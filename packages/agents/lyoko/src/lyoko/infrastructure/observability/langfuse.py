@@ -61,18 +61,39 @@ class LangfuseTracer(TracerInterface):
             logger.warning(f"Failed to initialize Langfuse client: {exc}")
             self._enabled = False
 
-    def get_callback_handler(self) -> Any | None:
+    def get_callback_handler(self, trace_id: str | None = None) -> Any | None:
         """Return a Langfuse CallbackHandler if enabled, else None."""
         if not self._enabled:
             return None
 
         try:
             from langfuse.langchain import CallbackHandler
+            from langfuse.types import TraceContext
 
-            return CallbackHandler(public_key=self._public_key)
+            trace_context = TraceContext(trace_id=trace_id) if trace_id else None
+            return CallbackHandler(public_key=self._public_key, trace_context=trace_context)
         except Exception as exc:
             logger.warning(f"Failed to create Langfuse callback handler: {exc}")
             return None
+
+    def get_trace_url(self, trace_id: str) -> str | None:
+        """Return the URL to view the trace in the Langfuse UI."""
+        if not self._enabled or not self._client or not trace_id:
+            return None
+        try:
+            return self._client.get_trace_url(trace_id=trace_id)
+        except Exception as exc:
+            logger.debug("Failed to get trace URL for %s: %s", trace_id, exc)
+            return None
+
+    def flush(self) -> None:
+        """Flush any pending trace observations to Langfuse."""
+        if not self._enabled or not self._client:
+            return
+        try:
+            self._client.flush()
+        except Exception as exc:
+            logger.debug("Failed to flush Langfuse client: %s", exc)
 
     async def traced(self, name: str, run: Callable[[], Awaitable[Any]]) -> Any:
         """Run a direct infrastructure call as a named child of the current graph node.
@@ -98,6 +119,7 @@ class LangfuseTracer(TracerInterface):
     def get_trace_config(
         self,
         *,
+        trace_id: str | None = None,
         session_id: str | None = None,
         user_id: str | None = None,
         trace_name: str | None = None,
@@ -106,7 +128,7 @@ class LangfuseTracer(TracerInterface):
     ) -> dict[str, Any]:
         """Build a LangChain / LangGraph RunnableConfig dict with Langfuse tracing, session, and metadata."""
         config: dict[str, Any] = {}
-        handler = self.get_callback_handler()
+        handler = self.get_callback_handler(trace_id=trace_id)
         if handler:
             config["callbacks"] = [handler]
 
