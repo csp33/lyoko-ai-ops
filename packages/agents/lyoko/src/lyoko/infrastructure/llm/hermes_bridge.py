@@ -76,6 +76,7 @@ class HermesSubprocessBridge:
         max_iterations: int = 5,
         tools_by_name: dict[str, Any] | None = None,
         session_id: str | None = None,
+        trace_id: str | None = None,
         on_tool_call: Callable[[str, dict[str, Any]], Awaitable[str]],
         on_status: Callable[[str], Awaitable[None]] | None = None,
         on_llm_usage: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
@@ -100,6 +101,7 @@ class HermesSubprocessBridge:
             "max_iterations": max_iterations,
             "tools": tool_defs,
             "session_id": session_id,
+            "trace_id": trace_id,
         }
 
         self.hermes_home.mkdir(parents=True, exist_ok=True)
@@ -109,6 +111,9 @@ class HermesSubprocessBridge:
         }
         if session_id:
             env["HERMES_SESSION_ID"] = str(session_id)
+        if trace_id:
+            env["HERMES_TRACE_ID"] = str(trace_id)
+            env["LANGFUSE_TRACE_ID"] = str(trace_id)
         if settings.langfuse_enabled and settings.langfuse_public_key:
             env["HERMES_LANGFUSE_PUBLIC_KEY"] = settings.langfuse_public_key
             env["LANGFUSE_PUBLIC_KEY"] = settings.langfuse_public_key

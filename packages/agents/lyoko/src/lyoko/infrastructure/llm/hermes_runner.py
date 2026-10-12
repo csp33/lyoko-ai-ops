@@ -98,6 +98,7 @@ class HermesHarnessRunner(HarnessRunnerInterface):
         guard: BudgetGuardService,
         active_config: BudgetConfig,
         session_id: str | None,
+        trace_id: str | None,
         on_status: Any,
     ) -> str:
         """Run the bounded loop in-process (used for mocked tests or fallback)."""
@@ -192,8 +193,11 @@ class HermesHarnessRunner(HarnessRunnerInterface):
         if on_status is not None:
             await on_status("✍️ Formulating final response")
         final_response = await summary_client.ainvoke(messages)
-        if session_id and usage.total_cost_usd > 0:
-            RunCostTracker.record_cost(session_id, usage.total_cost_usd)
+        if usage.total_cost_usd > 0:
+            if session_id:
+                RunCostTracker.record_cost(session_id, usage.total_cost_usd)
+            if trace_id:
+                RunCostTracker.record_cost(trace_id, usage.total_cost_usd)
         return extract_message_text(final_response.content)
 
     async def run(
@@ -206,6 +210,7 @@ class HermesHarnessRunner(HarnessRunnerInterface):
         tools_by_name: dict[str, Any],
         max_iterations: int,
         session_id: str | None = None,
+        trace_id: str | None = None,
         on_status: Any = None,
     ) -> str:
         """Run the Hermes agent harness enforcing budget caps, turn ceilings, and tool gate safety."""
@@ -227,6 +232,7 @@ class HermesHarnessRunner(HarnessRunnerInterface):
                 guard=guard,
                 active_config=active_config,
                 session_id=session_id,
+                trace_id=trace_id,
                 on_status=on_status,
             )
 
@@ -279,10 +285,14 @@ class HermesHarnessRunner(HarnessRunnerInterface):
             max_iterations=effective_max_turns,
             tools_by_name=tools_by_name,
             session_id=session_id,
+            trace_id=trace_id,
             on_tool_call=on_bridge_tool_call,
             on_status=on_status,
             on_llm_usage=on_bridge_llm_usage,
         )
-        if session_id and usage.total_cost_usd > 0:
-            RunCostTracker.record_cost(session_id, usage.total_cost_usd)
+        if usage.total_cost_usd > 0:
+            if session_id:
+                RunCostTracker.record_cost(session_id, usage.total_cost_usd)
+            if trace_id:
+                RunCostTracker.record_cost(trace_id, usage.total_cost_usd)
         return res

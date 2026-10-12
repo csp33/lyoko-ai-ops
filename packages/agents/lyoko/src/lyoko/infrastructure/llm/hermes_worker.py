@@ -5,6 +5,7 @@ Communicates with the host LYOKO process via newline-delimited JSON over stdin/s
 
 import json
 import logging
+import os
 import sys
 import traceback
 
@@ -33,6 +34,7 @@ def main() -> None:
     max_iterations = int(config.get("max_iterations", 5))
     tool_defs = config.get("tools", [])
     session_id = config.get("session_id")
+    trace_id = config.get("trace_id") or os.environ.get("HERMES_TRACE_ID")
 
     # Register tools into hermes tool registry
     try:
@@ -106,9 +108,26 @@ def main() -> None:
         try:
             import plugins.observability.langfuse as lp
 
+            if trace_id:
+                target_trace_id = str(trace_id)
+                orig_start_root = lp._start_root_trace
+
+                def custom_start_root_trace(task_key, **kwargs):
+                    client = kwargs.get("client")
+                    if client is not None:
+                        client.create_trace_id = lambda *a, **k: target_trace_id
+                    state = orig_start_root(task_key, **kwargs)
+                    state.trace_id = target_trace_id
+                    return state
+
+                lp._start_root_trace = custom_start_root_trace
+
             ctx = PluginContext(PluginManifest(name="observability/langfuse"), pm)
             lp.register(ctx)
-            logger.debug("Registered Hermes built-in Langfuse observability plugin")
+            logger.debug(
+                "Registered Hermes built-in Langfuse observability plugin (nested under trace_id=%s)",
+                trace_id,
+            )
         except Exception as lp_err:
             logger.debug("Hermes Langfuse plugin not initialized: %s", lp_err)
 

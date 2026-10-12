@@ -217,6 +217,7 @@ class SupervisedAgentRunner:
             "tags": [f"phase:{phase}"],
             "max_steps": settings.max_agent_steps,
             "parent_config": config,
+            "metadata": {"trace_id": state.get("trace_id")},
         }
         if on_status is not None:
             kwargs["on_status"] = on_status
@@ -261,6 +262,7 @@ class SupervisedAgentRunner:
             parent_config=config,
             max_steps=settings.max_agent_steps,
             on_status=on_status,
+            metadata={"trace_id": state.get("trace_id")},
         )
 
 

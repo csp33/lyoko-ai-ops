@@ -87,6 +87,28 @@ class OpenAILLMAdapter(LLMClientInterface):
             model_with_tools = self.client.bind_tools(tools)
             max_iterations = max_steps or 10
 
+            resolved_trace_id = None
+            if metadata and isinstance(metadata, dict):
+                resolved_trace_id = metadata.get("trace_id")
+            if not resolved_trace_id and parent_config and isinstance(parent_config, dict):
+                resolved_trace_id = parent_config.get("metadata", {}).get(
+                    "trace_id"
+                ) or parent_config.get("configurable", {}).get("trace_id")
+                if not resolved_trace_id:
+                    raw_cbs = parent_config.get("callbacks")
+                    cbs = getattr(raw_cbs, "handlers", raw_cbs) if raw_cbs is not None else []
+                    if isinstance(cbs, (list, tuple)):
+                        for cb in cbs:
+                            if hasattr(cb, "trace_context") and getattr(
+                                cb.trace_context, "trace_id", None
+                            ):
+                                resolved_trace_id = cb.trace_context.trace_id
+                                break
+            if not resolved_trace_id and config and isinstance(config, dict):
+                resolved_trace_id = config.get("metadata", {}).get("trace_id") or config.get(
+                    "metadata", {}
+                ).get("langfuse_trace_id")
+
             async def _react_loop(prompt_text: str) -> str:
                 return await self._harness_runner.run(
                     prompt_text,
@@ -96,6 +118,7 @@ class OpenAILLMAdapter(LLMClientInterface):
                     tools_by_name=tools_by_name,
                     max_iterations=max_iterations,
                     session_id=session_id,
+                    trace_id=resolved_trace_id,
                     on_status=on_status,
                 )
 

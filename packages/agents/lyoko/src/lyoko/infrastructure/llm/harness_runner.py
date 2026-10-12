@@ -95,6 +95,7 @@ class ReActHarnessRunner(HarnessRunnerInterface):
         tools_by_name: dict[str, Any],
         max_iterations: int,
         session_id: str | None = None,
+        trace_id: str | None = None,
         on_status: Any = None,
     ) -> str:
         """Run the bounded ReAct loop until the model completes or a limit trips."""

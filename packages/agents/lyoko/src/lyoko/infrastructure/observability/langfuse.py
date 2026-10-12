@@ -139,6 +139,9 @@ class LangfuseTracer(TracerInterface):
 
         meta: dict[str, Any] = dict(metadata or {})
         meta["environment"] = self._environment
+        if trace_id:
+            meta["trace_id"] = str(trace_id)
+            meta["langfuse_trace_id"] = str(trace_id)
         if session_id:
             meta["langfuse_session_id"] = str(session_id)
         if user_id:

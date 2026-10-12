@@ -40,6 +40,8 @@ line = sys.stdin.readline()
 cfg = json.loads(line)
 assert cfg.get("session_id") == "test-session-123"
 assert os.environ.get("HERMES_SESSION_ID") == "test-session-123"
+assert cfg.get("trace_id") == "test-trace-abc"
+assert os.environ.get("HERMES_TRACE_ID") == "test-trace-abc"
 
 # 2. Emit status
 sys.stdout.write(json.dumps({"type": "status", "text": "Starting analysis"}) + "\\n")
@@ -79,6 +81,7 @@ sys.stdout.flush()
         model="gpt-4o-mini",
         api_key="sk-test",
         session_id="test-session-123",
+        trace_id="test-trace-abc",
         on_tool_call=on_tool_call,
         on_status=on_status,
     )
