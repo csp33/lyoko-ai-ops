@@ -3,7 +3,10 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from lyoko.application.specialists.agent import DomainSpecialistAgent
+from lyoko.application.specialists.agent import (
+    DomainSpecialistAgent,
+    SpecialistToolCatalogFormatter,
+)
 from lyoko.application.specialists.prompts import SpecialistPromptProvider
 from lyoko.domain.interfaces.llm import LLMClientInterface
 from lyoko.domain.interfaces.mcp import MCPClientInterface
@@ -76,3 +79,85 @@ async def test_domain_specialist_run_executes_with_scoped_domain():
     assert "unifi_list_clients(network, limit?)" in call_kwargs["system_prompt"]
     assert "specialist:unifi" in call_kwargs["tags"]
     assert call_kwargs["tools"] == ["mock_tool_1", "mock_tool_2"]
+
+
+def test_specialist_tool_catalog_formatter_signatures():
+    # 1. No parameters
+    assert SpecialistToolCatalogFormatter.format_signature("tool_empty", {}) == "tool_empty()"
+
+    # 2. Required and optional basic
+    params_basic = {
+        "properties": {
+            "req": {"type": "string"},
+            "opt": {"type": "string"},
+        },
+        "required": ["req"],
+    }
+    assert (
+        SpecialistToolCatalogFormatter.format_signature("tool_basic", params_basic)
+        == "tool_basic(req, opt?)"
+    )
+
+    # 3. Defaults (str, int, bool)
+    params_defaults = {
+        "properties": {
+            "name": {"type": "string", "default": "logbook"},
+            "count": {"type": "integer", "default": 10},
+            "enabled": {"type": "boolean", "default": True},
+            "disabled": {"type": "boolean", "default": False},
+            "no_default": {"type": "string"},
+        },
+        "required": [],
+    }
+    expected_defaults = (
+        "tool_defaults(name?='logbook', count?=10, enabled?=true, disabled?=false, no_default?)"
+    )
+    assert (
+        SpecialistToolCatalogFormatter.format_signature("tool_defaults", params_defaults)
+        == expected_defaults
+    )
+
+    # 4. Enums
+    params_enum = {
+        "properties": {
+            "mode": {"type": "string", "enum": ["fast", "slow"]},
+        },
+        "required": ["mode"],
+    }
+    assert (
+        SpecialistToolCatalogFormatter.format_signature("tool_enum", params_enum)
+        == "tool_enum(mode['fast'|'slow'])"
+    )
+
+    # 5. Default and Enum combined
+    params_combo = {
+        "properties": {
+            "source": {
+                "type": "string",
+                "default": "logbook",
+                "enum": ["logbook", "system", "error_log"],
+            },
+        },
+        "required": [],
+    }
+    expected_combo = "ha_get_logs(source?='logbook'['logbook'|'system'|'error_log'])"
+    assert (
+        SpecialistToolCatalogFormatter.format_signature("ha_get_logs", params_combo)
+        == expected_combo
+    )
+
+    # 6. Large enum (> 8 items) is truncated compactly
+    params_large_enum = {
+        "properties": {
+            "item": {
+                "type": "string",
+                "enum": [f"opt_{i}" for i in range(12)],
+            },
+        },
+        "required": ["item"],
+    }
+    expected_large = "tool_large(item['opt_0'|'opt_1'|'opt_2'|'opt_3'|'opt_4'|'opt_5'|...])"
+    assert (
+        SpecialistToolCatalogFormatter.format_signature("tool_large", params_large_enum)
+        == expected_large
+    )
