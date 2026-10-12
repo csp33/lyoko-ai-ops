@@ -156,3 +156,52 @@ sys.stdout.flush()
     )
 
     assert "Operation aborted: Denied: the operator did not approve 'k8s_delete_pod'" in result
+
+
+@pytest.mark.asyncio
+async def test_bridge_ipc_protocol_llm_usage(tmp_path: Path):
+    """Test that llm_usage IPC messages trigger the on_llm_usage callback."""
+    worker_script = tmp_path / "usage_worker.py"
+    worker_script.write_text(
+        """
+import sys, json
+
+sys.stdin.readline()
+sys.stdout.write(json.dumps({
+    "type": "llm_usage",
+    "model": "gpt-4o-mini",
+    "input_tokens": 120,
+    "output_tokens": 45,
+    "total_tokens": 165
+}) + "\\n")
+sys.stdout.flush()
+
+sys.stdout.write(json.dumps({"type": "result", "output": "Done with usage"}) + "\\n")
+sys.stdout.flush()
+"""
+    )
+
+    received_usage = []
+
+    async def on_usage(msg: dict) -> None:
+        received_usage.append(msg)
+
+    bridge = HermesSubprocessBridge(
+        python_bin=Path.cwd() / ".venv" / "bin" / "python",
+        worker_script=worker_script,
+        hermes_home=tmp_path / ".hermes_test",
+    )
+
+    res = await bridge.execute(
+        prompt="Test usage",
+        model="gpt-4o-mini",
+        api_key="sk-test",
+        on_tool_call=AsyncMock(),
+        on_llm_usage=on_usage,
+    )
+
+    assert res == "Done with usage"
+    assert len(received_usage) == 1
+    assert received_usage[0]["input_tokens"] == 120
+    assert received_usage[0]["output_tokens"] == 45
+    assert (tmp_path / ".hermes_test").exists()

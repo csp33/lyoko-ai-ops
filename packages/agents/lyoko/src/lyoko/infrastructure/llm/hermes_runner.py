@@ -59,10 +59,7 @@ class HermesHarnessRunner(HarnessRunnerInterface):
         )
 
     async def _execute_single_tool(
-        self,
-        tool_call: dict[str, Any],
-        tools_by_name: dict[str, Any],
-        session_id: str | None = None,
+        self, tool_call: dict[str, Any], tools_by_name: dict[str, Any], session_id: str | None = None
     ) -> str:
         tool_name = tool_call["name"]
         tool_args = tool_call.get("args") or {}
@@ -71,17 +68,12 @@ class HermesHarnessRunner(HarnessRunnerInterface):
             raw_output = f"Error: Tool '{tool_name}' not found."
         else:
             try:
-                if hasattr(tool, "ainvoke"):
-                    raw_output = await tool.ainvoke(tool_args)
-                else:
-                    raw_output = tool.invoke(tool_args)
+                raw_output = await tool.ainvoke(tool_args) if hasattr(tool, "ainvoke") else tool.invoke(tool_args)
             except Exception as exc:
                 raw_output = f"Error executing tool '{tool_name}': {exc}"
 
         return await self._buffer.process_output(
-            tool_name=tool_name,
-            output=raw_output,
-            session_id=session_id,
+            tool_name=tool_name, output=raw_output, session_id=session_id
         )
 
     async def _run_in_process(
@@ -227,26 +219,27 @@ class HermesHarnessRunner(HarnessRunnerInterface):
 
         usage = BudgetUsage()
 
+        async def on_bridge_llm_usage(msg: dict[str, Any]) -> None:
+            in_tok = int(msg.get("input_tokens") or 0)
+            out_tok = int(msg.get("output_tokens") or 0)
+            model_used = str(msg.get("model") or getattr(summary_client, "model_name", settings.openai_model))
+            cost = estimate_cost_usd(model_used, in_tok, out_tok)
+            usage.add_usage(input_tokens=in_tok, output_tokens=out_tok, cost_usd=cost)
+
         async def on_bridge_tool_call(tool_name: str, tool_args: dict[str, Any]) -> str:
             turn_eval = guard.evaluate_turn(usage)
             if not turn_eval.can_proceed:
                 return guard.format_termination_instruction(
-                    turn_eval.reason or BudgetTripReason.MAX_TURNS_EXCEEDED,
-                    turn_eval.detail,
+                    turn_eval.reason or BudgetTripReason.MAX_TURNS_EXCEEDED, turn_eval.detail
                 )
             tool_eval = guard.evaluate_tool_call(tool_name, tool_args)
             if not tool_eval.can_proceed:
-                return guard.format_termination_instruction(
-                    BudgetTripReason.CYCLE_DETECTED,
-                    tool_eval.detail,
-                )
+                return guard.format_termination_instruction(BudgetTripReason.CYCLE_DETECTED, tool_eval.detail)
             if on_status is not None:
                 await on_status(self._tool_status({"name": tool_name, "args": tool_args}, usage))
 
             output = await self._execute_single_tool(
-                {"name": tool_name, "args": tool_args},
-                tools_by_name,
-                session_id=session_id,
+                {"name": tool_name, "args": tool_args}, tools_by_name, session_id=session_id
             )
             usage.turns_used += 1
             return output
@@ -271,4 +264,5 @@ class HermesHarnessRunner(HarnessRunnerInterface):
             tools_by_name=tools_by_name,
             on_tool_call=on_bridge_tool_call,
             on_status=on_status,
+            on_llm_usage=on_bridge_llm_usage,
         )

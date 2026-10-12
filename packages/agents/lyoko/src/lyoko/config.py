@@ -139,6 +139,11 @@ class AgentSettings(BaseSettings):
         validation_alias=AliasChoices("hermes_venv_path", "hermes_path"),
         description="Path to the virtual environment containing hermes-agent",
     )
+    hermes_home: str = Field(
+        default=".hermes",
+        validation_alias=AliasChoices("hermes_home", "HERMES_HOME"),
+        description="Path to persistent HERMES_HOME directory for sessions, skills, and memory",
+    )
     max_turns_diagnose: int = Field(
         default=4,
         ge=1,

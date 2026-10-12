@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import os
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
@@ -17,7 +18,6 @@ def _resolve_hermes_python(configured_path: str) -> Path:
     """Resolve the python executable inside the hermes virtual environment."""
     p = Path(configured_path)
     if not p.is_absolute():
-        # Check relative to cwd or repo root
         cwd_candidate = Path.cwd() / p
         if cwd_candidate.exists():
             p = cwd_candidate
@@ -33,6 +33,7 @@ class HermesSubprocessBridge:
         self,
         python_bin: str | Path | None = None,
         worker_script: str | Path | None = None,
+        hermes_home: str | Path | None = None,
     ) -> None:
         raw_python = str(python_bin or settings.hermes_venv_path)
         self.python_bin = _resolve_hermes_python(raw_python)
@@ -40,6 +41,8 @@ class HermesSubprocessBridge:
             self.worker_script = Path(worker_script)
         else:
             self.worker_script = Path(__file__).parent / "hermes_worker.py"
+        raw_home = hermes_home or getattr(settings, "hermes_home", ".hermes")
+        self.hermes_home = Path(raw_home).resolve()
 
     def is_available(self) -> bool:
         """Check if the hermes virtualenv python and worker script exist."""
@@ -74,6 +77,7 @@ class HermesSubprocessBridge:
         tools_by_name: dict[str, Any] | None = None,
         on_tool_call: Callable[[str, dict[str, Any]], Awaitable[str]],
         on_status: Callable[[str], Awaitable[None]] | None = None,
+        on_llm_usage: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
     ) -> str:
         """Spawn the worker process, handle streaming tool dispatches, and return final output."""
         if not self.is_available():
@@ -95,12 +99,19 @@ class HermesSubprocessBridge:
             "tools": tool_defs,
         }
 
+        self.hermes_home.mkdir(parents=True, exist_ok=True)
+        env = {
+            **os.environ,
+            "HERMES_HOME": str(self.hermes_home),
+        }
+
         proc = await asyncio.create_subprocess_exec(
             str(self.python_bin),
             str(self.worker_script),
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=env,
         )
 
         assert proc.stdin is not None
@@ -108,7 +119,6 @@ class HermesSubprocessBridge:
         assert proc.stderr is not None
 
         try:
-            # Send initial config line
             proc.stdin.write((json.dumps(config_payload) + "\n").encode("utf-8"))
             await proc.stdin.drain()
 
@@ -131,6 +141,10 @@ class HermesSubprocessBridge:
                     text = msg.get("text", "")
                     if on_status is not None and text:
                         await on_status(text)
+
+                elif msg_type == "llm_usage":
+                    if on_llm_usage is not None:
+                        await on_llm_usage(msg)
 
                 elif msg_type == "call_tool":
                     tool_name = msg.get("tool_name", "")

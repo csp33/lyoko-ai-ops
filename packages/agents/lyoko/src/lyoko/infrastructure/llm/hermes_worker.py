@@ -86,6 +86,27 @@ def main() -> None:
         sys.stdout.flush()
 
     try:
+        from hermes_cli.plugins import get_plugin_manager
+
+        def on_post_api_request(**kwargs):
+            usage = kwargs.get("usage") or {}
+            usage_msg = {
+                "type": "llm_usage",
+                "model": kwargs.get("model") or model,
+                "input_tokens": usage.get("prompt_tokens") or usage.get("input_tokens") or 0,
+                "output_tokens": usage.get("completion_tokens") or usage.get("output_tokens") or 0,
+                "total_tokens": usage.get("total_tokens") or 0,
+                "duration": kwargs.get("api_duration") or 0.0,
+            }
+            sys.stdout.write(json.dumps(usage_msg) + "\n")
+            sys.stdout.flush()
+
+        pm = get_plugin_manager()
+        pm._hooks.setdefault("post_api_request", []).append(on_post_api_request)
+    except Exception as hook_err:
+        logger.debug("Could not register post_api_request hook: %s", hook_err)
+
+    try:
         import run_agent
 
         agent = run_agent.AIAgent(

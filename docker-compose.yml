@@ -83,6 +83,8 @@ services:
       - ./packages/agents/lyoko/src:/app/packages/agents/lyoko/src:ro
       - ./packages/agents/lyoko/migrations:/app/packages/agents/lyoko/migrations:ro
       - ./packages/agents/lyoko/alembic.ini:/app/packages/agents/lyoko/alembic.ini:ro
+      - hermes_data:/app/.hermes
 
 volumes:
   postgres_data:
+  hermes_data:
