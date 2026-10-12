@@ -16,8 +16,8 @@ def test_streamable_http_upstream_client_init():
         prefix="langfuse_",
     )
 
-    assert client.url == "https://cloud.langfuse.com/api/public/mcp"
-    assert client.auth == ("pk-lf-123", "sk-lf-456")
+    assert client.url == "https://example.invalid/mcp"
+    assert client.auth == ("dummy-public-key", "dummy-secret-key")
     assert client.upstream_type == UpstreamType.LANGFUSE
     assert client.prefix == "langfuse_"
 

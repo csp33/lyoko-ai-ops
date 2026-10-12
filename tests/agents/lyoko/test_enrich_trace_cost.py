@@ -69,7 +69,7 @@ async def test_enrich_trace_cost_fallback_to_url_on_mcp_error():
 
 @pytest.mark.asyncio
 async def test_notify_incident_report_enriches_summary():
-    from lyoko.application.use_cases.notify_report import NotifyIncidentReportUseCase
+    from lyoko.application.incidents.use_cases.notify import NotifyIncidentReportUseCase
 
     mock_chat_manager = AsyncMock()
     mock_enrich = AsyncMock(spec=EnrichTraceCostUseCase)
@@ -98,7 +98,7 @@ async def test_notify_incident_report_enriches_summary():
 
 @pytest.mark.asyncio
 async def test_process_chat_message_enriches_reply():
-    from lyoko.application.use_cases.process_chat_message import ProcessChatMessageUseCase
+    from lyoko.application.chat.use_cases.process_message import ProcessChatMessageUseCase
     from lyoko.domain.models.chat import ChatUser, IncomingMessage
 
     mock_graph = MagicMock()

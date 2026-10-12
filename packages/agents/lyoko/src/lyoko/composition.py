@@ -20,8 +20,9 @@ from lyoko.application.incidents.triage.argocd_sync_failed import ArgoCDSyncFail
 from lyoko.application.incidents.triage.base import TriageHandler
 from lyoko.application.incidents.triage.cloudflare_tunnel import CloudflareTunnelHandler
 from lyoko.application.incidents.triage.pod_crashloop import PodCrashLoopHandler
-from lyoko.application.safety.hitl.manager import ApprovalManager
 from lyoko.application.incidents.use_cases.enrich_trace_cost import EnrichTraceCostUseCase
+from lyoko.application.safety.hitl.manager import ApprovalManager
+from lyoko.application.skills.matcher import SkillMatcherService
 from lyoko.config import settings
 from lyoko.domain.exceptions.mcp import MCPGatewayError
 from lyoko.domain.interfaces.llm import LLMClientInterface

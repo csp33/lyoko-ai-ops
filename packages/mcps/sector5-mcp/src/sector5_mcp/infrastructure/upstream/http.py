@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
+
 from sector5_mcp.domain.interfaces.upstream import UpstreamMCPInterface
 from sector5_mcp.domain.models.upstream import ToolDefinition, ToolResult, UpstreamType
 from sector5_mcp.infrastructure.upstream.client import _tool_annotations
