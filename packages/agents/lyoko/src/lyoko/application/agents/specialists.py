@@ -51,6 +51,9 @@ class SpecialistToolCatalogFormatter:
         for arg, prop_schema in properties.items():
             arg_str = arg if arg in required_set else f"{arg}?"
             if isinstance(prop_schema, dict):
+                arg_type = prop_schema.get("type")
+                if isinstance(arg_type, str) and arg_type:
+                    arg_str += f": {arg_type}"
                 default_val = prop_schema.get("default")
                 if default_val is not None:
                     arg_str += cls._format_default(default_val)
