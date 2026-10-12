@@ -79,6 +79,7 @@ class HermesSubprocessBridge:
         on_tool_call: Callable[[str, dict[str, Any]], Awaitable[str]],
         on_status: Callable[[str], Awaitable[None]] | None = None,
         on_llm_usage: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+        timeout_seconds: float = 180.0,
     ) -> str:
         """Spawn the worker process, handle streaming tool dispatches, and return final output."""
         if not self.is_available():
@@ -142,7 +143,18 @@ class HermesSubprocessBridge:
             await proc.stdin.drain()
 
             while True:
-                line_bytes = await proc.stdout.readline()
+                try:
+                    line_bytes = await asyncio.wait_for(
+                        proc.stdout.readline(), timeout=timeout_seconds
+                    )
+                except TimeoutError as err:
+                    logger.error(
+                        "Hermes worker timed out waiting for IPC response after %.1fs",
+                        timeout_seconds,
+                    )
+                    raise TimeoutError(
+                        f"Hermes worker timed out waiting for IPC response after {timeout_seconds}s"
+                    ) from err
                 if not line_bytes:
                     break
                 line_str = line_bytes.decode("utf-8", errors="replace").strip()

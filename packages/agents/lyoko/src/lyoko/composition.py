@@ -75,9 +75,11 @@ def build_llm_adapter(
 
     if settings.lyoko_orchestrator.lower() == "hermes":
         budget_config = BudgetConfig(
-            max_turns=settings.max_turns_chat
-            if "mini" in (model_name or settings.openai_model)
-            else settings.max_turns_diagnose,
+            max_turns=max(
+                settings.max_turns_chat,
+                settings.max_turns_diagnose,
+                settings.max_turns_remediate,
+            ),
             max_budget_usd=settings.max_budget_usd_per_event,
             cycle_detection_window=settings.cycle_detection_window,
         )

@@ -258,7 +258,6 @@ class HermesHarnessRunner(HarnessRunnerInterface):
             output = await self._execute_single_tool(
                 {"name": tool_name, "args": tool_args}, tools_by_name, session_id=session_id
             )
-            usage.turns_used += 1
             return output
 
         model_name = getattr(summary_client, "model_name", settings.openai_model)

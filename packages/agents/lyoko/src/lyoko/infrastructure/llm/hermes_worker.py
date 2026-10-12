@@ -79,12 +79,8 @@ def main() -> None:
         )
 
     def on_tool_start(tool_name: str, tool_args: dict) -> None:
-        msg = {
-            "type": "status",
-            "text": f"🛰️ Calling {tool_name}",
-        }
-        sys.stdout.write(json.dumps(msg) + "\n")
-        sys.stdout.flush()
+        # Tool status updates with step progress and cost are handled by LYOKO host
+        pass
 
     try:
         from hermes_cli.plugins import PluginContext, PluginManifest, get_plugin_manager

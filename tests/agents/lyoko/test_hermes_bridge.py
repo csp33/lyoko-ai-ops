@@ -208,3 +208,28 @@ sys.stdout.flush()
     assert received_usage[0]["input_tokens"] == 120
     assert received_usage[0]["output_tokens"] == 45
     assert (tmp_path / ".hermes_test").exists()
+
+
+@pytest.mark.asyncio
+async def test_bridge_times_out_on_unresponsive_worker(tmp_path: Path):
+    worker_script = tmp_path / "hanging_worker.py"
+    worker_script.write_text(
+        """
+import sys, time
+sys.stdin.readline()
+time.sleep(10)
+"""
+    )
+    bridge = HermesSubprocessBridge(
+        python_bin=Path.cwd() / ".venv" / "bin" / "python",
+        worker_script=worker_script,
+        hermes_home=tmp_path / ".hermes_test",
+    )
+    with pytest.raises(TimeoutError, match="Hermes worker timed out"):
+        await bridge.execute(
+            prompt="Test timeout",
+            model="gpt-4o-mini",
+            api_key="sk-test",
+            on_tool_call=AsyncMock(),
+            timeout_seconds=0.5,
+        )
