@@ -145,17 +145,17 @@ class AgentSettings(BaseSettings):
         description="Path to persistent HERMES_HOME directory for sessions, skills, and memory",
     )
     max_turns_diagnose: int = Field(
-        default=4,
+        default=8,
         ge=1,
         description="Maximum LLM turns for incident diagnosis",
     )
     max_turns_remediate: int = Field(
-        default=3,
+        default=5,
         ge=1,
         description="Maximum LLM turns for incident remediation",
     )
     max_turns_chat: int = Field(
-        default=5,
+        default=10,
         ge=1,
         description="Maximum LLM turns for chat turns",
     )

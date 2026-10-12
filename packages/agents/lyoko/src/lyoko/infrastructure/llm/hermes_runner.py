@@ -59,7 +59,10 @@ class HermesHarnessRunner(HarnessRunnerInterface):
         )
 
     async def _execute_single_tool(
-        self, tool_call: dict[str, Any], tools_by_name: dict[str, Any], session_id: str | None = None
+        self,
+        tool_call: dict[str, Any],
+        tools_by_name: dict[str, Any],
+        session_id: str | None = None,
     ) -> str:
         tool_name = tool_call["name"]
         tool_args = tool_call.get("args") or {}
@@ -68,7 +71,11 @@ class HermesHarnessRunner(HarnessRunnerInterface):
             raw_output = f"Error: Tool '{tool_name}' not found."
         else:
             try:
-                raw_output = await tool.ainvoke(tool_args) if hasattr(tool, "ainvoke") else tool.invoke(tool_args)
+                raw_output = (
+                    await tool.ainvoke(tool_args)
+                    if hasattr(tool, "ainvoke")
+                    else tool.invoke(tool_args)
+                )
             except Exception as exc:
                 raw_output = f"Error executing tool '{tool_name}': {exc}"
 
@@ -222,7 +229,9 @@ class HermesHarnessRunner(HarnessRunnerInterface):
         async def on_bridge_llm_usage(msg: dict[str, Any]) -> None:
             in_tok = int(msg.get("input_tokens") or 0)
             out_tok = int(msg.get("output_tokens") or 0)
-            model_used = str(msg.get("model") or getattr(summary_client, "model_name", settings.openai_model))
+            model_used = str(
+                msg.get("model") or getattr(summary_client, "model_name", settings.openai_model)
+            )
             cost = estimate_cost_usd(model_used, in_tok, out_tok)
             usage.add_usage(input_tokens=in_tok, output_tokens=out_tok, cost_usd=cost)
 
@@ -234,7 +243,9 @@ class HermesHarnessRunner(HarnessRunnerInterface):
                 )
             tool_eval = guard.evaluate_tool_call(tool_name, tool_args)
             if not tool_eval.can_proceed:
-                return guard.format_termination_instruction(BudgetTripReason.CYCLE_DETECTED, tool_eval.detail)
+                return guard.format_termination_instruction(
+                    BudgetTripReason.CYCLE_DETECTED, tool_eval.detail
+                )
             if on_status is not None:
                 await on_status(self._tool_status({"name": tool_name, "args": tool_args}, usage))
 

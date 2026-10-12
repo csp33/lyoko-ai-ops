@@ -64,9 +64,9 @@ def test_tool_budget_and_memory_threshold_defaults():
 def test_lyoko_orchestrator_setting():
     default_settings = AgentSettings(postgres_password="")
     assert default_settings.lyoko_orchestrator == "hermes"
-    assert default_settings.max_turns_diagnose == 4
-    assert default_settings.max_turns_remediate == 3
-    assert default_settings.max_turns_chat == 5
+    assert default_settings.max_turns_diagnose == 8
+    assert default_settings.max_turns_remediate == 5
+    assert default_settings.max_turns_chat == 10
     assert default_settings.max_budget_usd_per_event == 0.10
 
     # Overridden via orchestrator alias

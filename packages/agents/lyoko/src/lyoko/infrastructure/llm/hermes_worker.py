@@ -122,7 +122,9 @@ def main() -> None:
         import run_agent
 
         is_reasoning = any(r in model.lower() for r in ("o1", "o3", "o4", "gpt-5"))
-        reasoning_cfg = {"enabled": True, "effort": "medium"} if is_reasoning else {"enabled": False}
+        reasoning_cfg = (
+            {"enabled": True, "effort": "medium"} if is_reasoning else {"enabled": False}
+        )
 
         agent = run_agent.AIAgent(
             provider="openai",
