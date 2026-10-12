@@ -37,6 +37,7 @@ class InteractiveChatAgent:
         session_tracker: ChatSessionTracker | None = None,
         history_tracker: ChatHistoryTracker | None = None,
         enrich_trace_cost: EnrichTraceCostUseCase | None = None,
+        chat_manager: Any = None,
     ) -> None:
         self._use_case = ProcessChatMessageUseCase(
             graph_provider=graph_provider,
@@ -45,6 +46,7 @@ class InteractiveChatAgent:
             session_tracker=session_tracker,
             history_tracker=history_tracker,
             enrich_trace_cost=enrich_trace_cost,
+            chat_manager=chat_manager,
         )
 
     @property
@@ -58,6 +60,10 @@ class InteractiveChatAgent:
     @property
     def history_tracker(self) -> ChatHistoryTracker:
         return self._use_case.history_tracker
+
+    @property
+    def enrich_trace_cost(self) -> EnrichTraceCostUseCase | None:
+        return self._use_case.enrich_trace_cost
 
     async def handle_message(
         self,
