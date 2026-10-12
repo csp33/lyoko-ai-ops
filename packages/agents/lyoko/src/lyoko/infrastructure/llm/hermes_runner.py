@@ -4,8 +4,10 @@ import logging
 from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from lyoko.application.chat.status_formatter import ToolStatusFormatter
 from lyoko.application.context.buffer import SmartOutputBufferService
 from lyoko.application.safety.budget_guard import BudgetGuardService
+from lyoko.application.safety.error_detector import ToolErrorDetector
 from lyoko.config import settings
 from lyoko.domain.interfaces.harness import HarnessRunnerInterface
 from lyoko.domain.models.budget import (
@@ -15,13 +17,8 @@ from lyoko.domain.models.budget import (
 )
 from lyoko.domain.models.cost import RunCostTracker
 from lyoko.infrastructure.llm.content import extract_message_text
+from lyoko.infrastructure.llm.cost_estimator import ModelCostEstimator
 from lyoko.infrastructure.llm.hermes_bridge import HermesSubprocessBridge
-from lyoko.infrastructure.llm.hermes_pricing import (
-    estimate_cost_usd,
-    extract_usage,
-    format_tool_status,
-    is_tool_error,
-)
 
 logger = logging.getLogger("lyoko.infrastructure.llm.hermes_runner")
 
@@ -41,6 +38,9 @@ class HermesHarnessRunner(HarnessRunnerInterface):
         budget_guard: BudgetGuardService | None = None,
         budget_config: BudgetConfig | None = None,
         bridge: HermesSubprocessBridge | None = None,
+        cost_estimator: ModelCostEstimator | None = None,
+        status_formatter: ToolStatusFormatter | None = None,
+        error_detector: ToolErrorDetector | None = None,
     ) -> None:
         self._buffer = buffer_service or SmartOutputBufferService()
         self._budget_config = budget_config or BudgetConfig(
@@ -50,9 +50,12 @@ class HermesHarnessRunner(HarnessRunnerInterface):
         )
         self._budget_guard = budget_guard or BudgetGuardService(self._budget_config)
         self._bridge = bridge or HermesSubprocessBridge()
+        self._cost_estimator = cost_estimator or ModelCostEstimator()
+        self._status_formatter = status_formatter or ToolStatusFormatter()
+        self._error_detector = error_detector or ToolErrorDetector()
 
     def _tool_status(self, tool_call: dict[str, Any], usage: BudgetUsage) -> str:
-        return format_tool_status(
+        return self._status_formatter.format_tool_status(
             tool_call,
             turns_used=usage.turns_used,
             max_turns=self._budget_config.max_turns,
@@ -127,11 +130,11 @@ class HermesHarnessRunner(HarnessRunnerInterface):
             if response is None:
                 response = await model_with_tools.ainvoke(messages)
 
-            in_tokens, out_tokens = extract_usage(response)
+            in_tokens, out_tokens = self._cost_estimator.extract_usage(response)
             model_name = getattr(response, "response_metadata", {}).get(
                 "model_name", settings.openai_model
             )
-            cost_usd = estimate_cost_usd(model_name, in_tokens, out_tokens)
+            cost_usd = self._cost_estimator.estimate_cost_usd(model_name, in_tokens, out_tokens)
             usage.add_usage(input_tokens=in_tokens, output_tokens=out_tokens, cost_usd=cost_usd)
 
             messages.append(response)
@@ -165,7 +168,7 @@ class HermesHarnessRunner(HarnessRunnerInterface):
                     tool_call, tools_by_name, session_id=session_id
                 )
 
-                if is_tool_error(output_str):
+                if self._error_detector.is_tool_error(output_str):
                     consecutive_tool_errors += 1
                 else:
                     consecutive_tool_errors = 0
@@ -235,7 +238,7 @@ class HermesHarnessRunner(HarnessRunnerInterface):
             model_used = str(
                 msg.get("model") or getattr(summary_client, "model_name", settings.openai_model)
             )
-            cost = estimate_cost_usd(model_used, in_tok, out_tok)
+            cost = self._cost_estimator.estimate_cost_usd(model_used, in_tok, out_tok)
             usage.add_usage(input_tokens=in_tok, output_tokens=out_tok, cost_usd=cost)
 
         async def on_bridge_tool_call(tool_name: str, tool_args: dict[str, Any]) -> str:
