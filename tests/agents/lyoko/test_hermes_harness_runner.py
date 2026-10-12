@@ -176,3 +176,37 @@ async def test_hermes_runner_emits_status_heartbeat():
     assert result == "Done."
     assert any("Analyzing request" in s for s in statuses)
     assert any("Calling <code>k8s_get</code>" in s for s in statuses)
+
+
+@pytest.mark.asyncio
+async def test_hermes_runner_delegates_to_subprocess_bridge():
+    bridge_mock = MagicMock()
+    bridge_mock.is_available.return_value = True
+    bridge_mock.execute = AsyncMock(return_value="Subprocess result from Hermes Agent")
+
+    runner = HermesHarnessRunner(bridge=bridge_mock)
+
+    real_summary_client = type(
+        "RealClient", (), {"model_name": "gpt-4o-mini", "api_key": "sk-real"}
+    )()
+    # non-mock model object
+    real_model = type("RealModel", (), {})()
+
+    tool_mock = MagicMock()
+    tool_mock.name = "k8s_get"
+
+    result = await runner.run(
+        prompt_text="Investigate issue",
+        system_prompt="You are Lyoko",
+        model_with_tools=real_model,
+        summary_client=real_summary_client,
+        tools_by_name={"k8s_get": tool_mock},
+        max_iterations=4,
+    )
+
+    assert result == "Subprocess result from Hermes Agent"
+    assert bridge_mock.execute.call_count == 1
+    call_kwargs = bridge_mock.execute.call_args.kwargs
+    assert call_kwargs["prompt"] == "Investigate issue"
+    assert call_kwargs["model"] == "gpt-4o-mini"
+    assert call_kwargs["max_iterations"] == 4

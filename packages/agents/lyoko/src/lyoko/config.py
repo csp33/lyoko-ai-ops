@@ -134,6 +134,11 @@ class AgentSettings(BaseSettings):
         validation_alias=AliasChoices("lyoko_orchestrator", "orchestrator"),
         description="Execution orchestrator for LLM tool use ('hermes' or 'langgraph')",
     )
+    hermes_venv_path: str = Field(
+        default=".venv-hermes",
+        validation_alias=AliasChoices("hermes_venv_path", "hermes_path"),
+        description="Path to the virtual environment containing hermes-agent",
+    )
     max_turns_diagnose: int = Field(
         default=4,
         ge=1,
