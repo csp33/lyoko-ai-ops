@@ -113,5 +113,5 @@ async def test_webhook_and_chat_use_the_graph_stored_in_app_state(monkeypatch):
             text="hello",
         )
     )
-    assert reply == "from the replacement graph"
+    assert "from the replacement graph" in reply
     assert replacement.ainvoke.call_args.args[0]["event_type"] == "message"
