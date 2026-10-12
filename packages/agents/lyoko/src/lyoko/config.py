@@ -131,7 +131,8 @@ class AgentSettings(BaseSettings):
     # Harness Engine & Budget Controls
     harness_engine: str = Field(
         default="hermes",
-        description="Execution harness engine for LLM tool use ('hermes' or 'react')",
+        validation_alias=AliasChoices("harness_engine", "lyoko_orchestrator", "orchestrator"),
+        description="Execution harness engine for LLM tool use ('hermes' or 'langgraph'/'react')",
     )
     max_turns_diagnose: int = Field(
         default=4,
