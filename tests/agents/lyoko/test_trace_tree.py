@@ -19,6 +19,11 @@ class _ToolCallingFakeModel(GenericFakeChatModel):
         return self
 
 
+@pytest.fixture(autouse=True)
+def configure_orchestrator(monkeypatch):
+    monkeypatch.setattr("lyoko.config.settings.lyoko_orchestrator", "langgraph")
+
+
 class _Tree(BaseCallbackHandler):
     """Collects every run of the trace with its parent, as Langfuse would receive them."""
 

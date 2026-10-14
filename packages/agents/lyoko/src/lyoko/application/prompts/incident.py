@@ -19,7 +19,12 @@ class IncidentPromptProvider:
     def get_verify_prompt() -> str:
         return f"{load_prompt('verify.md')}\n\n{build_agent_context('verify')}"
 
+    @staticmethod
+    def get_resolve_prompt() -> str:
+        return f"{load_prompt('resolve.md')}\n\n{build_agent_context('supervisor')}"
+
 
 DIAGNOSE_SYSTEM_PROMPT = IncidentPromptProvider.get_diagnose_prompt()
 REMEDIATE_SYSTEM_PROMPT = IncidentPromptProvider.get_remediate_prompt()
 VERIFY_SYSTEM_PROMPT = IncidentPromptProvider.get_verify_prompt()
+RESOLVE_SYSTEM_PROMPT = IncidentPromptProvider.get_resolve_prompt()

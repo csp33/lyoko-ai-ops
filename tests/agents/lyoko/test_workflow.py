@@ -18,6 +18,7 @@ SCALE_ARGS = {"name": "radarr", "namespace": "media", "replicas": 0}
 
 @pytest.fixture(autouse=True)
 def fast_verification(monkeypatch):
+    monkeypatch.setattr("lyoko.config.settings.lyoko_orchestrator", "langgraph")
     monkeypatch.setattr("lyoko.application.workflow.graph.settings.verification_delay_seconds", 0)
     monkeypatch.setattr("lyoko.application.workflow.graph.settings.auto_approved_tools", [])
 

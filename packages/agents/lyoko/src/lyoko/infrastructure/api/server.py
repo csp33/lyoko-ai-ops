@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from lyoko.application.incidents.recovery import OrphanRecoveryService
+from lyoko.application.incidents.use_cases.resolve import ResolveIncidentUseCase
 from lyoko.application.safety.alert_guard import AlertStormProtector
 from lyoko.application.safety.gated_run_context import get_gated_run_context
 from lyoko.application.safety.hitl.manager import ApprovalManager
@@ -131,10 +132,22 @@ async def lifespan(app: FastAPI):
 
     skill_matcher = getattr(app.state, "skill_matcher", None) or build_skill_matcher()
 
-    graph_supervisor = None if settings.lyoko_orchestrator.lower() == "hermes" else supervisor
-    graph_diagnose_supervisor = (
-        None if settings.lyoko_orchestrator.lower() == "hermes" else diagnose_supervisor
-    )
+    is_autonomous = settings.lyoko_orchestrator.lower() == "hermes"
+    graph_supervisor = None if is_autonomous else supervisor
+    graph_diagnose_supervisor = None if is_autonomous else diagnose_supervisor
+    incident_use_case = None
+    if is_autonomous:
+        incident_use_case = ResolveIncidentUseCase(
+            mcp_client=mcp_client,
+            llm=diagnose_llm or llm,
+            supervisor=None,
+            approval_manager=approval_manager,
+            chat_manager=chat_manager,
+            memory_repository=memory_repo,
+            embeddings_service=embeddings_service,
+            skill_matcher_service=skill_matcher,
+            default_chat_id=settings.telegram_default_chat_id or "",
+        )
 
     # Rebuilt now that the checkpointer exists. Everything reads the graph from app.state.
     workflow_engine = create_lyoko_graph(
@@ -152,6 +165,7 @@ async def lifespan(app: FastAPI):
         tracer=getattr(app.state, "tracer", None),
         triage_handlers=triage_handlers,
         skill_matcher_service=skill_matcher,
+        incident_use_case=incident_use_case,
     )
 
     app.state.triage_handlers = triage_handlers
@@ -204,10 +218,19 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="LYOKO Auto-Remediation Agent", lifespan=lifespan)
 
-    graph_supervisor = None if settings.lyoko_orchestrator.lower() == "hermes" else supervisor
-    graph_diagnose_supervisor = (
-        None if settings.lyoko_orchestrator.lower() == "hermes" else diagnose_supervisor
-    )
+    is_autonomous = settings.lyoko_orchestrator.lower() == "hermes"
+    graph_supervisor = None if is_autonomous else supervisor
+    graph_diagnose_supervisor = None if is_autonomous else diagnose_supervisor
+    incident_use_case = None
+    if is_autonomous:
+        incident_use_case = ResolveIncidentUseCase(
+            mcp_client=mcp_client,
+            llm=diagnose_llm or llm,
+            supervisor=None,
+            approval_manager=approval_manager,
+            chat_manager=chat_manager,
+            default_chat_id=settings.telegram_default_chat_id or "",
+        )
 
     # Initial graph (without persistent checkpointer until lifespan runs)
     workflow_engine = create_lyoko_graph(
@@ -220,6 +243,7 @@ def create_app() -> FastAPI:
         diagnose_llm=diagnose_llm,
         diagnose_supervisor=graph_diagnose_supervisor,
         tracer=tracer,
+        incident_use_case=incident_use_case,
     )
     app.state.llm = llm
     app.state.diagnose_llm = diagnose_llm

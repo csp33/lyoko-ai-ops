@@ -69,6 +69,8 @@ services:
       API_SERVER_HOST: "0.0.0.0"
       API_SERVER_KEY: ${HERMES_API_KEY:-lyoko-hermes-secret-key}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_DIAGNOSE_MODEL: ${OPENAI_DIAGNOSE_MODEL:-gpt-4.1}
       LYOKO_GATED_MCP_URL: http://lyoko:9000/gated-mcp/mcp
       LYOKO_GATED_MCP_TOKEN: ${LYOKO_GATED_MCP_TOKEN:-lyoko-gated-local-token}
       HERMES_DASHBOARD: "1"

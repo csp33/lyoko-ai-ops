@@ -16,6 +16,11 @@ from sector5_mcp.application.use_cases.execute_tool import ExecuteToolUseCase
 from sector5_mcp.domain.models.upstream import ToolDefinition, ToolResult
 
 
+@pytest.fixture(autouse=True)
+def configure_orchestrator(monkeypatch):
+    monkeypatch.setattr("lyoko.config.settings.lyoko_orchestrator", "langgraph")
+
+
 @pytest.mark.asyncio
 async def test_route_event_use_case():
     use_case_no_llm = RouteEventUseCase(llm=None)
