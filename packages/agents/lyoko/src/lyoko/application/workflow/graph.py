@@ -77,14 +77,23 @@ def create_lyoko_graph(
     handlers = triage_handlers if triage_handlers is not None else []
     triage_use_case = TriageIncidentUseCase(handlers=handlers)
 
+    # Semantic memory (pgvector) is only used in ReAct / LangGraph orchestrator;
+    # in Hermes mode, memory persistence is fully delegated to Hermes native memory.
+    graph_memory_repo = (
+        None if settings.lyoko_orchestrator.lower() == "hermes" else memory_repository
+    )
+    graph_embeddings_service = (
+        None if settings.lyoko_orchestrator.lower() == "hermes" else embeddings_service
+    )
+
     coordinator_use_case = CoordinateWorkflowUseCase(
         mcp_client=mcp_client,
         llm=llm,
         supervisor=supervisor,
         approval_manager=approval_manager,
         chat_manager=chat_manager,
-        memory_repository=memory_repository,
-        embeddings_service=embeddings_service,
+        memory_repository=graph_memory_repo,
+        embeddings_service=graph_embeddings_service,
         diagnose_llm=diagnose_llm,
         diagnose_supervisor=diagnose_supervisor,
         skill_matcher_service=skill_matcher_service,

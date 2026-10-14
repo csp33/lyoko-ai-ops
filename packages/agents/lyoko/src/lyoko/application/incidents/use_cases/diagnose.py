@@ -45,10 +45,15 @@ class DiagnoseIncidentUseCase:
         self.chat_manager = chat_manager
         self.skill_matcher_service = skill_matcher_service
         self.runner = runner or run_supervised
-        self.retrieve_memory_use_case = retrieve_memory_use_case or RetrieveMemoryLessonsUseCase(
-            memory_repository=memory_repository,
-            embeddings_service=embeddings_service,
-        )
+        if retrieve_memory_use_case is not None:
+            self.retrieve_memory_use_case = retrieve_memory_use_case
+        elif memory_repository is not None:
+            self.retrieve_memory_use_case = RetrieveMemoryLessonsUseCase(
+                memory_repository=memory_repository,
+                embeddings_service=embeddings_service,
+            )
+        else:
+            self.retrieve_memory_use_case = None
         if default_chat_id is not None:
             self.default_chat_id = default_chat_id
         else:
@@ -64,12 +69,15 @@ class DiagnoseIncidentUseCase:
                 "requires_escalation": True,
             }
 
-        (
-            matched_memories,
-            lessons_context,
-        ) = await self.retrieve_memory_use_case.execute_for_incident(
-            state=state,
-        )
+        if self.retrieve_memory_use_case is not None:
+            (
+                matched_memories,
+                lessons_context,
+            ) = await self.retrieve_memory_use_case.execute_for_incident(
+                state=state,
+            )
+        else:
+            matched_memories, lessons_context = [], ""
 
         logger.info("Diagnosing %s...", IncidentContextFormatter.format_origin(state))
         progress_msg_id: str | None = state.get("progress_message_id")

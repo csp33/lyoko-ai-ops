@@ -41,7 +41,10 @@ async def test_workflow_diagnose_injects_operator_memory():
     mock_embeddings = AsyncMock()
     mock_embeddings.embed_text.return_value = [0.05] * 1536
 
-    with patch("lyoko.application.workflow.graph.settings.verification_delay_seconds", 0):
+    with (
+        patch("lyoko.config.settings.lyoko_orchestrator", "langgraph"),
+        patch("lyoko.application.workflow.graph.settings.verification_delay_seconds", 0),
+    ):
         workflow = create_lyoko_graph(
             mcp_client=mock_mcp,
             llm=llm,
@@ -101,23 +104,95 @@ async def test_workflow_chat_uses_higher_threshold_and_frames_memory_as_backgrou
     mock_embeddings = AsyncMock()
     mock_embeddings.embed_text.return_value = [0.05] * 1536
 
-    workflow = create_lyoko_graph(
-        mcp_client=FakeMCPClient(),
-        llm=llm,
-        memory_repository=mock_memory_repo,
-        embeddings_service=mock_embeddings,
-    )
+    with patch("lyoko.config.settings.lyoko_orchestrator", "langgraph"):
+        workflow = create_lyoko_graph(
+            mcp_client=FakeMCPClient(),
+            llm=llm,
+            memory_repository=mock_memory_repo,
+            embeddings_service=mock_embeddings,
+        )
 
-    result = await workflow.ainvoke(
-        {
-            "event_id": "chat-1",
-            "event_type": "message",
-            "text": "look it up using grafana",
-            "chat_id": "42",
-        }
-    )
+        result = await workflow.ainvoke(
+            {
+                "event_id": "chat-1",
+                "event_type": "message",
+                "text": "look it up using grafana",
+                "chat_id": "42",
+            }
+        )
 
     assert mock_memory_repo.search_memories.call_args.kwargs["min_similarity"] == 0.35
     assert "BACKGROUND CONTEXT (reference only, not a task)" in llm.prompts["chat"]
     assert "look it up using grafana" in llm.prompts["chat"]
     assert result["reply"] == "I will look up the node temperature in Grafana."
+
+
+@pytest.mark.asyncio
+async def test_workflow_diagnose_bypasses_memory_when_orchestrator_is_hermes():
+    """When orchestrator is hermes, memory is delegated to hermes; do not inject pgvector."""
+    llm = ScriptedLLM(
+        diagnose=DIAGNOSIS_ACTIONABLE,
+        remediate="RESULT: Took action following operator rule.",
+        verify="RESOLVED\nPod is stable.",
+    )
+    mock_memory_repo = AsyncMock()
+    mock_embeddings = AsyncMock()
+
+    with (
+        patch("lyoko.config.settings.lyoko_orchestrator", "hermes"),
+        patch("lyoko.application.workflow.graph.settings.verification_delay_seconds", 0),
+    ):
+        workflow = create_lyoko_graph(
+            mcp_client=FakeMCPClient(),
+            llm=llm,
+            memory_repository=mock_memory_repo,
+            embeddings_service=mock_embeddings,
+        )
+
+        initial_state = {
+            "event_id": "incident-influxdb-0",
+            "alert_name": "PodCrashLooping",
+            "labels": {
+                "alertname": "PodCrashLooping",
+                "namespace": "monitoring",
+                "pod": "influxdb-0",
+            },
+            "annotations": {"summary": "influxdb is crashlooping"},
+        }
+
+        result = await workflow.ainvoke(initial_state)
+
+        assert not mock_memory_repo.search_memories.called
+        assert not mock_embeddings.embed_text.called
+        assert "PRIOR OPERATOR FEEDBACK & LESSONS LEARNED" not in llm.prompts.get("diagnose", "")
+        assert result.get("matched_memories") == []
+
+
+@pytest.mark.asyncio
+async def test_workflow_chat_bypasses_memory_when_orchestrator_is_hermes():
+    """When orchestrator is hermes, chat memory injection from pgvector is bypassed."""
+    llm = ScriptedLLM(route="CHAT", chat="I will check.")
+    mock_memory_repo = AsyncMock()
+    mock_embeddings = AsyncMock()
+
+    with patch("lyoko.config.settings.lyoko_orchestrator", "hermes"):
+        workflow = create_lyoko_graph(
+            mcp_client=FakeMCPClient(),
+            llm=llm,
+            memory_repository=mock_memory_repo,
+            embeddings_service=mock_embeddings,
+        )
+
+        result = await workflow.ainvoke(
+            {
+                "event_id": "chat-hermes-1",
+                "event_type": "message",
+                "text": "status check",
+                "chat_id": "42",
+            }
+        )
+
+        assert not mock_memory_repo.search_memories.called
+        assert not mock_embeddings.embed_text.called
+        assert "BACKGROUND CONTEXT" not in llm.prompts.get("chat", "")
+        assert result["reply"] == "I will check."

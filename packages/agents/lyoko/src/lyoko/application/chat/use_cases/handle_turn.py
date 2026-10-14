@@ -47,10 +47,15 @@ class HandleChatTurnUseCase:
         self.supervisor = supervisor
         self.approval_manager = approval_manager
         self.chat_manager = chat_manager
-        self.retrieve_memory_use_case = retrieve_memory_use_case or RetrieveMemoryLessonsUseCase(
-            memory_repository=memory_repository,
-            embeddings_service=embeddings_service,
-        )
+        if retrieve_memory_use_case is not None:
+            self.retrieve_memory_use_case = retrieve_memory_use_case
+        elif memory_repository is not None:
+            self.retrieve_memory_use_case = RetrieveMemoryLessonsUseCase(
+                memory_repository=memory_repository,
+                embeddings_service=embeddings_service,
+            )
+        else:
+            self.retrieve_memory_use_case = None
 
     async def execute(self, state: dict[str, Any], config: Any = None) -> dict[str, Any]:
         """Answer the operator via supervised tool execution."""
@@ -69,7 +74,11 @@ class HandleChatTurnUseCase:
         if self.llm is None:
             return {"reply": _NO_LLM_REPLY.format(text=text)}
 
-        lessons_context = await self.retrieve_memory_use_case.execute_for_chat(text)
+        lessons_context = (
+            await self.retrieve_memory_use_case.execute_for_chat(text)
+            if self.retrieve_memory_use_case is not None
+            else ""
+        )
         prompt_with_memory = f"{text}{lessons_context}{history_context}"
 
         gate = make_gate(
