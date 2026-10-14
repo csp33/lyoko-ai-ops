@@ -45,6 +45,7 @@ class CoordinatorNext(StrEnum):
     GRAFANA = "grafana"
     LANGFUSE = "langfuse"
     REMEDIATE = "remediate"
+    NOTIFY = "notify"
     CHAT_END = "chat_end"
 
 

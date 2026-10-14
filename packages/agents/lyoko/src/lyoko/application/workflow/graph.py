@@ -67,6 +67,7 @@ def create_lyoko_graph(
     triage_handlers: Sequence[TriageHandler] | None = None,
     skill_matcher_service: Any = None,
     enrich_trace_cost: EnrichTraceCostUseCase | None = None,
+    incident_use_case: Any | None = None,
 ) -> Any:
     """Build the LangGraph StateGraph that routes, answers, investigates and remediates.
 
@@ -97,6 +98,7 @@ def create_lyoko_graph(
         diagnose_llm=diagnose_llm,
         diagnose_supervisor=diagnose_supervisor,
         skill_matcher_service=skill_matcher_service,
+        incident_use_case=incident_use_case,
     )
     remediate_use_case = RemediateIncidentUseCase(
         mcp_client=mcp_client,
@@ -167,6 +169,7 @@ def create_lyoko_graph(
             CoordinatorNext.GRAFANA: SpecialistDomain.GRAFANA,
             CoordinatorNext.LANGFUSE: SpecialistDomain.LANGFUSE,
             CoordinatorNext.REMEDIATE: "remediate",
+            CoordinatorNext.NOTIFY: "notify",
             CoordinatorNext.CHAT_END: END,
         },
     )

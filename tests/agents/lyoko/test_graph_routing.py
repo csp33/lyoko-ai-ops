@@ -16,6 +16,11 @@ from tests.agents.lyoko.routing_helpers import (
 )
 
 
+@pytest.fixture(autouse=True)
+def configure_orchestrator(monkeypatch):
+    monkeypatch.setattr("lyoko.config.settings.lyoko_orchestrator", "langgraph")
+
+
 @pytest.mark.asyncio
 async def test_alert_goes_straight_to_the_incident_branch_without_asking_the_router():
     llm = ScriptedLLM(
