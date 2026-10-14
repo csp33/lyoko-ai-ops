@@ -149,6 +149,23 @@ class AgentSettings(BaseSettings):
         validation_alias=AliasChoices("hermes_memory_enabled", "HERMES_MEMORY_ENABLED"),
         description="Enable native Hermes memory persistence (MEMORY.md/USER.md) across runs",
     )
+    hermes_server_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "hermes_server_url", "HERMES_SERVER_URL", "hermes_url", "HERMES_URL"
+        ),
+        description="HTTP endpoint for always-on Hermes daemon service (e.g. 'http://hermes:8642')",
+    )
+    hermes_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("hermes_api_key", "HERMES_API_KEY"),
+        description="API key for authenticating with always-on Hermes gateway API server",
+    )
+    gated_mcp_token: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("gated_mcp_token", "LYOKO_GATED_MCP_TOKEN"),
+        description="Bearer token Hermes must present to the gated MCP proxy (unset = proxy disabled)",
+    )
     max_turns_diagnose: int = Field(
         default=8,
         ge=1,

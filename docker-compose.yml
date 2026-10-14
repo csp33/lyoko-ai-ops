@@ -54,6 +54,31 @@ services:
       - path: .env
         required: false
 
+  hermes:
+    image: nousresearch/hermes-agent:rc.15-v0.21.7
+    container_name: lyoko-ai-ops-hermes
+    restart: unless-stopped
+    command: ["gateway", "run"]
+    ports:
+      - "${HERMES_PORT:-8642}:8642"
+      - "${HERMES_DASHBOARD_PORT:-9119}:9119"
+    environment:
+      HERMES_HOME: "/opt/data"
+      API_SERVER_ENABLED: "true"
+      API_SERVER_HOST: "0.0.0.0"
+      API_SERVER_KEY: ${HERMES_API_KEY:-lyoko-hermes-secret-key}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LYOKO_GATED_MCP_URL: http://lyoko:9000/gated-mcp/mcp
+      LYOKO_GATED_MCP_TOKEN: ${LYOKO_GATED_MCP_TOKEN:-lyoko-gated-local-token}
+      HERMES_DASHBOARD: "1"
+      HERMES_DASHBOARD_HOST: "0.0.0.0"
+      HERMES_DASHBOARD_PORT: "9119"
+      HERMES_DASHBOARD_BASIC_AUTH_USERNAME: ${HERMES_DASHBOARD_USER:-admin}
+      HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: ${HERMES_DASHBOARD_PASSWORD:-lyoko-dashboard}
+    volumes:
+      - hermes_data:/opt/data
+      - ./packages/agents/lyoko/hermes_config.yaml:/opt/data/config.yaml:rw
+
   lyoko:
     build:
       context: .
@@ -69,10 +94,15 @@ services:
         condition: service_started
       migration:
         condition: service_completed_successfully
+      hermes:
+        condition: service_started
     environment:
       LYOKO_HOST: "0.0.0.0"
       LYOKO_PORT: "9000"
       MCP_SERVER_URL: "http://sector5-mcp:8000/mcp"
+      HERMES_SERVER_URL: "http://hermes:8642"
+      HERMES_API_KEY: ${HERMES_API_KEY:-lyoko-hermes-secret-key}
+      LYOKO_GATED_MCP_TOKEN: ${LYOKO_GATED_MCP_TOKEN:-lyoko-gated-local-token}
       POSTGRES_HOST: "postgres"
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lyoko}
       PYTHONPATH: "/app/packages/agents/lyoko/src"
