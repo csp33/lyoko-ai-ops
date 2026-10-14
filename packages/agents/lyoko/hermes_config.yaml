@@ -54,7 +54,6 @@ platform_toolsets:
   api_server:
     - lyoko
     - memory
-    - skills
     - delegation
   cli:
     - browser
@@ -75,17 +74,17 @@ platform_toolsets:
     - vision
     - web
 model:
-  default: ${OPENAI_DIAGNOSE_MODEL:-gpt-4.1}
+  default: "${OPENAI_DIAGNOSE_MODEL}"
   provider: openai-api
   base_url: https://api.openai.com/v1
   api_mode: codex_responses
 delegation:
-  model: ${OPENAI_MODEL:-gpt-4o-mini}
+  model: "${OPENAI_MODEL}"
 auxiliary:
   compression:
-    model: ${OPENAI_MODEL:-gpt-4o-mini}
+    model: "${OPENAI_MODEL}"
   vision:
-    model: ${OPENAI_MODEL:-gpt-4o-mini}
+    model: "${OPENAI_MODEL}"
   title_generation:
     prefer_fast_model: true
 telemetry:

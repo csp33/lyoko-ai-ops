@@ -143,8 +143,8 @@ async def lifespan(app: FastAPI):
             supervisor=None,
             approval_manager=approval_manager,
             chat_manager=chat_manager,
-            memory_repository=memory_repo,
-            embeddings_service=embeddings_service,
+            memory_repository=None,
+            embeddings_service=None,
             skill_matcher_service=skill_matcher,
             default_chat_id=settings.telegram_default_chat_id or "",
         )
