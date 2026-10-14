@@ -277,6 +277,9 @@ class HermesSubprocessBridge:
             "messages": messages,
             "stream": True,
         }
+        requested_model = config_payload.get("model")
+        if requested_model:
+            body["model"] = str(requested_model)
 
         full_content: list[str] = []
         timeout = httpx.Timeout(timeout_seconds, connect=10.0)

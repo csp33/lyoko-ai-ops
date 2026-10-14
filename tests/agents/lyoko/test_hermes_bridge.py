@@ -291,6 +291,7 @@ async def test_bridge_remote_server_execution(monkeypatch: pytest.MonkeyPatch):
             assert url == "http://fake-hermes:8642/v1/chat/completions"
             body = kwargs.get("json", {})
             assert body["messages"][-1]["content"] == "Check remote pods"
+            assert body.get("model") == "gpt-4o-mini"
             return MockStreamResponse()
 
     monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
