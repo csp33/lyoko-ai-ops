@@ -42,6 +42,13 @@ mcp_servers:
     headers:
       Authorization: "Bearer ${LYOKO_GATED_MCP_TOKEN}"
 
+tool_search:
+  enabled: "off"
+
+plugins:
+  enabled:
+    - observability/langfuse
+
 platform_toolsets:
   api_server:
     - lyoko

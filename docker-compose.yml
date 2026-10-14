@@ -31,6 +31,7 @@ services:
     environment:
       MCP_HOST: "0.0.0.0"
       MCP_PORT: "8000"
+      FASTMCP_TELEMETRY_MODE: "off"
     env_file:
       - path: .env
         required: false
@@ -75,9 +76,18 @@ services:
       HERMES_DASHBOARD_PORT: "9119"
       HERMES_DASHBOARD_BASIC_AUTH_USERNAME: ${HERMES_DASHBOARD_USER:-admin}
       HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: ${HERMES_DASHBOARD_PASSWORD:-lyoko-dashboard}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_BASE_URL: ${LANGFUSE_HOST:-https://cloud.langfuse.com}
+      HERMES_LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      HERMES_LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      HERMES_LANGFUSE_BASE_URL: ${LANGFUSE_HOST:-https://cloud.langfuse.com}
+      HERMES_LANGFUSE_CAPTURE: "full"
+      HERMES_LANGFUSE_DEBUG: "true"
     volumes:
       - hermes_data:/opt/data
       - ./packages/agents/lyoko/hermes_config.yaml:/opt/data/config.yaml:rw
+      - ./packages/agents/lyoko/init-hermes-langfuse.sh:/etc/cont-init.d/03-langfuse:ro
 
   lyoko:
     build:
@@ -106,6 +116,8 @@ services:
       POSTGRES_HOST: "postgres"
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lyoko}
       PYTHONPATH: "/app/packages/agents/lyoko/src"
+      LANGFUSE_ENABLED: "false"
+      FASTMCP_TELEMETRY_MODE: "off"
     env_file:
       - path: .env
         required: false
