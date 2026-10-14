@@ -17,6 +17,8 @@ class IncomingMessage(BaseModel):
     reply_to_message_id: str | None = None
     """Telegram message_thread_id when the message belongs to a forum topic / thread."""
     message_thread_id: str | None = None
+    """Outgoing / placeholder message ID created for streaming reply, if any."""
+    bot_message_id: str | None = None
 
 
 class SentMessage(BaseModel):

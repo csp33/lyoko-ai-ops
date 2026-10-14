@@ -118,7 +118,7 @@ class ProcessChatMessageUseCase:
                 if (
                     self.chat_manager is not None
                     and "💸 **Cost:** calculating..." in reply
-                    and message.message_id
+                    and message.bot_message_id
                     and message.chat_id
                 ):
                     import asyncio
@@ -127,10 +127,11 @@ class ProcessChatMessageUseCase:
                         self.enrich_trace_cost.update_message_cost_async(
                             chat_manager=self.chat_manager,
                             chat_id=message.chat_id,
-                            message_id=message.message_id,
+                            message_id=message.bot_message_id,
                             text_with_placeholder=reply,
                             trace_id=trace_id,
                             session_id=session_id,
+                            delay_seconds=2.5,
                         )
                     )
         except Exception as exc:

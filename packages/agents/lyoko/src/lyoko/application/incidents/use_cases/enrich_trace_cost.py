@@ -178,16 +178,24 @@ class EnrichTraceCostUseCase:
             updated_text = text_with_placeholder.replace(
                 "💸 **Cost:** calculating...", f"💸 **Cost:** {cost_str}"
             )
-            await chat_manager.edit_message(
+            sent_results = await chat_manager.edit_message(
                 chat_id=chat_id,
                 message_id=message_id,
                 text=updated_text,
             )
-            logger.info(
-                "Updated trace cost placeholder for msg %s in chat %s to %s",
-                message_id,
-                chat_id,
-                cost_str,
-            )
+            is_success = any(sent_results) if isinstance(sent_results, list) else bool(sent_results)
+            if is_success:
+                logger.info(
+                    "Updated trace cost placeholder for msg %s in chat %s to %s",
+                    message_id,
+                    chat_id,
+                    cost_str,
+                )
+            else:
+                logger.warning(
+                    "Failed to edit trace cost placeholder for msg %s in chat %s",
+                    message_id,
+                    chat_id,
+                )
         except Exception as exc:
             logger.debug("Failed to asynchronously update trace cost in chat message: %s", exc)

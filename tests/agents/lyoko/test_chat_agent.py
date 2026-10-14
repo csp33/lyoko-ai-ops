@@ -17,6 +17,7 @@ def _msg(
     message_id: str = "1",
     reply_to: str | None = None,
     thread_id: str | None = None,
+    bot_message_id: str | None = None,
 ) -> IncomingMessage:
     return IncomingMessage(
         message_id=message_id,
@@ -25,6 +26,7 @@ def _msg(
         text=text,
         reply_to_message_id=reply_to,
         message_thread_id=thread_id,
+        bot_message_id=bot_message_id,
     )
 
 
@@ -253,3 +255,35 @@ async def test_chat_with_checkpointer_and_on_status_serialization():
 
     reply = await agent.handle_message(_msg("Ping"), on_status=status_collector)
     assert reply == "Pong"
+
+
+@pytest.mark.asyncio
+async def test_chat_uses_bot_message_id_for_async_cost_update():
+    """ProcessChatMessageUseCase must pass bot_message_id to update_message_cost_async, not message.message_id."""
+    graph = MagicMock()
+    graph.ainvoke = AsyncMock(return_value={"reply": "ok"})
+    enrich = MagicMock()
+    enrich.execute = AsyncMock(return_value="ok\n\n💸 **Cost:** calculating... · 🔍 [Trace](url)")
+    enrich.update_message_cost_async = AsyncMock()
+    chat_mgr = MagicMock()
+
+    agent = InteractiveChatAgent(
+        lambda: graph,
+        enrich_trace_cost=enrich,
+        chat_manager=chat_mgr,
+    )
+
+    # 1. When bot_message_id is provided, it must be used
+    msg = _msg("hello", message_id="100", bot_message_id="200")
+    await agent.handle_message(msg)
+
+    enrich.update_message_cost_async.assert_called_once()
+    kwargs = enrich.update_message_cost_async.call_args.kwargs
+    assert kwargs["message_id"] == "200"
+    assert kwargs["chat_id"] == "42"
+
+    # 2. When bot_message_id is None, update_message_cost_async must NOT be called (never edit user message)
+    enrich.update_message_cost_async.reset_mock()
+    msg_no_bot = _msg("hello", message_id="100", bot_message_id=None)
+    await agent.handle_message(msg_no_bot)
+    enrich.update_message_cost_async.assert_not_called()
