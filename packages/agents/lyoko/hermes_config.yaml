@@ -54,7 +54,6 @@ platform_toolsets:
   api_server:
     - lyoko
     - memory
-    - skills
     - delegation
   cli:
     - browser
