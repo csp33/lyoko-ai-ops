@@ -16,6 +16,15 @@ on:
         description: 'Skip build test; only build & push images (+ Helm values bump).'
         type: boolean
         default: false
+      build_target:
+        description: 'Which image(s) to build and publish'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - sector5-mcp
+          - lyoko
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -42,7 +51,7 @@ jobs:
         run: uv run pytest
 
   publish-meta:
-    name: Resolve image tags
+    name: Resolve image tags & changes
     runs-on: ubuntu-latest
     needs: [lint-and-test]
     if: |
@@ -56,7 +65,64 @@ jobs:
       branch: ${{ steps.meta.outputs.branch }}
       mcp_tags: ${{ steps.meta.outputs.mcp_tags }}
       lyoko_tags: ${{ steps.meta.outputs.lyoko_tags }}
+      build_mcp: ${{ steps.filter-resolve.outputs.build_mcp }}
+      build_lyoko: ${{ steps.filter-resolve.outputs.build_lyoko }}
     steps:
+      - uses: actions/checkout@v4
+        if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+        with:
+          filters: |
+            mcp:
+              - 'packages/mcps/sector5-mcp/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - '.github/workflows/ci.yml'
+            lyoko:
+              - 'packages/agents/lyoko/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - '.github/workflows/ci.yml'
+
+      - name: Resolve build targets
+        id: filter-resolve
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "Release tag detected: building all images."
+            BUILD_MCP=true
+            BUILD_LYOKO=true
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TARGET="${{ github.event.inputs.build_target }}"
+            echo "workflow_dispatch target: ${TARGET:-all}"
+            case "$TARGET" in
+              sector5-mcp)
+                BUILD_MCP=true
+                BUILD_LYOKO=false
+                ;;
+              lyoko)
+                BUILD_MCP=false
+                BUILD_LYOKO=true
+                ;;
+              *)
+                BUILD_MCP=true
+                BUILD_LYOKO=true
+                ;;
+            esac
+          else
+            BUILD_MCP="${{ steps.filter.outputs.mcp }}"
+            BUILD_LYOKO="${{ steps.filter.outputs.lyoko }}"
+          fi
+
+          echo "build_mcp=${BUILD_MCP:-false}" >> "$GITHUB_OUTPUT"
+          echo "build_lyoko=${BUILD_LYOKO:-false}" >> "$GITHUB_OUTPUT"
+          echo "Build MCP: ${BUILD_MCP:-false}"
+          echo "Build Lyoko: ${BUILD_LYOKO:-false}"
+
       - name: Resolve image tags
         id: meta
         run: |
@@ -90,24 +156,15 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-  publish-images:
-    name: Build & push ${{ matrix.name }} image
+  publish-mcp-image:
+    name: Build & push sector5-mcp image
     runs-on: ubuntu-latest
     needs: publish-meta
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: sector5-mcp
-            dockerfile: packages/mcps/sector5-mcp/Dockerfile
-            tags_key: mcp_tags
-          - name: lyoko
-            dockerfile: packages/agents/lyoko/Dockerfile
-            tags_key: lyoko_tags
     if: |
       always() &&
       !cancelled() &&
-      needs.publish-meta.result == 'success'
+      needs.publish-meta.result == 'success' &&
+      needs.publish-meta.outputs.build_mcp == 'true'
     permissions:
       contents: read
       packages: write
@@ -121,27 +178,64 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GHCR_WRITE_TOKEN != '' && secrets.GHCR_WRITE_TOKEN || secrets.GITHUB_TOKEN }}
 
-      - name: Build & push ${{ matrix.name }} image
+      - name: Build & push sector5-mcp image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ${{ matrix.dockerfile }}
+          file: packages/mcps/sector5-mcp/Dockerfile
           platforms: linux/amd64
           push: true
           provenance: false
           sbom: false
-          tags: ${{ needs.publish-meta.outputs[matrix.tags_key] }}
-          cache-from: type=gha,scope=${{ matrix.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+          tags: ${{ needs.publish-meta.outputs.mcp_tags }}
+          cache-from: type=gha,scope=sector5-mcp
+          cache-to: type=gha,mode=max,scope=sector5-mcp
+
+  publish-lyoko-image:
+    name: Build & push lyoko image
+    runs-on: ubuntu-latest
+    needs: publish-meta
+    if: |
+      always() &&
+      !cancelled() &&
+      needs.publish-meta.result == 'success' &&
+      needs.publish-meta.outputs.build_lyoko == 'true'
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_WRITE_TOKEN != '' && secrets.GHCR_WRITE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Build & push lyoko image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/agents/lyoko/Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: false
+          tags: ${{ needs.publish-meta.outputs.lyoko_tags }}
+          cache-from: type=gha,scope=lyoko
+          cache-to: type=gha,mode=max,scope=lyoko
 
   update-k8s-helm-values:
     name: Bump lyoko-ai-ops image tags in k8s-at-home
     runs-on: ubuntu-latest
-    needs: [publish-meta, publish-images]
+    needs: [publish-meta, publish-mcp-image, publish-lyoko-image]
     if: |
       always() &&
       !cancelled() &&
-      needs.publish-images.result == 'success' &&
+      (needs.publish-mcp-image.result == 'success' || needs.publish-mcp-image.result == 'skipped') &&
+      (needs.publish-lyoko-image.result == 'success' || needs.publish-lyoko-image.result == 'skipped') &&
+      (needs.publish-mcp-image.result == 'success' || needs.publish-lyoko-image.result == 'success') &&
       (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     steps:
@@ -175,15 +269,27 @@ jobs:
         env:
           TAG: ${{ needs.publish-meta.outputs.tag }}
           BRANCH: ${{ needs.publish-meta.outputs.branch }}
+          BUILD_MCP: ${{ needs.publish-meta.outputs.build_mcp }}
+          BUILD_LYOKO: ${{ needs.publish-meta.outputs.build_lyoko }}
         run: |
           TARGET="charts/homelab-aiops/values.yaml"
           if [ ! -f "${TARGET}" ]; then
             echo "::warning::${TARGET} does not exist in k8s-at-home yet. Skipping bump."
             exit 0
           fi
-          echo "Bumping ${TARGET} image tags to ${TAG}"
-          yq eval -i '.mcp.image.tag = strenv(TAG)' "${TARGET}"
-          yq eval -i '.agent.image.tag = strenv(TAG)' "${TARGET}"
+          UPDATED_SERVICES=()
+          if [ "${BUILD_MCP}" = "true" ]; then
+            echo "Bumping ${TARGET} MCP image tag to ${TAG}"
+            yq eval -i '.mcp.image.tag = strenv(TAG)' "${TARGET}"
+            UPDATED_SERVICES+=("mcp")
+          fi
+          if [ "${BUILD_LYOKO}" = "true" ]; then
+            echo "Bumping ${TARGET} agent image tag to ${TAG}"
+            yq eval -i '.agent.image.tag = strenv(TAG)' "${TARGET}"
+            UPDATED_SERVICES+=("agent")
+          fi
+          SERVICES_STR=$(IFS=, ; echo "${UPDATED_SERVICES[*]}")
+          echo "UPDATED_SERVICES=${SERVICES_STR}" >> "$GITHUB_ENV"
           echo "target=${TARGET}" >> "$GITHUB_ENV"
 
       - name: Commit and push
@@ -203,5 +309,5 @@ jobs:
             echo "No change to values.yaml (tag already ${TAG})."
             exit 0
           fi
-          git commit -m "chore(lyoko-ai-ops): bump image tags to ${TAG}"
+          git commit -m "chore(lyoko-ai-ops): bump ${UPDATED_SERVICES:-images} image tag(s) to ${TAG}"
           git push origin HEAD:master
