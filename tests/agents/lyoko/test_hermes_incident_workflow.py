@@ -154,3 +154,16 @@ async def test_hermes_escalates_when_operator_denies_write_tool():
     assert final_state["requires_escalation"] is True
     assert "Remediation aborted: Not approved right now" in final_state["action_taken"]
     assert llm.calls == ["incident"]
+
+
+@pytest.mark.asyncio
+async def test_hermes_does_not_inject_semantic_memory_in_prompt():
+    async def behavior(authorize: ToolAuthorizer) -> str:
+        return "ROOT_CAUSE: Normal.\nACTION_TAKEN: None.\nVERIFICATION: Healthy.\nSTATUS: RESOLVED"
+
+    llm = ScriptedLLM(incident=behavior)
+    workflow = _build_workflow(llm)
+    await workflow.ainvoke(_state())
+
+    prompt = llm.prompts["incident"]
+    assert "PRIOR OPERATOR FEEDBACK & LESSONS LEARNED" not in prompt

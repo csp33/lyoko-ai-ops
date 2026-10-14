@@ -48,10 +48,15 @@ class ResolveIncidentUseCase:
         self.chat_manager = chat_manager
         self.skill_matcher_service = skill_matcher_service
         self.runner = runner or run_supervised
-        self.retrieve_memory_use_case = retrieve_memory_use_case or RetrieveMemoryLessonsUseCase(
-            memory_repository=memory_repository,
-            embeddings_service=embeddings_service,
-        )
+        if retrieve_memory_use_case is not None:
+            self.retrieve_memory_use_case = retrieve_memory_use_case
+        elif memory_repository is not None:
+            self.retrieve_memory_use_case = RetrieveMemoryLessonsUseCase(
+                memory_repository=memory_repository,
+                embeddings_service=embeddings_service,
+            )
+        else:
+            self.retrieve_memory_use_case = None
         self.default_chat_id = default_chat_id or ""
 
     async def execute(self, state: dict[str, Any], config: Any = None) -> dict[str, Any]:
@@ -66,10 +71,13 @@ class ResolveIncidentUseCase:
                 "coordinator_next": CoordinatorNext.NOTIFY,
             }
 
-        (
-            matched_memories,
-            lessons_context,
-        ) = await self.retrieve_memory_use_case.execute_for_incident(state=state)
+        if self.retrieve_memory_use_case is not None:
+            (
+                matched_memories,
+                lessons_context,
+            ) = await self.retrieve_memory_use_case.execute_for_incident(state=state)
+        else:
+            matched_memories, lessons_context = [], ""
 
         logger.info("Resolving %s autonomously...", IncidentContextFormatter.format_origin(state))
         progress_msg_id: str | None = state.get("progress_message_id")
