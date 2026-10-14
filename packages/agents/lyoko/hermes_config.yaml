@@ -80,6 +80,10 @@ model:
   api_mode: codex_responses
 delegation:
   model: "${OPENAI_MODEL}"
+memory:
+  model: "${OPENAI_MODEL}"
+compaction:
+  model: "${OPENAI_MODEL}"
 auxiliary:
   compression:
     model: "${OPENAI_MODEL}"

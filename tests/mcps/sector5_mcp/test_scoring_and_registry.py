@@ -21,6 +21,17 @@ def test_resolve_canonical_domain():
     assert "router" in UPSTREAM_ALIASES
 
 
+def test_resolve_tool_alias():
+    from sector5_mcp.domain.models.aliases import resolve_tool_alias
+
+    assert resolve_tool_alias("kubernetes_resources_get") == "k8s_resources_get"
+    assert resolve_tool_alias("kubernetes_pods_get") == "k8s_pods_get"
+    assert resolve_tool_alias("k8s_get_resources") == "k8s_resources_get"
+    assert resolve_tool_alias("k8s_get_pod") == "k8s_pods_get"
+    assert resolve_tool_alias("unifi_get_devices") == "unifi_list_devices"
+    assert resolve_tool_alias("unmodified_tool_name") == "unmodified_tool_name"
+
+
 @pytest.mark.asyncio
 async def test_tool_registry_discovery_and_routing():
     guardrail = GuardrailEngine(GuardrailPolicy())
