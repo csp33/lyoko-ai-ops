@@ -42,9 +42,11 @@ class BudgetUsage:
         input_tokens: int,
         output_tokens: int,
         cost_usd: float,
+        increment_turns: bool = True,
     ) -> None:
         """Accumulate token counts and estimated cost."""
-        self.turns_used += 1
+        if increment_turns:
+            self.turns_used += 1
         self.input_tokens += input_tokens
         self.output_tokens += output_tokens
         self.accumulated_cost_usd += cost_usd

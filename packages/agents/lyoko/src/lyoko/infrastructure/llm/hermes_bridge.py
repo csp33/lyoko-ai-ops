@@ -9,6 +9,7 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
+from lyoko.application.safety.gated_run_context import get_gated_run_context
 from lyoko.config import settings
 
 logger = logging.getLogger("lyoko.infrastructure.llm.hermes_bridge")
@@ -34,6 +35,7 @@ class HermesSubprocessBridge:
         python_bin: str | Path | None = None,
         worker_script: str | Path | None = None,
         hermes_home: str | Path | None = None,
+        server_url: str | None = None,
     ) -> None:
         raw_python = str(python_bin or settings.hermes_venv_path)
         self.python_bin = _resolve_hermes_python(raw_python)
@@ -43,9 +45,12 @@ class HermesSubprocessBridge:
             self.worker_script = Path(__file__).parent / "hermes_worker.py"
         raw_home = hermes_home or getattr(settings, "hermes_home", ".hermes")
         self.hermes_home = Path(raw_home).resolve()
+        self.server_url = server_url or getattr(settings, "hermes_server_url", None)
 
     def is_available(self) -> bool:
-        """Check if the hermes virtualenv python and worker script exist."""
+        """Check if either a remote always-on daemon is configured or local worker exists."""
+        if self.server_url:
+            return True
         return self.python_bin.exists() and self.worker_script.exists()
 
     def _extract_tool_definitions(self, tools_by_name: dict[str, Any]) -> list[dict[str, Any]]:
@@ -102,6 +107,7 @@ class HermesSubprocessBridge:
             "tools": tool_defs,
             "session_id": session_id,
             "trace_id": trace_id,
+            "memory_enabled": getattr(settings, "hermes_memory_enabled", True),
         }
 
         self.hermes_home.mkdir(parents=True, exist_ok=True)
@@ -129,6 +135,15 @@ class HermesSubprocessBridge:
                 env["HERMES_LANGFUSE_BASE_URL"] = settings.langfuse_host
                 env["LANGFUSE_BASE_URL"] = settings.langfuse_host
             env["HERMES_LANGFUSE_ENV"] = settings.get_langfuse_environment()
+
+        if self.server_url:
+            return await self._execute_remote(
+                config_payload=config_payload,
+                on_tool_call=on_tool_call,
+                on_status=on_status,
+                on_llm_usage=on_llm_usage,
+                timeout_seconds=timeout_seconds,
+            )
 
         proc = await asyncio.create_subprocess_exec(
             str(self.python_bin),
@@ -222,3 +237,117 @@ class HermesSubprocessBridge:
                 except Exception:
                     with contextlib.suppress(Exception):
                         proc.kill()
+
+    async def _execute_remote(
+        self,
+        *,
+        config_payload: dict[str, Any],
+        on_tool_call: Callable[[str, dict[str, Any]], Awaitable[str]],
+        on_status: Callable[[str], Awaitable[None]] | None = None,
+        on_llm_usage: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+        timeout_seconds: float = 180.0,
+    ) -> str:
+        """Connect to always-on Hermes gateway over HTTP/SSE, streaming deltas and tool progress."""
+        import httpx
+
+        base_url = str(self.server_url).rstrip("/")
+        chat_url = f"{base_url}/v1/chat/completions"
+
+        api_key = (
+            settings.hermes_api_key.get_secret_value()
+            if hasattr(settings.hermes_api_key, "get_secret_value")
+            else str(settings.hermes_api_key or "lyoko-hermes-secret-key")
+        )
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        session_id = config_payload.get("session_id")
+        if session_id:
+            headers["X-Hermes-Session-Id"] = str(session_id)
+            headers["X-Hermes-Session-Key"] = f"lyoko-{session_id}"
+
+        messages: list[dict[str, str]] = []
+        system_prompt = config_payload.get("system_prompt")
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": config_payload.get("prompt", "")})
+
+        body: dict[str, Any] = {
+            "messages": messages,
+            "stream": True,
+        }
+        requested_model = config_payload.get("model")
+        if requested_model:
+            body["model"] = str(requested_model)
+
+        full_content: list[str] = []
+        timeout = httpx.Timeout(timeout_seconds, connect=10.0)
+
+        async with (
+            get_gated_run_context().activate(on_tool_call),
+            httpx.AsyncClient(timeout=timeout) as client,
+            client.stream("POST", chat_url, json=body, headers=headers) as resp,
+        ):
+            if resp.status_code != 200:
+                err_body = await resp.aread()
+                err_text = err_body.decode("utf-8", errors="replace")
+                logger.error("Hermes gateway returned HTTP %s: %s", resp.status_code, err_text)
+                raise RuntimeError(f"Hermes gateway HTTP {resp.status_code}: {err_text}")
+
+            current_event: str | None = None
+            async for line in resp.aiter_lines():
+                line = line.strip()
+                if not line:
+                    current_event = None
+                    continue
+
+                if line.startswith("event:"):
+                    current_event = line[len("event:") :].strip()
+                    continue
+
+                if line.startswith("data:"):
+                    data_str = line[len("data:") :].strip()
+                    if data_str == "[DONE]":
+                        break
+
+                    try:
+                        data_json = json.loads(data_str)
+                    except Exception:
+                        continue
+
+                    if current_event == "hermes.tool.progress":
+                        tool_name = str(data_json.get("tool") or "")
+                        label = str(data_json.get("label") or tool_name)
+                        status = data_json.get("status")
+                        is_lyoko_tool = tool_name.startswith(
+                            ("mcp__lyoko__", "gateway_")
+                        ) or label.startswith(("mcp__lyoko__", "gateway_"))
+                        if (
+                            on_status is not None
+                            and label
+                            and status == "running"
+                            and not is_lyoko_tool
+                        ):
+                            await on_status(f"🛠️ {label}")
+                        continue
+
+                    choices = data_json.get("choices") or []
+                    if choices:
+                        delta = choices[0].get("delta") or {}
+                        content_chunk = delta.get("content")
+                        if content_chunk:
+                            full_content.append(content_chunk)
+
+                    usage = data_json.get("usage")
+                    if usage and on_llm_usage is not None:
+                        await on_llm_usage(
+                            {
+                                "model": data_json.get("model", "hermes-agent"),
+                                "input_tokens": usage.get("prompt_tokens", 0),
+                                "output_tokens": usage.get("completion_tokens", 0),
+                                "total_tokens": usage.get("total_tokens", 0),
+                            }
+                        )
+
+        return "".join(full_content).strip()

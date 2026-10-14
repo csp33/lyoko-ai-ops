@@ -242,3 +242,150 @@ time.sleep(10)
             on_tool_call=AsyncMock(),
             timeout_seconds=0.5,
         )
+
+
+@pytest.mark.asyncio
+async def test_bridge_remote_server_execution(monkeypatch: pytest.MonkeyPatch):
+    """Test executing against a remote Hermes gateway via HTTP/SSE."""
+    bridge = HermesSubprocessBridge(server_url="http://fake-hermes:8642")
+    assert bridge.is_available() is True
+
+    import httpx
+
+    sse_lines = [
+        "event: hermes.tool.progress\n",
+        'data: {"tool": "terminal", "label": "kubectl get pods", "status": "running"}\n',
+        "\n",
+        'data: {"id": "chatcmpl-1", "choices": [{"delta": {"content": "Pods: "}}]}\n',
+        "\n",
+        'data: {"id": "chatcmpl-1", "choices": [{"delta": {"content": "pod-1 running"}}], "usage": {"prompt_tokens": 50, "completion_tokens": 20, "total_tokens": 70}}\n',
+        "\n",
+        "data: [DONE]\n",
+    ]
+
+    class MockStreamResponse:
+        status_code = 200
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        async def aiter_lines(self):
+            for line in sse_lines:
+                yield line
+
+    class MockAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        def stream(self, method: str, url: str, **kwargs):
+            assert method == "POST"
+            assert url == "http://fake-hermes:8642/v1/chat/completions"
+            body = kwargs.get("json", {})
+            assert body["messages"][-1]["content"] == "Check remote pods"
+            assert body.get("model") == "gpt-4o-mini"
+            return MockStreamResponse()
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+
+    statuses = []
+    usages = []
+
+    async def mock_on_tool_call(tool_name: str, args: dict) -> str:
+        return "pod-1 running"
+
+    async def mock_on_status(text: str) -> None:
+        statuses.append(text)
+
+    async def mock_on_usage(usage: dict) -> None:
+        usages.append(usage)
+
+    result = await bridge.execute(
+        prompt="Check remote pods",
+        model="gpt-4o-mini",
+        api_key="sk-test",
+        session_id="session-remote-1",
+        on_tool_call=mock_on_tool_call,
+        on_status=mock_on_status,
+        on_llm_usage=mock_on_usage,
+    )
+
+    assert result == "Pods: pod-1 running"
+    assert statuses == ["🛠️ kubectl get pods"]
+    assert len(usages) == 1
+    assert usages[0]["total_tokens"] == 70
+
+
+@pytest.mark.asyncio
+async def test_bridge_filters_lyoko_mcp_progress_events(monkeypatch: pytest.MonkeyPatch):
+    """Test that mcp__lyoko__ and gateway_ events are not duplicated to on_status."""
+    bridge = HermesSubprocessBridge(server_url="http://fake-hermes:8642")
+    import httpx
+
+    sse_lines = [
+        "event: hermes.tool.progress\n",
+        'data: {"tool": "mcp__lyoko__gateway_call_tool", "label": "mcp__lyoko__gateway_call_tool", "status": "running"}\n',
+        "\n",
+        "event: hermes.tool.progress\n",
+        'data: {"tool": "gateway_get_domain_tools", "label": "gateway_get_domain_tools", "status": "running"}\n',
+        "\n",
+        "event: hermes.tool.progress\n",
+        'data: {"label": "Reading tool details · 2 tools", "status": "running"}\n',
+        "\n",
+        'data: {"id": "chatcmpl-2", "choices": [{"delta": {"content": "Answer"}}]}\n',
+        "\n",
+        "data: [DONE]\n",
+    ]
+
+    class MockStreamResponse:
+        status_code = 200
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        async def aiter_lines(self):
+            for line in sse_lines:
+                yield line
+
+    class MockAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        def stream(self, method: str, url: str, **kwargs):
+            return MockStreamResponse()
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+
+    statuses = []
+
+    async def mock_on_status(text: str) -> None:
+        statuses.append(text)
+
+    result = await bridge.execute(
+        prompt="Test filtering",
+        model="gpt-4o-mini",
+        api_key="sk-test",
+        on_tool_call=AsyncMock(),
+        on_status=mock_on_status,
+    )
+
+    assert result == "Answer"
+    # mcp__lyoko__ and gateway_ were filtered out; only general progress was kept
+    assert statuses == ["🛠️ Reading tool details · 2 tools"]

@@ -20,6 +20,7 @@ class LangfuseTracer(TracerInterface):
         host: str = "https://cloud.langfuse.com",
         environment: str = "local",
         release: str | None = None,
+        enabled: bool = True,
     ) -> None:
         self._public_key = public_key
         self._secret_key = secret_key
@@ -27,7 +28,7 @@ class LangfuseTracer(TracerInterface):
         self._environment = environment
         self._release = release
         self._client: Any | None = None
-        self._enabled = bool(public_key and secret_key)
+        self._enabled = bool(enabled and public_key and secret_key)
 
         if self._enabled:
             self._init_client()

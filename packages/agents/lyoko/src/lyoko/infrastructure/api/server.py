@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from lyoko.application.incidents.recovery import OrphanRecoveryService
 from lyoko.application.safety.alert_guard import AlertStormProtector
+from lyoko.application.safety.gated_run_context import get_gated_run_context
 from lyoko.application.safety.hitl.manager import ApprovalManager
 from lyoko.application.safety.task_tracker import TaskTracker
 from lyoko.application.workflow.graph import create_lyoko_graph
@@ -29,6 +30,7 @@ from lyoko.infrastructure.db.lock import PostgresAdvisoryLock
 from lyoko.infrastructure.db.memory_repository import PostgresMemoryRepository
 from lyoko.infrastructure.embeddings import EmbeddingsService
 from lyoko.infrastructure.mcp.client import FastMCPClient
+from lyoko.infrastructure.mcp.gated_proxy import GATED_MCP_MOUNT_PATH, build_gated_mcp_app
 from psycopg_pool import AsyncConnectionPool
 
 logger = logging.getLogger("lyoko.web.server")
@@ -172,7 +174,12 @@ async def lifespan(app: FastAPI):
         task_tracker.track(asyncio.create_task(recovery_svc.recover_orphaned_incidents()))
 
     await chat_manager.start_all()
-    yield
+    gated_inner = getattr(app.state, "gated_mcp_inner", None)
+    if gated_inner is not None:
+        async with gated_inner.router.lifespan_context(gated_inner):
+            yield
+    else:
+        yield
     logger.info("Shutting down LYOKO Agent...")
     await chat_manager.stop_all()
     await task_tracker.drain(timeout=settings.shutdown_drain_timeout_seconds)
@@ -237,6 +244,14 @@ def create_app() -> FastAPI:
         create_webhook_router(tracer=tracer, alert_guard=alert_guard, task_tracker=task_tracker)
     )
     app.include_router(create_feedback_router())
+
+    app.state.gated_mcp_inner = None
+    if settings.gated_mcp_token:
+        guarded, inner = build_gated_mcp_app(get_gated_run_context(), settings.gated_mcp_token)
+        app.mount(GATED_MCP_MOUNT_PATH, guarded)
+        app.state.gated_mcp_inner = inner
+    else:
+        logger.warning("LYOKO_GATED_MCP_TOKEN is not set: gated MCP proxy disabled (fail closed).")
 
     @app.get("/healthz")
     @app.get("/health")

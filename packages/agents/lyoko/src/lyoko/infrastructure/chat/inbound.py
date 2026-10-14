@@ -241,6 +241,9 @@ class TelegramInboundMixin:
                 text=text,
                 reply_to_message_id=reply_to_message_id,
                 message_thread_id=(str(target_thread_id) if target_thread_id is not None else None),
+                bot_message_id=(
+                    str(streamer.message_id) if streamer.message_id is not None else None
+                ),
             )
 
             answered = False

@@ -214,3 +214,54 @@ async def test_hermes_runner_delegates_to_subprocess_bridge():
     assert call_kwargs["max_iterations"] == 4
     assert call_kwargs["session_id"] == "telegram-12345"
     assert call_kwargs["trace_id"] == "trace-999"
+
+
+@pytest.mark.asyncio
+async def test_hermes_runner_bridge_tool_call_increments_steps_and_halts():
+    """Verify that bridge tool calls increment turns_used (Step 1/2, Step 2/2) and halt on ceiling."""
+    bridge_mock = MagicMock()
+    bridge_mock.is_available.return_value = True
+
+    captured_statuses = []
+
+    async def mock_execute(**kwargs):
+        on_tool_call = kwargs["on_tool_call"]
+        # Call tool twice under max_turns=2
+        res1 = await on_tool_call("k8s_get", {"pod": "p1"})
+        res2 = await on_tool_call("k8s_get", {"pod": "p2"})
+        # 3rd call should trigger turn ceiling
+        res3 = await on_tool_call("k8s_get", {"pod": "p3"})
+        return f"{res1}; {res2}; {res3}"
+
+    bridge_mock.execute = AsyncMock(side_effect=mock_execute)
+
+    budget_config = BudgetConfig(max_turns=2, max_budget_usd=1.0)
+    runner = HermesHarnessRunner(budget_config=budget_config, bridge=bridge_mock)
+
+    real_summary_client = type(
+        "RealClient", (), {"model_name": "gpt-4o-mini", "api_key": "sk-real"}
+    )()
+    real_model = type("RealModel", (), {})()
+
+    tool_mock = MagicMock()
+    tool_mock.name = "k8s_get"
+    tool_mock.ainvoke = AsyncMock(side_effect=["out1", "out2"])
+
+    async def on_status(msg: str):
+        captured_statuses.append(msg)
+
+    result = await runner.run(
+        prompt_text="Check pods",
+        system_prompt=None,
+        model_with_tools=real_model,
+        summary_client=real_summary_client,
+        tools_by_name={"k8s_get": tool_mock},
+        max_iterations=2,
+        on_status=on_status,
+    )
+
+    # First call was Step 1/2, second was Step 2/2
+    assert any("Step 1/2" in s for s in captured_statuses)
+    assert any("Step 2/2" in s for s in captured_statuses)
+    # The 3rd call was halted with termination instruction
+    assert "Turn ceiling reached (2/2)" in result

@@ -245,7 +245,12 @@ class HermesHarnessRunner(HarnessRunnerInterface):
                 msg.get("model") or getattr(summary_client, "model_name", settings.openai_model)
             )
             cost = self._cost_estimator.estimate_cost_usd(model_used, in_tok, out_tok)
-            usage.add_usage(input_tokens=in_tok, output_tokens=out_tok, cost_usd=cost)
+            usage.add_usage(
+                input_tokens=in_tok,
+                output_tokens=out_tok,
+                cost_usd=cost,
+                increment_turns=False,
+            )
 
         async def on_bridge_tool_call(tool_name: str, tool_args: dict[str, Any]) -> str:
             turn_eval = guard.evaluate_turn(usage)
@@ -264,6 +269,7 @@ class HermesHarnessRunner(HarnessRunnerInterface):
             output = await self._execute_single_tool(
                 {"name": tool_name, "args": tool_args}, tools_by_name, session_id=session_id
             )
+            usage.turns_used += 1
             return output
 
         model_name = getattr(summary_client, "model_name", settings.openai_model)

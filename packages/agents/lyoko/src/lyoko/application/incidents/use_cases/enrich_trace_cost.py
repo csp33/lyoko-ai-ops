@@ -83,7 +83,17 @@ class EnrichTraceCostUseCase:
             return self._parse_cost_from_result(raw_content)
         except Exception as exc:
             logger.debug("Failed to query trace cost from MCP gateway: %s", exc)
+            raise
+
+    @staticmethod
+    def _format_cost(cost: float | None) -> str | None:
+        if cost is None:
             return None
+        if cost >= 0.0001:
+            return f"${cost:.4f}"
+        if cost > 0:
+            return "<$0.0001"
+        return "$0.0000"
 
     async def execute(self, text: str, trace_id: str | None, session_id: str | None = None) -> str:
         """Append trace cost and trace link footer to text if available."""
@@ -99,15 +109,22 @@ class EnrichTraceCostUseCase:
             except Exception as exc:
                 logger.debug("Failed to flush tracer: %s", exc)
 
-        cost: float | None = RunCostTracker.get_cost(trace_id) or RunCostTracker.get_cost(
-            session_id
-        )
-        if cost is None and self.mcp_client is not None:
-            cost = await self._query_trace_cost(trace_id)
-            if cost is None:
-                # Langfuse computes token metrics asynchronously; wait briefly if ClickHouse ingestion lags.
-                await asyncio.sleep(0.8)
+        cost: float | None = None
+        query_failed = False
+        if self.mcp_client is not None:
+            try:
                 cost = await self._query_trace_cost(trace_id)
+            except Exception:
+                query_failed = True
+
+        cost_str: str | None = None
+        if cost is not None:
+            cost_str = self._format_cost(cost)
+        elif self.mcp_client is not None and not query_failed:
+            cost_str = "calculating..."
+        else:
+            fallback = RunCostTracker.get_cost(trace_id) or RunCostTracker.get_cost(session_id)
+            cost_str = self._format_cost(fallback)
 
         trace_url: str | None = None
         if self.tracer is not None:
@@ -115,15 +132,6 @@ class EnrichTraceCostUseCase:
                 trace_url = self.tracer.get_trace_url(trace_id)
             except Exception as exc:
                 logger.debug("Failed to get trace URL: %s", exc)
-
-        cost_str: str | None = None
-        if cost is not None:
-            if cost >= 0.0001:
-                cost_str = f"${cost:.4f}"
-            elif cost > 0:
-                cost_str = "<$0.0001"
-            else:
-                cost_str = "$0.0000"
 
         footer_parts: list[str] = []
         if cost_str:
@@ -136,3 +144,58 @@ class EnrichTraceCostUseCase:
 
         footer = " · ".join(footer_parts)
         return f"{text.rstrip()}\n\n{footer}"
+
+    async def update_message_cost_async(
+        self,
+        chat_manager: Any,
+        chat_id: str,
+        message_id: str | int,
+        text_with_placeholder: str,
+        trace_id: str,
+        session_id: str | None = None,
+        delay_seconds: float = 1.5,
+    ) -> None:
+        """Background task to query Langfuse after ingestion and update Telegram message."""
+        if not self.enabled or not chat_manager or not text_with_placeholder or not trace_id:
+            return
+        if "💸 **Cost:** calculating..." not in text_with_placeholder:
+            return
+
+        try:
+            await asyncio.sleep(delay_seconds)
+            cost = await self._query_trace_cost(trace_id)
+            if cost is None:
+                await asyncio.sleep(1.0)
+                cost = await self._query_trace_cost(trace_id)
+
+            if cost is None:
+                cost = RunCostTracker.get_cost(trace_id) or RunCostTracker.get_cost(session_id)
+
+            cost_str = self._format_cost(cost)
+            if not cost_str:
+                return
+
+            updated_text = text_with_placeholder.replace(
+                "💸 **Cost:** calculating...", f"💸 **Cost:** {cost_str}"
+            )
+            sent_results = await chat_manager.edit_message(
+                chat_id=chat_id,
+                message_id=message_id,
+                text=updated_text,
+            )
+            is_success = any(sent_results) if isinstance(sent_results, list) else bool(sent_results)
+            if is_success:
+                logger.info(
+                    "Updated trace cost placeholder for msg %s in chat %s to %s",
+                    message_id,
+                    chat_id,
+                    cost_str,
+                )
+            else:
+                logger.warning(
+                    "Failed to edit trace cost placeholder for msg %s in chat %s",
+                    message_id,
+                    chat_id,
+                )
+        except Exception as exc:
+            logger.debug("Failed to asynchronously update trace cost in chat message: %s", exc)

@@ -218,13 +218,14 @@ def build_chat_manager(
 
 
 def build_tracer() -> LangfuseTracer:
-    """Instantiate the Langfuse tracer (a no-op without credentials)."""
+    """Instantiate the Langfuse tracer (a no-op without credentials or when disabled)."""
     return LangfuseTracer(
         public_key=settings.langfuse_public_key or "",
         secret_key=_secret(settings.langfuse_secret_key),
         host=settings.langfuse_host,
         environment=settings.get_langfuse_environment(),
         release=settings.langfuse_release,
+        enabled=settings.langfuse_enabled,
     )
 
 
@@ -248,6 +249,7 @@ def wire_chat_agent(app: FastAPI, chat_manager: ChatManager) -> None:
         session_tracker=chat_manager.session_tracker,
         history_tracker=history_tracker,
         enrich_trace_cost=enrich_trace_cost,
+        chat_manager=chat_manager,
     )
     chat_manager.register_message_handler(chat_agent.handle_message)
 
