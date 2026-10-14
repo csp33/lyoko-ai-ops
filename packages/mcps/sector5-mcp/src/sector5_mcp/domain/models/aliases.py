@@ -54,12 +54,22 @@ TOOL_ALIASES: dict[str, str] = {
     "unifi_get_firewall_rules": "unifi_list_firewall_rules",
     "unifi_get_port_profiles": "unifi_list_port_profiles",
     # Kubernetes
-    "k8s_get_nodes": "k8s_nodes_list",
-    "k8s_list_nodes": "k8s_nodes_list",
-    "k8s_get_namespaces": "k8s_namespaces_list",
-    "k8s_list_namespaces": "k8s_namespaces_list",
+    "k8s_get_resources": "k8s_resources_get",
+    "k8s_get_resource": "k8s_resources_get",
+    "k8s_list_resources": "k8s_resources_list",
+    "k8s_delete_resources": "k8s_resources_delete",
+    "k8s_delete_resource": "k8s_resources_delete",
+    "k8s_scale_resources": "k8s_resources_scale",
+    "k8s_scale_resource": "k8s_resources_scale",
+    "k8s_scale": "k8s_resources_scale",
+    "k8s_get_pod": "k8s_pods_get",
     "k8s_get_pods": "k8s_pods_list",
     "k8s_list_pods": "k8s_pods_list",
+    "k8s_get_logs": "k8s_pods_log",
+    "k8s_get_events": "k8s_events_list",
+    "k8s_list_events": "k8s_events_list",
+    "k8s_get_namespaces": "k8s_namespaces_list",
+    "k8s_list_namespaces": "k8s_namespaces_list",
     # Home Assistant
     "ha_list_entities": "ha_get_states",
     "ha_get_entities": "ha_get_states",
@@ -75,4 +85,6 @@ def resolve_canonical_domain(domain: str) -> str:
 def resolve_tool_alias(name: str) -> str:
     """Map common hallucinated tool names or variants to their canonical tool name."""
     raw = name.strip()
+    if raw.startswith("kubernetes_"):
+        raw = "k8s_" + raw.removeprefix("kubernetes_")
     return TOOL_ALIASES.get(raw, raw)
