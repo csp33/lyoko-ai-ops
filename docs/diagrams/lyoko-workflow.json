@@ -101,27 +101,27 @@
       "brand": "prometheus",
       "label": "Ingress",
       "sublabel": "Alerts & Telegram",
-      "width": 110
+      "width": 116
     },
     {
       "id": "router",
       "lane": "pipeline",
       "col": 1,
       "type": "backend",
-      "label": "Event Classifier",
+      "label": "Classifier",
       "sublabel": "Chat vs Incident",
       "tag": "Deterministic / LLM",
-      "width": 110
+      "width": 116
     },
     {
       "id": "runbooks",
       "lane": "pipeline",
       "col": 2,
       "type": "database",
-      "label": "Runbook Matcher",
+      "label": "Runbooks",
       "sublabel": "Fast-path lookup",
       "tag": "Zero-LLM",
-      "width": 110
+      "width": 116
     },
     {
       "id": "hermes",
@@ -132,17 +132,17 @@
       "label": "Hermes",
       "sublabel": "ReAct reasoning loop",
       "tag": "Autonomous SRE",
-      "width": 110
+      "width": 116
     },
     {
       "id": "toolgate",
       "lane": "pipeline",
       "col": 4,
       "type": "security",
-      "label": "ToolGate Harness",
+      "label": "ToolGate",
       "sublabel": "Inspects every tool",
       "tag": "Fail-closed",
-      "width": 110
+      "width": 116
     },
     {
       "id": "mcp_gateway",
@@ -153,7 +153,7 @@
       "label": "sector5-mcp",
       "sublabel": "K8s / IoT / UniFi",
       "tag": "Unified gateway",
-      "width": 110
+      "width": 116
     },
     {
       "id": "approval",
@@ -163,8 +163,7 @@
       "brand": "telegram",
       "label": "Approval",
       "sublabel": "Approve / Deny",
-      "tag": "Operator buttons",
-      "width": 110
+      "width": 116
     },
     {
       "id": "report",
@@ -174,8 +173,7 @@
       "brand": "telegram",
       "label": "Report",
       "sublabel": "Verified recovery",
-      "tag": "Langfuse trace",
-      "width": 110
+      "width": 116
     }
   ],
   "edges": [
