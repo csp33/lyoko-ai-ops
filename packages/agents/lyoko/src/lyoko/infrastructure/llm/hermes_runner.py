@@ -15,9 +15,10 @@ from lyoko.domain.models.budget import (
     BudgetTripReason,
     BudgetUsage,
 )
-from lyoko.domain.models.cost import RunCostTracker
-from lyoko.infrastructure.llm.content import extract_message_text
-from lyoko.infrastructure.llm.cost_estimator import ModelCostEstimator
+from lyoko.infrastructure.llm.content import (
+    extract_message_text,
+    extract_token_usage,
+)
 from lyoko.infrastructure.llm.hermes_bridge import HermesSubprocessBridge
 
 logger = logging.getLogger("lyoko.infrastructure.llm.hermes_runner")
@@ -38,7 +39,6 @@ class HermesHarnessRunner(HarnessRunnerInterface):
         budget_guard: BudgetGuardService | None = None,
         budget_config: BudgetConfig | None = None,
         bridge: HermesSubprocessBridge | None = None,
-        cost_estimator: ModelCostEstimator | None = None,
         status_formatter: ToolStatusFormatter | None = None,
         error_detector: ToolErrorDetector | None = None,
     ) -> None:
@@ -50,7 +50,6 @@ class HermesHarnessRunner(HarnessRunnerInterface):
         )
         self._budget_guard = budget_guard or BudgetGuardService(self._budget_config)
         self._bridge = bridge or HermesSubprocessBridge()
-        self._cost_estimator = cost_estimator or ModelCostEstimator()
         self._status_formatter = status_formatter or ToolStatusFormatter()
         self._error_detector = error_detector or ToolErrorDetector()
 
@@ -131,12 +130,8 @@ class HermesHarnessRunner(HarnessRunnerInterface):
             if response is None:
                 response = await model_with_tools.ainvoke(messages)
 
-            in_tokens, out_tokens = self._cost_estimator.extract_usage(response)
-            model_name = getattr(response, "response_metadata", {}).get(
-                "model_name", settings.openai_model
-            )
-            cost_usd = self._cost_estimator.estimate_cost_usd(model_name, in_tokens, out_tokens)
-            usage.add_usage(input_tokens=in_tokens, output_tokens=out_tokens, cost_usd=cost_usd)
+            in_tokens, out_tokens = extract_token_usage(response)
+            usage.add_usage(input_tokens=in_tokens, output_tokens=out_tokens, cost_usd=0.0)
 
             messages.append(response)
             if not getattr(response, "tool_calls", None):
@@ -193,11 +188,6 @@ class HermesHarnessRunner(HarnessRunnerInterface):
         if on_status is not None:
             await on_status("✍️ Formulating final response")
         final_response = await summary_client.ainvoke(messages)
-        if usage.total_cost_usd > 0:
-            if session_id:
-                RunCostTracker.record_cost(session_id, usage.total_cost_usd)
-            if trace_id:
-                RunCostTracker.record_cost(trace_id, usage.total_cost_usd)
         return extract_message_text(final_response.content)
 
     async def run(
@@ -241,14 +231,10 @@ class HermesHarnessRunner(HarnessRunnerInterface):
         async def on_bridge_llm_usage(msg: dict[str, Any]) -> None:
             in_tok = int(msg.get("input_tokens") or 0)
             out_tok = int(msg.get("output_tokens") or 0)
-            model_used = str(
-                msg.get("model") or getattr(summary_client, "model_name", settings.openai_model)
-            )
-            cost = self._cost_estimator.estimate_cost_usd(model_used, in_tok, out_tok)
             usage.add_usage(
                 input_tokens=in_tok,
                 output_tokens=out_tok,
-                cost_usd=cost,
+                cost_usd=0.0,
                 increment_turns=False,
             )
 
@@ -282,7 +268,7 @@ class HermesHarnessRunner(HarnessRunnerInterface):
             )
         base_url = getattr(summary_client, "base_url", None)
 
-        res = await self._bridge.execute(
+        return await self._bridge.execute(
             prompt=prompt_text,
             system_prompt=system_prompt,
             model=model_name,
@@ -296,9 +282,3 @@ class HermesHarnessRunner(HarnessRunnerInterface):
             on_status=on_status,
             on_llm_usage=on_bridge_llm_usage,
         )
-        if usage.total_cost_usd > 0:
-            if session_id:
-                RunCostTracker.record_cost(session_id, usage.total_cost_usd)
-            if trace_id:
-                RunCostTracker.record_cost(trace_id, usage.total_cost_usd)
-        return res

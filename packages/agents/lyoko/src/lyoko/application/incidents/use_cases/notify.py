@@ -85,8 +85,12 @@ class NotifyIncidentReportUseCase:
 
         trace_id = state.get("trace_id")
         if self.enrich_trace_cost is not None and trace_id:
+            is_llm = not state.get("is_recovery", False)
             summary = await self.enrich_trace_cost.execute(
-                summary, trace_id, session_id=state.get("session_id")
+                summary,
+                trace_id,
+                session_id=state.get("session_id"),
+                is_llm_called=is_llm,
             )
 
         logger.info(summary)
