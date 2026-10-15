@@ -68,6 +68,7 @@ services:
       API_SERVER_ENABLED: "true"
       API_SERVER_HOST: "0.0.0.0"
       API_SERVER_KEY: ${HERMES_API_KEY:-lyoko-hermes-secret-key}
+      HERMES_SINGLE_QUERY_SESSION: "1"
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       OPENAI_DIAGNOSE_MODEL: ${OPENAI_DIAGNOSE_MODEL:-gpt-4.1}
@@ -120,6 +121,7 @@ services:
       PYTHONPATH: "/app/packages/agents/lyoko/src"
       LANGFUSE_ENABLED: "false"
       FASTMCP_TELEMETRY_MODE: "off"
+      LYOKO_ORCHESTRATOR: ${LYOKO_ORCHESTRATOR:-hermes}
     env_file:
       - path: .env
         required: false

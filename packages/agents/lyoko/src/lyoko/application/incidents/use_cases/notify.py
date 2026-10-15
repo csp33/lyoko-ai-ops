@@ -9,6 +9,7 @@ from lyoko.application.context.formatter import IncidentContextFormatter
 from lyoko.application.incidents.use_cases.enrich_trace_cost import EnrichTraceCostUseCase
 from lyoko.config import settings
 from lyoko.domain.interfaces.chat_service import ChatServiceInterface
+from lyoko.domain.models.incident import IncidentStatus
 from lyoko.domain.models.state import is_message
 
 logger = logging.getLogger("lyoko.application.incidents.use_cases.notify")
@@ -17,7 +18,24 @@ logger = logging.getLogger("lyoko.application.incidents.use_cases.notify")
 def format_incident_report(state: dict[str, Any]) -> str:
     """Build a structured Markdown incident summary from workflow state."""
     resolved = bool(state.get("is_resolved"))
-    status = "✅ RESOLVED" if resolved else "🚨 ESCALATED / REQUIRES ACTION"
+    raw_status = state.get("status")
+
+    status_enum: IncidentStatus | None = None
+    if isinstance(raw_status, IncidentStatus):
+        status_enum = raw_status
+    elif isinstance(raw_status, str):
+        try:
+            status_enum = IncidentStatus(raw_status)
+        except ValueError:
+            status_enum = None
+
+    if resolved or status_enum == IncidentStatus.RESOLVED:
+        status = IncidentStatus.RESOLVED.badge
+    elif status_enum is not None:
+        status = status_enum.badge
+    else:
+        status = IncidentStatus.ESCALATED.badge
+
     lines = ["📋 **LYOKO Incident Report**", "", f"**Status:** {status}"]
     if not is_message(state):
         labels = state.get("labels") or {}
@@ -35,6 +53,11 @@ def format_incident_report(state: dict[str, Any]) -> str:
             "**Tool Calls:** "
             + ", ".join(IncidentContextFormatter.describe_call(a) for a in actions)
         )
+    delegations = state.get("delegation_history") or []
+    if delegations:
+        domains = list(dict.fromkeys(d.get("domain") for d in delegations if d.get("domain")))
+        if domains:
+            lines.append(f"**Specialists Consulted:** {', '.join(f'`{dom}`' for dom in domains)}")
     if state.get("verification"):
         lines.append(f"**Verification:** {state['verification']}")
     return "\n".join(lines)

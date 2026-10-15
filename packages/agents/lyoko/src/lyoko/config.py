@@ -119,12 +119,12 @@ class AgentSettings(BaseSettings):
         ),
     )
     max_agent_steps: int = Field(
-        default=15,
+        default=20,
         ge=1,
         description="Maximum tool-use iterations of each incident investigation or remediation",
     )
     max_supervisor_steps: int = Field(
-        default=5,
+        default=8,
         ge=1,
         description="Maximum supervisor delegation iterations per phase",
     )
@@ -167,17 +167,17 @@ class AgentSettings(BaseSettings):
         description="Bearer token Hermes must present to the gated MCP proxy (unset = proxy disabled)",
     )
     max_turns_diagnose: int = Field(
-        default=8,
+        default=15,
         ge=1,
         description="Maximum LLM turns for incident diagnosis",
     )
     max_turns_remediate: int = Field(
-        default=5,
+        default=10,
         ge=1,
         description="Maximum LLM turns for incident remediation",
     )
     max_turns_chat: int = Field(
-        default=10,
+        default=15,
         ge=1,
         description="Maximum LLM turns for chat turns",
     )
@@ -192,7 +192,7 @@ class AgentSettings(BaseSettings):
         description="Number of identical consecutive tool calls triggering cycle detection",
     )
     max_tool_calls_per_run: int = Field(
-        default=20,
+        default=25,
         ge=1,
         description=(
             "Maximum tool calls a single agent run may execute before it must summarize. "
@@ -282,10 +282,10 @@ class AgentSettings(BaseSettings):
 
     chat_session_idle_timeout_seconds: int = Field(
         default=900,
-        ge=1,
+        ge=0,
         description=(
-            "Seconds of chat inactivity after which a new Langfuse session is started "
-            "for the next message in the same chat (users can also send /new)"
+            "Seconds of chat inactivity after which a new chat session is started "
+            "for the next message in the same chat (default: 900s = 15m, 0 = every message is fresh)"
         ),
     )
 

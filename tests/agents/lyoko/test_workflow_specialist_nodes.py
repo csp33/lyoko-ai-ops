@@ -34,11 +34,38 @@ async def test_specialist_node_runs_specialist_and_updates_state():
     result = await node(state, {})
 
     assert result["pending_delegation"] is None
+    assert result["delegated_to"] == "kubernetes"
     assert len(result["delegation_history"]) == 1
     assert result["delegation_history"][0]["domain"] == "kubernetes"
     assert result["delegation_history"][0]["task"] == "Check pods in default namespace"
     assert result["delegation_history"][0]["response"] == "Pods are healthy."
     mock_specialist.run.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_specialist_node_streams_status_updates():
+    mock_specialist = MagicMock()
+    mock_specialist.run = AsyncMock(return_value="Restarted 0 pods.")
+    mock_on_status = AsyncMock()
+
+    node = create_specialist_node(
+        domain="kubernetes",
+        specialist=mock_specialist,
+    )
+
+    state = {
+        "event_id": "test-123",
+        "pending_delegation": {
+            "domain": "kubernetes",
+            "task": "Investigate bentopdf",
+        },
+    }
+    config = {"configurable": {"on_status": mock_on_status}}
+
+    result = await node(state, config)
+    assert result["delegated_to"] == "kubernetes"
+    assert result["pending_delegation"] is None
+    assert mock_on_status.await_count >= 2
 
 
 @pytest.mark.asyncio

@@ -6,6 +6,7 @@ from typing import Any
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableLambda
 from langchain_openai import ChatOpenAI
+from lyoko.config import settings
 from lyoko.domain.interfaces.harness import HarnessRunnerInterface
 from lyoko.domain.interfaces.llm import LLMClientInterface
 from lyoko.infrastructure.llm.content import extract_message_text
@@ -85,7 +86,7 @@ class OpenAILLMAdapter(LLMClientInterface):
         if tools:
             tools_by_name = {tool.name: tool for tool in tools}
             model_with_tools = self.client.bind_tools(tools)
-            max_iterations = max_steps or 10
+            max_iterations = max_steps or settings.max_agent_steps
 
             resolved_trace_id = None
             if metadata and isinstance(metadata, dict):

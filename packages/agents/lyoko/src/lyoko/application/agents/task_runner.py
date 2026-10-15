@@ -59,6 +59,9 @@ class ExecuteSpecialistTaskUseCase:
         on_status = status_callback(config)
         session_id = state.get("session_id")
 
+        if on_status is not None:
+            await on_status(f"🔄 Delegating to {self.domain} specialist")
+
         logger.info("Executing specialist for domain '%s' with task: %s", self.domain, task)
         try:
             response = await self.specialist.run(
@@ -72,6 +75,9 @@ class ExecuteSpecialistTaskUseCase:
             logger.error("Error executing specialist '%s': %s", self.domain, exc)
             response = f"Specialist error ({self.domain}): {exc}"
 
+        if on_status is not None:
+            await on_status(f"✅ {self.domain.capitalize()} specialist completed execution")
+
         history = list(state.get("delegation_history") or [])
         history.append(
             {
@@ -82,6 +88,7 @@ class ExecuteSpecialistTaskUseCase:
         )
 
         return {
+            "delegated_to": self.domain,
             "pending_delegation": None,
             "delegation_history": history,
             "actions": list(state.get("actions") or []) + [r.to_dict() for r in gate.records],

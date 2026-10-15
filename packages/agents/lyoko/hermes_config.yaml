@@ -73,15 +73,20 @@ platform_toolsets:
     - tts
     - vision
     - web
+platforms:
+  api_server:
+    direct_model_requests: true
+
 model:
-  default: "${OPENAI_DIAGNOSE_MODEL}"
+  default: "${OPENAI_MODEL}"
   provider: openai-api
   base_url: https://api.openai.com/v1
   api_mode: codex_responses
 delegation:
-  model: "${OPENAI_MODEL}"
+  model: "${OPENAI_DIAGNOSE_MODEL}"
 memory:
   model: "${OPENAI_MODEL}"
+  nudge_interval: 1
 compaction:
   model: "${OPENAI_MODEL}"
 auxiliary:
@@ -131,5 +136,4 @@ known_builtin_toolsets:
     - web
     - x_search
     - yuanbao
-memory:
-  nudge_interval: 1
+

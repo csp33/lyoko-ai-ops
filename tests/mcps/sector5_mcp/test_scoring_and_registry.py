@@ -29,6 +29,9 @@ def test_resolve_tool_alias():
     assert resolve_tool_alias("k8s_get_resources") == "k8s_resources_get"
     assert resolve_tool_alias("k8s_get_pod") == "k8s_pods_get"
     assert resolve_tool_alias("unifi_get_devices") == "unifi_list_devices"
+    assert resolve_tool_alias("grafana_query") == "grafana_query_prometheus"
+    assert resolve_tool_alias("grafana_data_query") == "grafana_query_prometheus"
+    assert resolve_tool_alias("grafana_get_datasources") == "grafana_list_datasources"
     assert resolve_tool_alias("unmodified_tool_name") == "unmodified_tool_name"
 
 
@@ -67,3 +70,47 @@ async def test_tool_registry_discovery_and_routing():
     assert resolved_name == "ha_get_state"
     assert upstream_type == UpstreamType.HOME_ASSISTANT
     assert client == mock_ha
+
+
+@pytest.mark.asyncio
+async def test_tool_registry_resolves_grafana_dot_notation_and_normalizes_args():
+    from sector5_mcp.application.use_cases.execute_tool import ExecuteToolUseCase
+
+    guardrail = GuardrailEngine(GuardrailPolicy())
+    mock_grafana = MagicMock(spec=UpstreamMCPInterface)
+    mock_grafana.list_tools = AsyncMock(
+        return_value=[
+            ToolDefinition(
+                name="grafana_query_prometheus",
+                description="Query Prometheus metrics",
+                upstream_type=UpstreamType.GRAFANA,
+            )
+        ]
+    )
+    mock_grafana.call_tool = AsyncMock(return_value={"status": "success"})
+
+    registry = ToolRegistry(
+        upstreams={UpstreamType.GRAFANA: mock_grafana},
+        guardrail=guardrail,
+    )
+    await registry.discover_tools()
+
+    # 1. Dot-notation resolves via alias to canonical tool name
+    route = registry.resolve_tool_routing("grafana.query")
+    assert route is not None
+    assert route[0] == "grafana_query_prometheus"
+
+    # 2. ExecuteToolUseCase normalizes query -> expr, datasourceUid, endTime
+    use_case = ExecuteToolUseCase(registry, guardrail)
+    await use_case.execute("grafana.query", {"query": "up", "step": "30s"})
+
+    mock_grafana.call_tool.assert_called_once_with(
+        "grafana_query_prometheus",
+        {
+            "expr": "up",
+            "datasourceUid": "prometheus",
+            "endTime": "now",
+            "queryType": "instant",
+            "stepSeconds": 30,
+        },
+    )

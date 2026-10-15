@@ -75,14 +75,26 @@ class ProcessChatMessageUseCase:
         """Process an incoming chat message and return the reply for the operator."""
         logger.info("Processing chat message from user %s: %s", message.user.user_id, message.text)
         if is_new_session_command(message.text):
-            session_id = self.session_tracker.start_new(message.chat_id)
+            session_id = self.session_tracker.start_new(
+                message.chat_id, thread_id=message.message_thread_id
+            )
             self.history_tracker.clear(message.chat_id, message.message_thread_id)
-            logger.info("Started new session %s for chat %s", session_id, message.chat_id)
+            logger.info(
+                "Started new session %s for chat %s thread %s",
+                session_id,
+                message.chat_id,
+                message.message_thread_id,
+            )
             return "🆕 Started a new session. Previous context will not be grouped with this one."
 
         session_id = self.session_tracker.get_session_id(
-            message.chat_id, reply_to_message_id=message.reply_to_message_id
+            message.chat_id,
+            reply_to_message_id=message.reply_to_message_id,
+            thread_id=message.message_thread_id,
         )
+        self.session_tracker.link_message(message.chat_id, message.message_id, session_id)
+        if message.bot_message_id:
+            self.session_tracker.link_message(message.chat_id, message.bot_message_id, session_id)
         history_context = self.history_tracker.get_history_context(
             message.chat_id, message.message_thread_id
         )
