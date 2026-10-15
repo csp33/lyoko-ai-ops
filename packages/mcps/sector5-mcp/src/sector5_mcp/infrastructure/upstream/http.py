@@ -100,8 +100,16 @@ class StreamableHttpUpstreamClient(UpstreamMCPInterface):
             raw_name = raw_name[len(self.prefix) :]
 
         async with self._lock:
-            async with self._connect() as session:
-                result = await session.call_tool(name=raw_name, arguments=arguments)
+            try:
+                async with self._connect() as session:
+                    result = await session.call_tool(name=raw_name, arguments=arguments)
+            except Exception as exc:
+                logger.error(f"Error calling upstream tool '{raw_name}': {exc}")
+                return ToolResult(
+                    status="error",
+                    content=str(exc),
+                    is_error=True,
+                )
 
             # Format content
             contents = []

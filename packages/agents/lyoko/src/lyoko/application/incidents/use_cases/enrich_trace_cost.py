@@ -144,9 +144,9 @@ class EnrichTraceCostUseCase:
         text_with_placeholder: str,
         trace_id: str,
         session_id: str | None = None,
-        delay_seconds: float = 2.0,
-        max_attempts: int = 6,
-        poll_interval: float = 1.5,
+        delay_seconds: float = 4.0,
+        max_attempts: int = 4,
+        poll_interval: float = 2.5,
     ) -> None:
         """Background task to query Langfuse after ingestion and update Telegram message."""
         if not self.enabled or not chat_manager or not text_with_placeholder or not trace_id:
@@ -163,7 +163,7 @@ class EnrichTraceCostUseCase:
                 if current_res.main_cost is not None:
                     res = current_res
                     # If memory review is expected and hasn't ingested yet, give it another attempt
-                    if session_id and current_res.memory_cost is None and attempt < 3:
+                    if session_id and current_res.memory_cost is None and attempt < 2:
                         await asyncio.sleep(poll_interval)
                         continue
                     break
@@ -178,12 +178,19 @@ class EnrichTraceCostUseCase:
                     fallback = await self._cost_service.query_metrics_for_trace(
                         self.mcp_client, target_tid
                     )
-                    res = TraceCostResult(
-                        main_cost=fallback if fallback is not None else 0.0,
-                        resolved_trace_id=target_tid,
-                    )
+                    if fallback is not None and fallback > 0:
+                        res = TraceCostResult(
+                            main_cost=fallback,
+                            resolved_trace_id=target_tid,
+                        )
                 except Exception:
-                    res = TraceCostResult(main_cost=0.0, resolved_trace_id=target_tid)
+                    pass
+
+            if res is None or res.main_cost is None:
+                logger.debug(
+                    "Trace cost for %s unavailable in Langfuse; keeping placeholder", trace_id
+                )
+                return
 
             cost_str = TraceCostService.format_cost_with_breakdown(res.main_cost, res.memory_cost)
             if not cost_str:
