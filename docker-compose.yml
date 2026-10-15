@@ -38,23 +38,6 @@ services:
     volumes:
       - ./packages/mcps/sector5-mcp/src:/app/packages/mcps/sector5-mcp/src:ro
 
-  migration:
-    build:
-      context: .
-      dockerfile: packages/agents/lyoko/Dockerfile
-    container_name: lyoko-ai-ops-migration
-    restart: "no"
-    command: ["alembic", "-c", "/app/packages/agents/lyoko/alembic.ini", "upgrade", "head"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      POSTGRES_HOST: "postgres"
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lyoko}
-    env_file:
-      - path: .env
-        required: false
-
   hermes:
     image: nousresearch/hermes-agent:rc.15-v0.21.7
     container_name: lyoko-ai-ops-hermes
@@ -105,8 +88,6 @@ services:
         condition: service_healthy
       sector5-mcp:
         condition: service_started
-      migration:
-        condition: service_completed_successfully
       hermes:
         condition: service_started
     environment:
@@ -127,8 +108,6 @@ services:
         required: false
     volumes:
       - ./packages/agents/lyoko/src:/app/packages/agents/lyoko/src:ro
-      - ./packages/agents/lyoko/migrations:/app/packages/agents/lyoko/migrations:ro
-      - ./packages/agents/lyoko/alembic.ini:/app/packages/agents/lyoko/alembic.ini:ro
       - hermes_data:/app/.hermes
 
 volumes:
