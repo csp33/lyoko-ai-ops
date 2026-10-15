@@ -5,6 +5,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from lyoko.application.agents.runner import AgentRunner
 from lyoko.application.incidents.use_cases.resolve import ResolveIncidentUseCase
 from lyoko.application.safety.alert_guard import AlertStormProtector
 from lyoko.application.safety.gated_run_context import get_gated_run_context
@@ -98,9 +99,9 @@ async def lifespan(app: FastAPI):
 
     skill_matcher = getattr(app.state, "skill_matcher", None) or build_skill_matcher()
 
+    incident_runner = AgentRunner(mcp_client=mcp_client, llm=diagnose_llm or llm)
     incident_use_case = ResolveIncidentUseCase(
-        mcp_client=mcp_client,
-        llm=diagnose_llm or llm,
+        runner=incident_runner,
         approval_manager=approval_manager,
         chat_manager=chat_manager,
         skill_matcher_service=skill_matcher,

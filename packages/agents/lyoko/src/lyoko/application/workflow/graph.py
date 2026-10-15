@@ -10,12 +10,15 @@ from collections.abc import Sequence
 from typing import Any
 
 from langchain_core.runnables import RunnableConfig, RunnableLambda
+from lyoko.application.agents.runner import AgentRunner
+from lyoko.application.chat.use_cases.handle_turn import HandleChatTurnUseCase
 from lyoko.application.incidents.triage.base import TriageHandler
 from lyoko.application.incidents.triage.dispatcher import choose_triage
 from lyoko.application.incidents.use_cases.enrich_trace_cost import (
     EnrichTraceCostUseCase,
 )
 from lyoko.application.incidents.use_cases.notify import NotifyIncidentReportUseCase
+from lyoko.application.incidents.use_cases.resolve import ResolveIncidentUseCase
 from lyoko.application.incidents.use_cases.triage import TriageIncidentUseCase
 from lyoko.application.workflow.coordinator import CoordinateWorkflowUseCase
 from lyoko.application.workflow.routing.edges import WorkflowRouteSelector
@@ -121,22 +124,35 @@ def create_lyoko_graph(
     triage_handlers: Sequence[TriageHandler] | None = None,
     skill_matcher_service: Any = None,
     enrich_trace_cost: EnrichTraceCostUseCase | None = None,
-    incident_use_case: Any | None = None,
+    incident_use_case: ResolveIncidentUseCase | Any | None = None,
+    chat_use_case: HandleChatTurnUseCase | Any | None = None,
 ) -> LyokoWorkflow:
     """Build the LYOKO autonomous workflow that routes, triages, resolves, and notifies."""
     route_use_case = RouteEventUseCase(llm=llm)
     handlers = triage_handlers if triage_handlers is not None else []
     triage_use_case = TriageIncidentUseCase(handlers=handlers)
 
+    if chat_use_case is None:
+        chat_runner = AgentRunner(mcp_client=mcp_client, llm=llm)
+        chat_use_case = HandleChatTurnUseCase(
+            runner=chat_runner,
+            approval_manager=approval_manager,
+            chat_manager=chat_manager,
+        )
+
+    if incident_use_case is None:
+        incident_runner = AgentRunner(mcp_client=mcp_client, llm=diagnose_llm or llm)
+        incident_use_case = ResolveIncidentUseCase(
+            runner=incident_runner,
+            approval_manager=approval_manager,
+            chat_manager=chat_manager,
+            skill_matcher_service=skill_matcher_service,
+            default_chat_id=settings.telegram_default_chat_id or "",
+        )
+
     coordinator_use_case = CoordinateWorkflowUseCase(
-        mcp_client=mcp_client,
-        llm=llm,
-        approval_manager=approval_manager,
-        chat_manager=chat_manager,
-        diagnose_llm=diagnose_llm,
-        skill_matcher_service=skill_matcher_service,
+        chat_use_case=chat_use_case,
         incident_use_case=incident_use_case,
-        default_chat_id=settings.telegram_default_chat_id or "",
     )
     if enrich_trace_cost is None and mcp_client is not None:
         enrich_trace_cost = EnrichTraceCostUseCase(

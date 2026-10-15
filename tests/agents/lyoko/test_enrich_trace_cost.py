@@ -107,8 +107,11 @@ async def test_process_chat_message_enriches_reply():
     mock_enrich = AsyncMock(spec=EnrichTraceCostUseCase)
     mock_enrich.execute.return_value = "Here is the cluster status.\n\n💸 **Cost:** $0.0010"
 
+    from lyoko.application.chat.sessions import ChatSessionTracker
+
     use_case = ProcessChatMessageUseCase(
         graph_provider=lambda: mock_graph,
+        session_tracker=ChatSessionTracker(),
         enrich_trace_cost=mock_enrich,
     )
 

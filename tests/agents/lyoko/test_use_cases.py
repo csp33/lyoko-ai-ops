@@ -103,8 +103,6 @@ async def test_coordinate_workflow_use_case():
     mock_diagnose_uc.execute = AsyncMock(return_value={"root_cause": "OOM"})
 
     coordinator = CoordinateWorkflowUseCase(
-        mcp_client=None,
-        llm=None,
         chat_use_case=mock_chat_uc,
         incident_use_case=mock_diagnose_uc,
     )
@@ -120,10 +118,14 @@ async def test_coordinate_workflow_use_case():
 
 @pytest.mark.asyncio
 async def test_resolve_incident_use_case_with_skill_matcher():
+    from lyoko.application.agents.runner import AgentRunner
     from lyoko.application.incidents.use_cases.resolve import ResolveIncidentUseCase
 
     mock_llm = MagicMock(spec=LLMClientInterface)
-    mock_runner = AsyncMock(
+    mock_runner = MagicMock(spec=AgentRunner)
+    mock_runner.llm = mock_llm
+    mock_runner.mcp_client = None
+    mock_runner.run = AsyncMock(
         return_value=(
             "ROOT_CAUSE: Container crashed\n"
             "ACTION_TAKEN: Checked logs\n"
@@ -137,10 +139,8 @@ async def test_resolve_incident_use_case_with_skill_matcher():
     )
 
     uc = ResolveIncidentUseCase(
-        mcp_client=None,
-        llm=mock_llm,
-        skill_matcher_service=mock_matcher,
         runner=mock_runner,
+        skill_matcher_service=mock_matcher,
     )
 
     state = {
@@ -157,5 +157,5 @@ async def test_resolve_incident_use_case_with_skill_matcher():
     assert not result["requires_escalation"]
 
     # Verify that runner was called with prompt containing matched skill runbook
-    called_prompt = mock_runner.call_args.kwargs["prompt"]
+    called_prompt = mock_runner.run.call_args.kwargs["prompt"]
     assert "Pod CrashLoop Guide" in called_prompt

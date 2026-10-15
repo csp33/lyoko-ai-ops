@@ -5,10 +5,7 @@ import uuid
 from collections.abc import Callable
 from typing import Any
 
-from lyoko.application.chat.sessions import (
-    DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS,
-    ChatSessionTracker,
-)
+from lyoko.application.chat.sessions import ChatSessionTracker
 from lyoko.application.incidents.use_cases.enrich_trace_cost import EnrichTraceCostUseCase
 from lyoko.application.workflow.routing.canary import CanaryNotificationDetector
 from lyoko.application.workflow.routing.recovery import RecoveryNotificationDetector
@@ -34,15 +31,14 @@ class ProcessChatMessageUseCase:
     def __init__(
         self,
         graph_provider: Callable[[], Any],
+        session_tracker: ChatSessionTracker,
         tracer: TracerInterface | None = None,
-        session_idle_timeout_seconds: float = DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS,
-        session_tracker: ChatSessionTracker | None = None,
         enrich_trace_cost: EnrichTraceCostUseCase | None = None,
         chat_manager: Any = None,
     ) -> None:
         self._graph_provider = graph_provider
+        self.session_tracker = session_tracker
         self.tracer = tracer
-        self.session_tracker = session_tracker or ChatSessionTracker(session_idle_timeout_seconds)
         self.enrich_trace_cost = enrich_trace_cost
         self.chat_manager = chat_manager
 

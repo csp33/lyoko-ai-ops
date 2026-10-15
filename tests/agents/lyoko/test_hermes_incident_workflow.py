@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from lyoko.application.incidents.use_cases.resolve import ResolveIncidentUseCase
 from lyoko.application.safety.hitl.manager import ApprovalManager
 from lyoko.application.workflow.graph import create_lyoko_graph
 from lyoko.domain.interfaces.mcp import ToolAuthorizer
@@ -37,18 +36,11 @@ def _build_workflow(
     chat_manager: AsyncMock | None = None,
 ):
     client = mcp_client or FakeMCPClient()
-    incident_use_case = ResolveIncidentUseCase(
-        mcp_client=client,
-        llm=llm,
-        approval_manager=approval_manager,
-        chat_manager=chat_manager,
-    )
     return create_lyoko_graph(
         mcp_client=client,
         approval_manager=approval_manager,
         chat_manager=chat_manager,
         llm=llm,
-        incident_use_case=incident_use_case,
     )
 
 

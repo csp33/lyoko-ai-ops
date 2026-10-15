@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from lyoko.application.agents.runner import AgentRunner
 from lyoko.application.chat.use_cases.handle_turn import HandleChatTurnUseCase
 from lyoko.application.context.formatter import IncidentContextFormatter
 from lyoko.application.incidents.use_cases.notify import format_incident_report
@@ -30,7 +31,11 @@ is_canary_notification = CanaryNotificationDetector.is_canary_notification
 
 
 def create_chat_node(**kwargs):
-    return HandleChatTurnUseCase(**kwargs).execute
+    runner = kwargs.pop("runner", None) or AgentRunner(
+        mcp_client=kwargs.pop("mcp_client", None),
+        llm=kwargs.pop("llm", None),
+    )
+    return HandleChatTurnUseCase(runner=runner, **kwargs).execute
 
 
 def create_route_node(**kwargs):
@@ -143,7 +148,11 @@ async def test_resolve_node_forwards_streaming_status_callback():
         captured.update(kwargs)
         return "ROOT_CAUSE: drift\nACTION_TAKEN: check\nVERIFICATION: ok\nSTATUS: RESOLVED"
 
-    node = ResolveIncidentUseCase(mcp_client=object(), llm=object(), runner=fake_run).execute
+    mock_runner = MagicMock(spec=AgentRunner)
+    mock_runner.llm = object()
+    mock_runner.mcp_client = object()
+    mock_runner.run = fake_run
+    node = ResolveIncidentUseCase(runner=mock_runner).execute
     sentinel = object()
     state = {"event_type": "message", "text": "hi", "event_id": "evt-1", "session_id": "s1"}
     await node(state, {"configurable": {"on_status": sentinel}})

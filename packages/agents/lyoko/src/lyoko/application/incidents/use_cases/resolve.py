@@ -12,8 +12,6 @@ from lyoko.application.safety.tool_gate import CallOutcome, GateMode, make_gate
 from lyoko.application.skills.matcher import SkillMatcherService
 from lyoko.domain.interfaces.approval import ApprovalManagerInterface
 from lyoko.domain.interfaces.chat_service import ChatServiceInterface
-from lyoko.domain.interfaces.llm import LLMClientInterface
-from lyoko.domain.interfaces.mcp import MCPClientInterface
 from lyoko.domain.models.incident import CoordinatorNext
 from lyoko.domain.models.state import is_message
 
@@ -25,25 +23,21 @@ class ResolveIncidentUseCase:
 
     def __init__(
         self,
-        mcp_client: MCPClientInterface | None,
-        llm: LLMClientInterface | None,
+        runner: AgentRunner,
         approval_manager: ApprovalManagerInterface | None = None,
         chat_manager: ChatServiceInterface | None = None,
         skill_matcher_service: SkillMatcherService | None = None,
-        runner: Any = None,
-        default_chat_id: str | None = None,
+        default_chat_id: str = "",
     ) -> None:
-        self.mcp_client = mcp_client
-        self.llm = llm
+        self.runner = runner
         self.approval_manager = approval_manager
         self.chat_manager = chat_manager
         self.skill_matcher_service = skill_matcher_service
-        self.runner = runner or AgentRunner(mcp_client=mcp_client, llm=llm)
-        self.default_chat_id = default_chat_id or ""
+        self.default_chat_id = default_chat_id
 
     async def execute(self, state: dict[str, Any], config: Any = None) -> dict[str, Any]:
         """Investigate, formulate plan, execute changes under approval gate, and verify."""
-        if self.llm is None:
+        if getattr(self.runner, "llm", None) is None:
             return {
                 "root_cause": "Not investigated: no LLM provider is configured.",
                 "action_taken": "No action taken.",
@@ -75,7 +69,7 @@ class ResolveIncidentUseCase:
             GateMode.APPROVAL,
             approval_manager=self.approval_manager,
             chat_manager=self.chat_manager,
-            mcp_client=self.mcp_client,
+            mcp_client=getattr(self.runner, "mcp_client", None),
         )
         try:
             skills_context = ""
@@ -92,28 +86,15 @@ class ResolveIncidentUseCase:
                 f"{skills_context}"
             )
 
-            if isinstance(self.runner, AgentRunner):
-                answer = await self.runner.run(
-                    state=state,
-                    gate=gate,
-                    config=config,
-                    phase="incident",
-                    system_prompt=RESOLVE_SYSTEM_PROMPT,
-                    prompt=prompt_content,
-                    on_status=status_callback(config),
-                )
-            else:
-                answer = await self.runner(
-                    state,
-                    gate,
-                    config,
-                    mcp_client=self.mcp_client,
-                    llm=self.llm,
-                    phase="incident",
-                    system_prompt=RESOLVE_SYSTEM_PROMPT,
-                    prompt=prompt_content,
-                    on_status=status_callback(config),
-                )
+            answer = await self.runner.run(
+                state=state,
+                gate=gate,
+                config=config,
+                phase="incident",
+                system_prompt=RESOLVE_SYSTEM_PROMPT,
+                prompt=prompt_content,
+                on_status=status_callback(config),
+            )
         except Exception as exc:
             logger.error("Incident resolution failed: %s", exc, exc_info=True)
             return {

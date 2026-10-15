@@ -9,52 +9,41 @@ from lyoko.application.workflow.routing.edges import WorkflowRouteSelector
 choose_coordinator_next = WorkflowRouteSelector.choose_coordinator_next
 
 
-def create_coordinator_node(**kwargs):
-    return CoordinateWorkflowUseCase(**kwargs).execute
-
-
 @pytest.mark.asyncio
 async def test_coordinator_handles_message():
-    mock_llm = MagicMock()
-    mock_llm.chat = AsyncMock(return_value="Everything looks operational.")
+    mock_chat_uc = MagicMock()
+    mock_chat_uc.execute = AsyncMock(return_value={"reply": "Everything looks operational."})
+    mock_incident_uc = MagicMock()
 
-    mock_mcp = MagicMock()
-    mock_mcp.get_langchain_tools.return_value = []
-
-    node = create_coordinator_node(
-        mcp_client=mock_mcp,
-        llm=mock_llm,
+    coordinator = CoordinateWorkflowUseCase(
+        chat_use_case=mock_chat_uc,
+        incident_use_case=mock_incident_uc,
     )
     state = {
         "event_type": "message",
         "text": "How is the homelab?",
     }
 
-    result = await node(state, {})
+    result = await coordinator.execute(state, {})
     assert result["reply"] == "Everything looks operational."
 
 
 @pytest.mark.asyncio
 async def test_coordinator_handles_alert_incident():
-    mock_runner = AsyncMock(
-        return_value=(
-            "ROOT_CAUSE: Pod OOM\n"
-            "ACTION_TAKEN: Scaled memory\n"
-            "VERIFICATION: Pod running\n"
-            "STATUS: RESOLVED"
-        )
+    mock_chat_uc = MagicMock()
+    mock_incident_uc = MagicMock()
+    mock_incident_uc.execute = AsyncMock(
+        return_value={
+            "root_cause": "Pod OOM",
+            "action_taken": "Scaled memory",
+            "verification": "Pod running",
+            "requires_escalation": False,
+            "status": "RESOLVED",
+        }
     )
-    from lyoko.application.incidents.use_cases.resolve import ResolveIncidentUseCase
-
-    incident_uc = ResolveIncidentUseCase(
-        mcp_client=None,
-        llm=MagicMock(),
-        runner=mock_runner,
-    )
-    node = create_coordinator_node(
-        mcp_client=None,
-        llm=MagicMock(),
-        incident_use_case=incident_uc,
+    coordinator = CoordinateWorkflowUseCase(
+        chat_use_case=mock_chat_uc,
+        incident_use_case=mock_incident_uc,
     )
     state = {
         "event_type": "alert",
@@ -63,7 +52,7 @@ async def test_coordinator_handles_alert_incident():
         "annotations": {},
     }
 
-    result = await node(state, {})
+    result = await coordinator.execute(state, {})
     assert "Pod OOM" in result["root_cause"]
     assert result["requires_escalation"] is False
 

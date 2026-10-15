@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from lyoko.application.safety.budget_guard import BudgetGuardService
 from lyoko.domain.models.budget import BudgetConfig
 from lyoko.infrastructure.llm.hermes_runner import HermesHarnessRunner
 
@@ -10,7 +11,7 @@ from lyoko.infrastructure.llm.hermes_runner import HermesHarnessRunner
 @pytest.mark.asyncio
 async def test_hermes_runner_halts_on_max_turns():
     budget_config = BudgetConfig(max_turns=2, max_budget_usd=1.0)
-    runner = HermesHarnessRunner(budget_config=budget_config)
+    runner = HermesHarnessRunner(budget_guard=BudgetGuardService(budget_config))
 
     call1 = MagicMock()
     call1.tool_calls = [{"name": "k8s_get", "args": {"pod": "p1"}, "id": "c1"}]
@@ -54,7 +55,7 @@ async def test_hermes_runner_halts_on_max_turns():
 @pytest.mark.asyncio
 async def test_hermes_runner_breaks_on_cycle_detection():
     budget_config = BudgetConfig(max_turns=10, max_budget_usd=1.0, cycle_detection_window=2)
-    runner = HermesHarnessRunner(budget_config=budget_config)
+    runner = HermesHarnessRunner(budget_guard=BudgetGuardService(budget_config))
 
     def make_call(call_id: str):
         msg = MagicMock()
@@ -96,7 +97,7 @@ async def test_hermes_runner_breaks_on_cycle_detection():
 @pytest.mark.asyncio
 async def test_hermes_runner_emits_status_heartbeat():
     budget_config = BudgetConfig(max_turns=4, max_budget_usd=1.0)
-    runner = HermesHarnessRunner(budget_config=budget_config)
+    runner = HermesHarnessRunner(budget_guard=BudgetGuardService(budget_config))
 
     call1 = MagicMock()
     call1.tool_calls = [{"name": "k8s_get", "args": {"pod": "p1"}, "id": "c1"}]
@@ -194,7 +195,7 @@ async def test_hermes_runner_bridge_tool_call_increments_steps_and_halts():
     bridge_mock.execute = AsyncMock(side_effect=mock_execute)
 
     budget_config = BudgetConfig(max_turns=2, max_budget_usd=1.0)
-    runner = HermesHarnessRunner(budget_config=budget_config, bridge=bridge_mock)
+    runner = HermesHarnessRunner(budget_guard=BudgetGuardService(budget_config), bridge=bridge_mock)
 
     real_summary_client = type(
         "RealClient", (), {"model_name": "gpt-4o-mini", "api_key": "sk-real"}

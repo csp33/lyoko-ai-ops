@@ -32,7 +32,8 @@ def _msg(
 
 def _agent(llm, *, tracer=None, tracker=None) -> InteractiveChatAgent:
     graph = create_lyoko_graph(mcp_client=FakeMCPClient(), llm=llm)
-    return InteractiveChatAgent(lambda: graph, tracer=tracer, session_tracker=tracker)
+    session_tracker = tracker or ChatSessionTracker()
+    return InteractiveChatAgent(lambda: graph, session_tracker=session_tracker, tracer=tracer)
 
 
 @pytest.mark.asyncio

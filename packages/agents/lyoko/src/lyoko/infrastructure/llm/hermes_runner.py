@@ -37,18 +37,13 @@ class HermesHarnessRunner(HarnessRunnerInterface):
         self,
         buffer_service: SmartOutputBufferService | None = None,
         budget_guard: BudgetGuardService | None = None,
-        budget_config: BudgetConfig | None = None,
         bridge: HermesSubprocessBridge | None = None,
         status_formatter: ToolStatusFormatter | None = None,
         error_detector: ToolErrorDetector | None = None,
     ) -> None:
         self._buffer = buffer_service or SmartOutputBufferService()
-        self._budget_config = budget_config or BudgetConfig(
-            max_turns=settings.max_turns_diagnose,
-            max_budget_usd=settings.max_budget_usd_per_event,
-            cycle_detection_window=settings.cycle_detection_window,
-        )
-        self._budget_guard = budget_guard or BudgetGuardService(self._budget_config)
+        self._budget_guard = budget_guard or BudgetGuardService()
+        self._budget_config = self._budget_guard.config
         self._bridge = bridge or HermesSubprocessBridge()
         self._status_formatter = status_formatter or ToolStatusFormatter()
         self._error_detector = error_detector or ToolErrorDetector()

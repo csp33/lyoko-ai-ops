@@ -17,6 +17,7 @@ from lyoko.application.incidents.triage.base import TriageHandler
 from lyoko.application.incidents.triage.cloudflare_tunnel import CloudflareTunnelHandler
 from lyoko.application.incidents.triage.pod_crashloop import PodCrashLoopHandler
 from lyoko.application.incidents.use_cases.enrich_trace_cost import EnrichTraceCostUseCase
+from lyoko.application.safety.budget_guard import BudgetGuardService
 from lyoko.application.safety.hitl.manager import ApprovalManager
 from lyoko.application.skills.matcher import SkillMatcherService
 from lyoko.config import settings
@@ -74,9 +75,10 @@ def build_llm_adapter(
         max_budget_usd=settings.max_budget_usd_per_event,
         cycle_detection_window=settings.cycle_detection_window,
     )
+    budget_guard = BudgetGuardService(config=budget_config)
     harness_runner = HermesHarnessRunner(
         buffer_service=buffer_service,
-        budget_config=budget_config,
+        budget_guard=budget_guard,
     )
 
     return OpenAILLMAdapter(

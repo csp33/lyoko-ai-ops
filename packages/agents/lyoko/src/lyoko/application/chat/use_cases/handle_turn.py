@@ -16,8 +16,6 @@ from lyoko.application.workflow.routing.recovery import (
 )
 from lyoko.domain.interfaces.approval import ApprovalManagerInterface
 from lyoko.domain.interfaces.chat_service import ChatServiceInterface
-from lyoko.domain.interfaces.llm import LLMClientInterface
-from lyoko.domain.interfaces.mcp import MCPClientInterface
 
 logger = logging.getLogger("lyoko.application.chat.use_cases.handle_turn")
 
@@ -29,17 +27,13 @@ class HandleChatTurnUseCase:
 
     def __init__(
         self,
-        mcp_client: MCPClientInterface | None,
-        llm: LLMClientInterface | None,
+        runner: AgentRunner,
         approval_manager: ApprovalManagerInterface | None = None,
         chat_manager: ChatServiceInterface | None = None,
-        runner: Any = None,
     ) -> None:
-        self.mcp_client = mcp_client
-        self.llm = llm
+        self.runner = runner
         self.approval_manager = approval_manager
         self.chat_manager = chat_manager
-        self.runner = runner or AgentRunner(mcp_client=mcp_client, llm=llm)
 
     async def execute(self, state: dict[str, Any], config: Any = None) -> dict[str, Any]:
         """Answer the operator via Hermes tool execution."""
@@ -52,7 +46,7 @@ class HandleChatTurnUseCase:
             logger.info("Canary notification acknowledged without investigation.")
             return {"reply": CANARY_ACKNOWLEDGEMENT}
 
-        if self.llm is None:
+        if getattr(self.runner, "llm", None) is None:
             return {"reply": _NO_LLM_REPLY.format(text=text)}
 
         gate = make_gate(
@@ -60,34 +54,21 @@ class HandleChatTurnUseCase:
             GateMode.APPROVAL,
             approval_manager=self.approval_manager,
             chat_manager=self.chat_manager,
-            mcp_client=self.mcp_client,
+            mcp_client=getattr(self.runner, "mcp_client", None),
         )
 
         on_status = status_callback(config)
 
         try:
-            if isinstance(self.runner, AgentRunner):
-                answer = await self.runner.run(
-                    state=state,
-                    gate=gate,
-                    config=config,
-                    phase="chat",
-                    prompt=text,
-                    system_prompt=CHAT_SYSTEM_PROMPT,
-                    on_status=on_status,
-                )
-            else:
-                answer = await self.runner(
-                    state,
-                    gate,
-                    config,
-                    mcp_client=self.mcp_client,
-                    llm=self.llm,
-                    phase="chat",
-                    prompt=text,
-                    system_prompt=CHAT_SYSTEM_PROMPT,
-                    on_status=on_status,
-                )
+            answer = await self.runner.run(
+                state=state,
+                gate=gate,
+                config=config,
+                phase="chat",
+                prompt=text,
+                system_prompt=CHAT_SYSTEM_PROMPT,
+                on_status=on_status,
+            )
         except Exception as exc:
             logger.error("Failed to generate LLM response: %s", exc)
             return {"reply": f"⚠️ Error processing your question: {exc}"}
