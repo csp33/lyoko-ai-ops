@@ -93,9 +93,6 @@ class AgentSettings(BaseSettings):
     )
 
     # Guardrails
-    max_remediation_retries: int = Field(
-        default=2, description="Maximum automated remediation retry loops"
-    )
     verification_delay_seconds: int = Field(
         default=10, description="Seconds to wait before verifying pod health"
     )
@@ -159,12 +156,7 @@ class AgentSettings(BaseSettings):
     max_turns_diagnose: int = Field(
         default=15,
         ge=1,
-        description="Maximum LLM turns for incident diagnosis",
-    )
-    max_turns_remediate: int = Field(
-        default=10,
-        ge=1,
-        description="Maximum LLM turns for incident remediation",
+        description="Maximum LLM turns for incident resolution",
     )
     max_turns_chat: int = Field(
         default=15,

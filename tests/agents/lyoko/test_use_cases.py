@@ -106,7 +106,7 @@ async def test_coordinate_workflow_use_case():
         mcp_client=None,
         llm=None,
         chat_use_case=mock_chat_uc,
-        diagnose_use_case=mock_diagnose_uc,
+        incident_use_case=mock_diagnose_uc,
     )
 
     chat_res = await coordinator.execute({"event_type": "message", "route": "chat"}, {})

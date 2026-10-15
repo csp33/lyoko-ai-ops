@@ -5,10 +5,6 @@ from lyoko.application.incidents.parser import IncidentOutputParser
 from lyoko.application.safety.tool_gate import GateMode, ToolGate, matches_any
 from lyoko.config import DEFAULT_READ_ONLY_TOOLS
 
-parse_diagnosis = IncidentOutputParser.parse_diagnosis
-parse_result = IncidentOutputParser.parse_result
-parse_verdict = IncidentOutputParser.parse_verdict
-
 
 def test_format_arguments_shortens_a_large_resource_manifest():
     """A full manifest argument must not flood the approval prompt with escaped YAML."""
@@ -343,50 +339,32 @@ def test_make_gate_reads_the_message_thread_from_state():
     assert gate._message_thread_id == "321"
 
 
-def test_parse_diagnosis_actionable():
-    diagnosis = parse_diagnosis(
-        "Some thinking first.\n"
-        "ROOT_CAUSE: Disk is full on node-1.\n"
-        "It filled up overnight.\n"
-        "ACTIONABLE: Yes\n"
-        "PLAN: 1. Prune images.\n2. Verify."
+def test_parse_resolution_resolved():
+    text = (
+        "ROOT_CAUSE: Disk full on node-1.\n"
+        "ACTION_TAKEN: Pruned dead docker images.\n"
+        "VERIFICATION: Disk usage dropped to 45%.\n"
+        "STATUS: RESOLVED"
     )
-
-    assert diagnosis.root_cause == "Disk is full on node-1.\nIt filled up overnight."
-    assert diagnosis.actionable is True
-    assert diagnosis.plan == "1. Prune images.\n2. Verify."
-
-
-def test_parse_diagnosis_not_actionable_and_plan_required():
-    assert parse_diagnosis("ROOT_CAUSE: x\nACTIONABLE: no\nPLAN: call a human").actionable is False
-    assert parse_diagnosis("ROOT_CAUSE: x\nACTIONABLE: yes\nPLAN:").actionable is False
+    res = IncidentOutputParser.parse_resolution(text)
+    assert res["root_cause"] == "Disk full on node-1."
+    assert res["action_taken"] == "Pruned dead docker images."
+    assert res["verification"] == "Disk usage dropped to 45%."
+    assert res["is_resolved"] is True
+    assert res["requires_escalation"] is False
 
 
-def test_parse_diagnosis_unparseable_text_is_not_actionable():
-    diagnosis = parse_diagnosis("I could not figure it out.")
-
-    assert diagnosis.actionable is False
-    assert diagnosis.root_cause == "I could not figure it out."
-
-
-def test_parse_result():
-    assert parse_result("thinking\nRESULT: Scaled it.\nIt worked.") == "Scaled it.\nIt worked."
-    assert parse_result("No marker here") == "No marker here"
-
-
-@pytest.mark.parametrize(
-    ("text", "resolved", "evidence"),
-    [
-        ("RESOLVED\nPod is Running.", True, "Pod is Running."),
-        ("resolved: all good", True, "all good"),
-        ("**RESOLVED** - healthy", True, "healthy"),
-        ("UNRESOLVED\nStill crashing.", False, "Still crashing."),
-        ("Not resolved yet", False, "Not resolved yet"),
-        ("", False, ""),
-    ],
-)
-def test_parse_verdict(text, resolved, evidence):
-    assert parse_verdict(text) == (resolved, evidence)
+def test_parse_resolution_escalated():
+    text = (
+        "ROOT_CAUSE: Hardware failure on switch port.\n"
+        "ACTION_TAKEN: None.\n"
+        "VERIFICATION: Port still flapping.\n"
+        "STATUS: ESCALATED"
+    )
+    res = IncidentOutputParser.parse_resolution(text)
+    assert res["root_cause"] == "Hardware failure on switch port."
+    assert res["is_resolved"] is False
+    assert res["requires_escalation"] is True
 
 
 @pytest.mark.asyncio

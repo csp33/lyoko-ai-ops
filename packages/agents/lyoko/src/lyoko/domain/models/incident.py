@@ -22,9 +22,6 @@ def compute_incident_key(incident: "Incident") -> str:
 
 class IncidentStatus(StrEnum):
     PENDING = "pending"
-    DIAGNOSING = "diagnosing"
-    REMEDIATING = "remediating"
-    VERIFYING = "verifying"
     RESOLVED = "resolved"
     ESCALATED = "escalated"
     FAILED = "failed"
@@ -35,9 +32,6 @@ class IncidentStatus(StrEnum):
         badges = {
             IncidentStatus.RESOLVED: "✅ RESOLVED",
             IncidentStatus.ESCALATED: "🚨 ESCALATED / REQUIRES ACTION",
-            IncidentStatus.DIAGNOSING: "🔍 DIAGNOSING",
-            IncidentStatus.REMEDIATING: "🛠️ REMEDIATING",
-            IncidentStatus.VERIFYING: "🔬 VERIFYING",
             IncidentStatus.FAILED: "❌ FAILED",
             IncidentStatus.PENDING: "⏳ PENDING",
         }
@@ -45,7 +39,6 @@ class IncidentStatus(StrEnum):
 
 
 class CoordinatorNext(StrEnum):
-    REMEDIATE = "remediate"
     NOTIFY = "notify"
     CHAT_END = "chat_end"
 
@@ -70,22 +63,3 @@ class Incident:
     @property
     def key(self) -> str:
         return compute_incident_key(self)
-
-
-@dataclass
-class IncidentState:
-    incident: Incident
-    status: IncidentStatus = IncidentStatus.PENDING
-    diagnostics: dict[str, Any] = field(default_factory=dict)
-    root_cause: str | None = None
-    action_taken: str | None = None
-    verification_success: bool = False
-    error_message: str | None = None
-    retry_count: int = 0
-
-
-@dataclass(frozen=True)
-class Diagnosis:
-    root_cause: str
-    actionable: bool
-    plan: str

@@ -10,16 +10,6 @@ from lyoko.domain.interfaces.llm import LLMClientInterface
 from lyoko.domain.interfaces.mcp import ToolAuthorizer
 from lyoko.domain.models.chat import ApprovalResponse
 
-DIAGNOSIS_ACTIONABLE = (
-    "ROOT_CAUSE: The radarr pod was OOMKilled because its memory limit is too low.\n"
-    "ACTIONABLE: yes\n"
-    "PLAN: 1. Call resources_scale for deployment radarr."
-)
-DIAGNOSIS_NOT_ACTIONABLE = (
-    "ROOT_CAUSE: The database credentials are invalid.\n"
-    "ACTIONABLE: no\n"
-    "PLAN: A human should rotate the credentials."
-)
 RESOLUTION_RESOLVED = (
     "ROOT_CAUSE: The radarr pod was OOMKilled because its memory limit is too low.\n"
     "ACTION_TAKEN: Scaled radarr.\n"

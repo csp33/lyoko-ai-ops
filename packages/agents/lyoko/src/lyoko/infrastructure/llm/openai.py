@@ -10,7 +10,7 @@ from lyoko.config import settings
 from lyoko.domain.interfaces.harness import HarnessRunnerInterface
 from lyoko.domain.interfaces.llm import LLMClientInterface
 from lyoko.infrastructure.llm.content import extract_message_text
-from lyoko.infrastructure.llm.harness_runner import ReActHarnessRunner
+from lyoko.infrastructure.llm.hermes_runner import HermesHarnessRunner
 from lyoko.infrastructure.llm.tracing import child_config
 from lyoko.infrastructure.observability.langfuse import get_langfuse_trace_config
 
@@ -33,7 +33,7 @@ class OpenAILLMAdapter(LLMClientInterface):
         self.use_responses_api = use_responses_api
         self._api_key = api_key
         self._client: ChatOpenAI | None = None
-        self._harness_runner = harness_runner or ReActHarnessRunner()
+        self._harness_runner = harness_runner or HermesHarnessRunner()
 
     @property
     def client(self) -> ChatOpenAI:

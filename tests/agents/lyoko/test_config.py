@@ -62,7 +62,6 @@ def test_tool_budget_defaults():
 def test_hermes_budget_settings_defaults():
     default_settings = AgentSettings(postgres_password="")
     assert default_settings.max_turns_diagnose == 15
-    assert default_settings.max_turns_remediate == 10
     assert default_settings.max_turns_chat == 15
     assert default_settings.max_budget_usd_per_event == 0.10
     assert default_settings.cycle_detection_window == 2

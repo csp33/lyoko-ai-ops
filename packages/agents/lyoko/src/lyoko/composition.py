@@ -70,7 +70,6 @@ def build_llm_adapter(
         max_turns=max(
             settings.max_turns_chat,
             settings.max_turns_diagnose,
-            settings.max_turns_remediate,
         ),
         max_budget_usd=settings.max_budget_usd_per_event,
         cycle_detection_window=settings.cycle_detection_window,

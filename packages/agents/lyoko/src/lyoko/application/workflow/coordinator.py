@@ -29,7 +29,6 @@ class CoordinateWorkflowUseCase:
         skill_matcher_service: SkillMatcherService | None = None,
         chat_use_case: HandleChatTurnUseCase | None = None,
         incident_use_case: ResolveIncidentUseCase | Any | None = None,
-        diagnose_use_case: Any | None = None,
         default_chat_id: str | None = None,
     ) -> None:
         self.chat_use_case = chat_use_case or HandleChatTurnUseCase(
@@ -38,17 +37,13 @@ class CoordinateWorkflowUseCase:
             approval_manager=approval_manager,
             chat_manager=chat_manager,
         )
-        self.incident_use_case = (
-            incident_use_case
-            or diagnose_use_case
-            or ResolveIncidentUseCase(
-                mcp_client=mcp_client,
-                llm=diagnose_llm or llm,
-                approval_manager=approval_manager,
-                chat_manager=chat_manager,
-                skill_matcher_service=skill_matcher_service,
-                default_chat_id=default_chat_id or "",
-            )
+        self.incident_use_case = incident_use_case or ResolveIncidentUseCase(
+            mcp_client=mcp_client,
+            llm=diagnose_llm or llm,
+            approval_manager=approval_manager,
+            chat_manager=chat_manager,
+            skill_matcher_service=skill_matcher_service,
+            default_chat_id=default_chat_id or "",
         )
 
     async def execute(
