@@ -253,7 +253,7 @@ class HermesHarnessRunner(HarnessRunnerInterface):
             usage.turns_used += 1
             return output
 
-        model_name = getattr(summary_client, "model_name", settings.openai_cheap_model)
+        model_name = getattr(summary_client, "model_name", settings.openai_model)
         api_key = getattr(summary_client, "api_key", "")
         if not api_key:
             api_key = (
