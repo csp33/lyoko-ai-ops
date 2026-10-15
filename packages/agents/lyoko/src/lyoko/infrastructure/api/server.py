@@ -66,13 +66,8 @@ async def lifespan(app: FastAPI):
             await asyncio.wait_for(checkpointer.setup(), timeout=5.0)
             logger.info("PostgreSQL checkpointer initialized and tables ready.")
 
-            # Setup Memory repository & run migrations
+            # Setup Memory repository
             memory_repo = PostgresMemoryRepository(pool)
-            try:
-                memory_repo.run_migrations()
-            except Exception as exc:
-                logger.warning(f"Alembic auto-migration warning: {exc}")
-
             logger.info("PostgreSQL memory repository initialized.")
         except Exception as exc:
             logger.error(f"Failed to initialize PostgreSQL components: {exc}", exc_info=True)
