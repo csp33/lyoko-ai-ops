@@ -46,12 +46,12 @@ async def test_set_status_appends_checklist_steps():
     await streamer.start()
     bot.edit_message_text.reset_mock()
 
-    await streamer.set_status("🧩 Consulting the kubernetes specialist")
+    await streamer.set_status("🔍 Discovering kubernetes tools")
     await streamer.set_status("🛰️ Calling <code>kubectl_get</code>")
 
     last_kwargs = bot.edit_message_text.call_args.kwargs
     last = last_kwargs["text"]
-    assert "🧩 Consulting the kubernetes specialist" in last
+    assert "🔍 Discovering kubernetes tools" in last
     assert last.count("✔") == 2
     assert last.count("⏳") == 1
     assert "🛰️ Calling <code>kubectl_get</code>" in last
@@ -69,9 +69,9 @@ async def test_set_status_ignores_duplicate_and_post_stop():
     streamer = TelegramStreamingReply(bot=bot, chat_id="12345")
     await streamer.start()
 
-    await streamer.set_status("🧩 Consulting the kubernetes specialist")
+    await streamer.set_status("🔍 Discovering kubernetes tools")
     bot.edit_message_text.reset_mock()
-    await streamer.set_status("🧩 Consulting the kubernetes specialist")
+    await streamer.set_status("🔍 Discovering kubernetes tools")
     bot.edit_message_text.assert_not_called()
 
     streamer.stop()

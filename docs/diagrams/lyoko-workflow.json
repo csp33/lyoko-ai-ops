@@ -11,22 +11,21 @@
         "focus": [
           "event_in",
           "route_node",
-          "supervisor",
+          "chat_node",
           "diagnose"
         ],
         "note": "Alertmanager webhooks take the incident path; Telegram messages are classified by an LLM."
       },
       {
-        "id": "specialist-chat",
-        "label": "Interactive Chat & Specialists",
+        "id": "interactive-chat",
+        "label": "Interactive Chat & Tool Execution",
         "focus": [
           "route_node",
-          "supervisor",
-          "specialists",
+          "chat_node",
           "toolgate",
           "mcp_gateway"
         ],
-        "note": "Supervisor coordinates 4 domain specialists through the scoped tool gateway."
+        "note": "Hermes agent interacts with the operator and executes operational tools under ToolGate."
       },
       {
         "id": "incident-remediation",
@@ -45,12 +44,12 @@
   },
   "lanes": [
     {
-      "id": "chat_lane",
-      "label": "Chat branch"
-    },
-    {
       "id": "main_lane",
       "label": "Route and incident branch"
+    },
+    {
+      "id": "chat_lane",
+      "label": "Interactive chat branch"
     },
     {
       "id": "gate_lane",
@@ -82,10 +81,10 @@
   "groups": [
     {
       "id": "chat_group",
-      "label": "Supervisor orchestration",
+      "label": "Interactive assistant",
       "lane": "chat_lane",
       "fromCol": 2,
-      "toCol": 3,
+      "toCol": 2,
       "variant": "emphasis"
     },
     {
@@ -123,27 +122,18 @@
       "col": 1,
       "type": "backend",
       "label": "Route Classifier",
-      "sublabel": "LLM Intent Routing",
+      "sublabel": "Alert / Chat Intent",
       "width": 140
     },
     {
-      "id": "supervisor",
+      "id": "chat_node",
       "lane": "chat_lane",
       "col": 2,
       "type": "backend",
-      "label": "Supervisor Agent",
-      "sublabel": "Plan & Delegate",
-      "brand": "openai",
+      "label": "Interactive Chat",
+      "sublabel": "Hermes Agent",
+      "brand": "telegram",
       "width": 150
-    },
-    {
-      "id": "specialists",
-      "lane": "chat_lane",
-      "col": 3,
-      "type": "backend",
-      "label": "Domain Specialists",
-      "sublabel": "K8s \u00b7 Net \u00b7 IoT \u00b7 Obs",
-      "width": 160
     },
     {
       "id": "diagnose",
@@ -210,7 +200,7 @@
     {
       "id": "e2",
       "from": "route_node",
-      "to": "supervisor",
+      "to": "chat_node",
       "label": "chat",
       "variant": "emphasis"
     },
@@ -223,8 +213,9 @@
     },
     {
       "id": "e4",
-      "from": "supervisor",
-      "to": "specialists",
+      "from": "chat_node",
+      "to": "toolgate",
+      "label": "tools",
       "variant": "emphasis"
     },
     {
@@ -264,9 +255,9 @@
       "dot": "cyan",
       "title": "One Workflow, Dual Branches",
       "items": [
-        "Interactive Chat Branch: Multi-turn Hermes agent coordinates domain specialists",
+        "Interactive Chat Branch: Hermes agent assists the operator and runs diagnostic tools",
         "Autonomous Incident Branch: 4-stage deterministic SRE remediation lifecycle",
-        "Autonomous Hermes engine drives tool calling, domain investigation, and structured reporting"
+        "Unified Hermes engine drives tool calling, domain investigation, and structured reporting"
       ]
     },
     {

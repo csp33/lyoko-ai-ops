@@ -1,8 +1,4 @@
-"""Unit tests for modular homelab context loading and architectural knowledge injection."""
-
 import pytest
-from lyoko.application.agents.specialist_prompts import SpecialistPromptProvider
-from lyoko.application.agents.supervisor import SUPERVISOR_SYSTEM_PROMPT
 from lyoko.application.context.loader import (
     build_agent_context,
     get_homelab_context,
@@ -12,13 +8,9 @@ from lyoko.application.prompts.chat import CHAT_SYSTEM_PROMPT
 from lyoko.application.prompts.incident import (
     DIAGNOSE_SYSTEM_PROMPT,
     REMEDIATE_SYSTEM_PROMPT,
+    RESOLVE_SYSTEM_PROMPT,
     VERIFY_SYSTEM_PROMPT,
 )
-
-K8S_SPECIALIST_PROMPT = SpecialistPromptProvider.get_prompt("k8s")
-NETWORK_SPECIALIST_PROMPT = SpecialistPromptProvider.get_prompt("network")
-SMARTHOME_SPECIALIST_PROMPT = SpecialistPromptProvider.get_prompt("smarthome")
-OBSERVABILITY_SPECIALIST_PROMPT = SpecialistPromptProvider.get_prompt("observability")
 
 
 def test_load_context_success():
@@ -55,10 +47,13 @@ def test_get_homelab_context_selective():
 
 
 def test_build_agent_context_roles():
-    k8s_ctx = build_agent_context("k8s")
-    assert "tresberto" in k8s_ctx
-    assert "envoy-vps-ingress" in k8s_ctx
-    assert "strategy.type: Recreate" in k8s_ctx
+    diag_ctx = build_agent_context("diagnose")
+    assert "tresberto" in diag_ctx
+    assert "envoy-vps-ingress" in diag_ctx
+    assert "strategy.type: Recreate" in diag_ctx
+
+    chat_ctx = build_agent_context("chat")
+    assert "tresberto" in chat_ctx
 
     net_ctx = build_agent_context("network")
     assert "envoy-cloudflare-tunnel" in net_ctx
@@ -69,28 +64,15 @@ def test_build_agent_context_roles():
 
 
 def test_prompts_contain_homelab_context():
-    # Chat, Supervisor, Diagnose, Remediate, Verify contain architectural context
+    # Chat, Diagnose, Remediate, Verify, Resolve contain architectural context
     for prompt in [
         CHAT_SYSTEM_PROMPT,
-        SUPERVISOR_SYSTEM_PROMPT,
         DIAGNOSE_SYSTEM_PROMPT,
         REMEDIATE_SYSTEM_PROMPT,
         VERIFY_SYSTEM_PROMPT,
+        RESOLVE_SYSTEM_PROMPT,
     ]:
         assert "HOMELAB ARCHITECTURAL CONTEXT" in prompt
         assert "tresberto" in prompt
         assert "envoy-vps-ingress" in prompt
         assert "strategy.type: Recreate" in prompt
-
-    # K8S specialist contains node specs and storage rules
-    assert "tresberto" in K8S_SPECIALIST_PROMPT
-    assert "Longhorn" in K8S_SPECIALIST_PROMPT
-    assert "strategy.type: Recreate" in K8S_SPECIALIST_PROMPT
-
-    # Network specialist contains gateways and bastion IP
-    assert "envoy-vps-ingress" in NETWORK_SPECIALIST_PROMPT
-    assert "51.170.41.131" in NETWORK_SPECIALIST_PROMPT
-
-    # Smarthome and Observability specialists contain homelab overview
-    assert "tresberto" in SMARTHOME_SPECIALIST_PROMPT
-    assert "tresberto" in OBSERVABILITY_SPECIALIST_PROMPT

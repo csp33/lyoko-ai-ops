@@ -6,7 +6,7 @@ from typing import Any
 
 import yaml
 from langchain_core.runnables import RunnableConfig
-from lyoko.application.agents.supervisor import status_callback
+from lyoko.application.agents.runner import status_callback
 from lyoko.application.incidents.triage.base import TriageResult
 from lyoko.domain.interfaces.approval import ApprovalManagerInterface
 from lyoko.domain.interfaces.chat_service import ChatServiceInterface

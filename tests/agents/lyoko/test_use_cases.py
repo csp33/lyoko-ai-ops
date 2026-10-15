@@ -145,34 +145,6 @@ async def test_triage_incident_use_case():
 
 
 @pytest.mark.asyncio
-async def test_execute_specialist_task_use_case():
-    from lyoko.application.agents.task_runner import (
-        ExecuteSpecialistTaskUseCase,
-    )
-
-    specialist = MagicMock()
-    specialist.run = AsyncMock(return_value="K8s pod restarted")
-    uc = ExecuteSpecialistTaskUseCase(domain="kubernetes", specialist=specialist)
-
-    # Without matching pending delegation
-    res_none = await uc.execute({"pending_delegation": None}, {})
-    assert res_none == {"pending_delegation": None}
-
-    # With matching pending delegation
-    res_match = await uc.execute(
-        {
-            "pending_delegation": {"domain": "kubernetes", "task": "Check pod"},
-            "delegation_history": [],
-        },
-        {},
-    )
-    assert res_match["pending_delegation"] is None
-    assert res_match["delegated_to"] == "kubernetes"
-    assert len(res_match["delegation_history"]) == 1
-    assert res_match["delegation_history"][0]["response"] == "K8s pod restarted"
-
-
-@pytest.mark.asyncio
 async def test_coordinate_workflow_use_case():
     from lyoko.application.workflow.coordinator import (
         CoordinateWorkflowUseCase,

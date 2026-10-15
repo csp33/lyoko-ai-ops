@@ -5,7 +5,6 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from lyoko.application.incidents.recovery import OrphanRecoveryService
 from lyoko.application.incidents.use_cases.resolve import ResolveIncidentUseCase
 from lyoko.application.safety.alert_guard import AlertStormProtector
 from lyoko.application.safety.gated_run_context import get_gated_run_context
@@ -14,10 +13,8 @@ from lyoko.application.safety.task_tracker import TaskTracker
 from lyoko.application.workflow.graph import create_lyoko_graph
 from lyoko.composition import (
     build_chat_manager,
-    build_domain_specialists,
     build_llm_adapter,
     build_skill_matcher,
-    build_supervisor,
     build_tracer,
     build_triage_handlers,
     verify_mcp_gateway,
@@ -38,11 +35,10 @@ logger = logging.getLogger("lyoko.web.server")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage lifecycle of database pools, checkpointers, and chat listeners."""
+    """Manage lifecycle of database pools, chat listeners, and Hermes agent."""
     logger.info("Initializing LYOKO Auto-Remediation Agent...")
     db_uri = settings.get_postgres_uri()
     pool = None
-    checkpointer = None
     memory_repo = None
     embeddings_service = EmbeddingsService()
 
@@ -62,7 +58,6 @@ async def lifespan(app: FastAPI):
             )
             await asyncio.wait_for(pool.open(), timeout=5.0)
 
-            # Setup Memory repository
             memory_repo = PostgresMemoryRepository(pool)
             logger.info("PostgreSQL memory repository initialized.")
         except Exception as exc:
@@ -98,14 +93,6 @@ async def lifespan(app: FastAPI):
     app.state.chat_manager = chat_manager
     wire_chat_agent(app, chat_manager)
 
-    specialists = getattr(app.state, "specialists", None) or build_domain_specialists(
-        mcp_client, llm
-    )
-    supervisor = getattr(app.state, "supervisor", None) or build_supervisor(specialists, llm)
-    diagnose_supervisor = getattr(app.state, "diagnose_supervisor", None) or build_supervisor(
-        specialists, diagnose_llm
-    )
-
     task_tracker = getattr(app.state, "task_tracker", None) or TaskTracker()
     app.state.task_tracker = task_tracker
 
@@ -125,7 +112,6 @@ async def lifespan(app: FastAPI):
     incident_use_case = ResolveIncidentUseCase(
         mcp_client=mcp_client,
         llm=diagnose_llm or llm,
-        supervisor=None,
         approval_manager=approval_manager,
         chat_manager=chat_manager,
         memory_repository=None,
@@ -134,19 +120,14 @@ async def lifespan(app: FastAPI):
         default_chat_id=settings.telegram_default_chat_id or "",
     )
 
-    # Rebuilt now that the checkpointer exists. Everything reads the graph from app.state.
     workflow_engine = create_lyoko_graph(
         mcp_client,
         approval_manager=approval_manager,
         chat_manager=chat_manager,
-        checkpointer=checkpointer,
         llm=llm,
-        supervisor=None,
-        specialists=specialists,
         memory_repository=memory_repo,
         embeddings_service=embeddings_service,
         diagnose_llm=diagnose_llm,
-        diagnose_supervisor=None,
         tracer=getattr(app.state, "tracer", None),
         triage_handlers=triage_handlers,
         skill_matcher_service=skill_matcher,
@@ -157,20 +138,10 @@ async def lifespan(app: FastAPI):
     app.state.skill_matcher = skill_matcher
     app.state.llm = llm
     app.state.diagnose_llm = diagnose_llm
-    app.state.specialists = specialists
-    app.state.supervisor = supervisor
-    app.state.diagnose_supervisor = diagnose_supervisor
     app.state.workflow_engine = workflow_engine
     app.state.db_pool = pool
-    app.state.checkpointer = checkpointer
     app.state.memory_repository = memory_repo
     app.state.embeddings_service = embeddings_service
-
-    if checkpointer is not None:
-        recovery_svc = OrphanRecoveryService(
-            workflow_engine=workflow_engine, checkpointer=checkpointer
-        )
-        task_tracker.track(asyncio.create_task(recovery_svc.recover_orphaned_incidents()))
 
     await chat_manager.start_all()
     gated_inner = getattr(app.state, "gated_mcp_inner", None)
@@ -195,9 +166,6 @@ def create_app() -> FastAPI:
     chat_manager = build_chat_manager(approval_manager)
     tracer = build_tracer()
     task_tracker = TaskTracker()
-    specialists = build_domain_specialists(mcp_client, llm)
-    supervisor = build_supervisor(specialists, llm)
-    diagnose_supervisor = build_supervisor(specialists, diagnose_llm)
     alert_guard = AlertStormProtector(chat_manager=chat_manager, task_tracker=task_tracker)
     chat_manager.register_approval_handler(alert_guard.handle_force_approval)
 
@@ -206,16 +174,12 @@ def create_app() -> FastAPI:
     app.state.llm = llm
     app.state.diagnose_llm = diagnose_llm
     app.state.mcp_client = mcp_client
-    app.state.specialists = specialists
-    app.state.supervisor = supervisor
-    app.state.diagnose_supervisor = diagnose_supervisor
     app.state.approval_manager = approval_manager
     app.state.chat_manager = chat_manager
     app.state.alert_guard = alert_guard
     app.state.task_tracker = task_tracker
     app.state.workflow_engine = None
     app.state.tracer = tracer
-    app.state.checkpointer = None
     app.state.db_pool = None
     app.state.memory_repository = None
     app.state.embeddings_service = None

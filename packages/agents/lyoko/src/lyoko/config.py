@@ -30,7 +30,7 @@ class AgentSettings(BaseSettings):
     openai_diagnose_model: str = Field(
         default="gpt-4.1",
         description=(
-            "OpenAI model for the diagnose phase, which synthesizes the specialists' evidence and "
+            "OpenAI model for the diagnose phase, which investigates incident evidence and "
             "decides whether the incident is actionable. A stronger model here pays off because "
             "mis-synthesis is the main failure mode. Empty falls back to openai_model."
         ),
@@ -122,11 +122,6 @@ class AgentSettings(BaseSettings):
         default=20,
         ge=1,
         description="Maximum tool-use iterations of each incident investigation or remediation",
-    )
-    max_supervisor_steps: int = Field(
-        default=8,
-        ge=1,
-        description="Maximum supervisor delegation iterations per phase",
     )
     # Hermes Agent & Budget Controls
     hermes_venv_path: str = Field(

@@ -44,20 +44,7 @@ class IncidentStatus(StrEnum):
         return badges.get(self, f"ℹ️ {self.value.upper()}")
 
 
-class SpecialistDomain(StrEnum):
-    KUBERNETES = "kubernetes"
-    UNIFI = "unifi"
-    HOMEASSISTANT = "homeassistant"
-    GRAFANA = "grafana"
-    LANGFUSE = "langfuse"
-
-
 class CoordinatorNext(StrEnum):
-    KUBERNETES = "kubernetes"
-    UNIFI = "unifi"
-    HOMEASSISTANT = "homeassistant"
-    GRAFANA = "grafana"
-    LANGFUSE = "langfuse"
     REMEDIATE = "remediate"
     NOTIFY = "notify"
     CHAT_END = "chat_end"

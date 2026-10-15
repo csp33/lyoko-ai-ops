@@ -40,8 +40,7 @@ Every event enters the workflow at `route` and takes one of two branches:
 | :--- | :--- |
 | `route` | Alerts always take the incident branch. For a Telegram message, an LLM classifier decides between `chat` (interactive queries/instructions) and the incident branch (reports of broken infrastructure). |
 | `triage` | Fast-path deterministic evaluation for known alerts (e.g. Argo CD autosync) before invoking heavy LLM reasoning. |
-| `Hermes Agent` | Coordinates domain investigations, diagnoses root causes, executes remediation plans, and verifies health restoration. |
-| `Domain Specialists` | Focused experts with scoped toolsets: `K8sSpecialist` (pods, logs, resources, Argo CD CRDs), `NetworkSpecialist` (clients, bandwidth, APs, VLANs), `SmartHomeSpecialist` (entities, devices, automations), `ObservabilitySpecialist` (Prometheus metrics, alerts). Each specialist executes via `gateway_call_tool` with `gateway_get_tool_schema` as fallback. |
+| `Hermes Agent` | Operates across infrastructure domains under ToolGate, diagnoses root causes, executes remediation plans, and verifies health restoration. |
 | `diagnose` | Read-only investigation across infrastructure domains. Returns root cause, whether it is auto-fixable, and a remediation plan. |
 | `remediate` | Execution of the remediation plan. State-changing tool calls are gated by the `ToolGate` and need operator approval via Telegram inline buttons. |
 | `verify` | Read-only check after a stabilization window that the issue has cleared and pods/services are healthy. |
@@ -77,12 +76,11 @@ Each event produces **one Langfuse trace**, and everything it does is a named sp
 telegram-chat-interaction / lyoko-<alert>-<id>   one trace per event
 ├── route
 │   └── route-llm                                routing decision (messages only)
-└── chat | triage | coordinator | remediate | verify
-    └── coordinator                              Hermes autonomous SRE run
-        ├── ask_kubernetes_specialist            (or unifi / homeassistant / grafana)
-        │   └── specialist-kubernetes            specialist execution
-        │       └── mcp:k8s_pods_log             bound domain tool (or gateway_call_tool)
-        └── ...
+└── chat | triage | diagnose | remediate | verify
+    └── hermes-agent                             Hermes autonomous SRE run
+        ├── gateway_get_domain_tools             domain tool discovery
+        ├── gateway_get_tool_schema              parameter schema inspection
+        └── mcp:k8s_pods_log                     guarded tool execution (via gateway_call_tool)
 ```
 
 - **Sessions**: Threaded per Telegram chat session (`telegram-{chat_id}-{date}-{time}`, reset with `/new`) and per incident (`incident-{id}`). Replying to an alert message continues that incident's session.
@@ -99,7 +97,7 @@ Configure LYOKO using environment variables (in `.env` or Kubernetes ConfigMap/S
 | `LYOKO_HOST` | `0.0.0.0` | Webhook receiver bind host. |
 | `LYOKO_PORT` | `9000` | Webhook receiver bind port. |
 | `OPENAI_API_KEY` | `""` | OpenAI API key for LLM diagnosis, chat, and embeddings. |
-| `OPENAI_MODEL` | `gpt-4o-mini` | Cheaper LLM used for chat, remediation, verification, and specialists. |
+| `OPENAI_MODEL` | `gpt-4o-mini` | Cheaper LLM used for chat, remediation, and verification. |
 | `OPENAI_DIAGNOSE_MODEL` | `gpt-4.1` | Stronger LLM used for the diagnose phase (synthesis + go/no-go). Empty falls back to `OPENAI_MODEL`. |
 | `OPENAI_USE_RESPONSES_API` | `true` | Use the OpenAI Responses API (`/v1/responses`) instead of Chat Completions. |
 | `MCP_SERVER_URL` | `http://localhost:8000/mcp` | URL of the `sector5-mcp` gateway endpoint. |

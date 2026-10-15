@@ -31,7 +31,7 @@
 
 **LYOKO AIOps** is an event-driven, self-healing SRE platform built around an autonomous remediation engine (**LYOKO**, powered by Hermes Agent) and a unified, guardrail-protected tool gateway (**`sector5-mcp`**). 
 
-When incidents occur, the system diagnoses root causes using read-only specialists, retrieves prior lessons from persistent vector memory (**PostgreSQL + pgvector**), and requests human approval (HITL) via **Telegram** before applying any state modification.
+When incidents occur, the system diagnoses root causes in read-only mode, retrieves prior lessons from persistent vector memory (**PostgreSQL + pgvector**), and requests human approval (HITL) via **Telegram** before applying any state modification.
 
 > [!NOTE]
 > **🎮 Why LYOKO?**
@@ -75,7 +75,7 @@ When incidents occur, the system diagnoses root causes using read-only specialis
 | Package | Role | Description |
 | :--- | :--- | :--- |
 | [`sector5-mcp`](packages/mcps/sector5-mcp) | Tool Gateway | FastMCP server aggregating upstream APIs with authentication, per-domain tool catalogs, and namespace guardrails. |
-| [`lyoko`](packages/agents/lyoko) | Autonomous SRE Engine | Hermes-powered autonomous agent with domain specialists, Telegram approvals, and episodic vector memory. |
+| [`lyoko`](packages/agents/lyoko) | Autonomous SRE Engine | Hermes-powered autonomous agent with ToolGate safety harness, Telegram approvals, and episodic vector memory. |
 
 ---
 

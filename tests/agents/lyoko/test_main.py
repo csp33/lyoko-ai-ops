@@ -2,7 +2,7 @@ import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from lyoko.composition import build_domain_specialists, build_llm_adapter, build_supervisor
+from lyoko.composition import build_llm_adapter
 from lyoko.config import settings
 from lyoko.infrastructure.api.server import create_app, lifespan
 from lyoko.logging_config import HealthEndpointFilter
@@ -13,25 +13,6 @@ async def test_healthz_endpoint():
     app = create_app()
     async with lifespan(app):
         assert app.state.workflow_engine is not None
-        assert "kubernetes" in app.state.specialists
-        assert "unifi" in app.state.specialists
-        assert "homeassistant" in app.state.specialists
-        assert "grafana" in app.state.specialists
-        assert "langfuse" in app.state.specialists
-        assert app.state.supervisor is not None
-
-
-def test_build_domain_specialists_and_supervisor():
-    specialists = build_domain_specialists(mcp_client=None, llm=None)
-    assert set(specialists.keys()) == {
-        "kubernetes",
-        "unifi",
-        "homeassistant",
-        "grafana",
-        "langfuse",
-    }
-    supervisor = build_supervisor(specialists, llm=None)
-    assert supervisor.specialists == specialists
 
 
 def test_build_llm_adapter_model_override(monkeypatch):
@@ -52,8 +33,6 @@ def test_create_app_wires_a_stronger_diagnose_model(monkeypatch):
 
     assert app.state.llm.model_name == "gpt-4o-mini"
     assert app.state.diagnose_llm.model_name == "gpt-4.1"
-    assert app.state.diagnose_supervisor.llm is app.state.diagnose_llm
-    assert app.state.supervisor.llm is app.state.llm
 
 
 @pytest.mark.asyncio

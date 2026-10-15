@@ -36,15 +36,18 @@ async def test_coordinator_handles_message():
 
 @pytest.mark.asyncio
 async def test_coordinator_handles_alert_diagnose():
-    mock_supervisor = MagicMock()
-    mock_supervisor.coordinate = AsyncMock(
-        return_value="ROOT_CAUSE: Pod OOM\nACTIONABLE: yes\nPLAN: Scale up"
-    )
+    mock_runner = AsyncMock(return_value="ROOT_CAUSE: Pod OOM\nACTIONABLE: yes\nPLAN: Scale up")
+    from lyoko.application.incidents.use_cases.diagnose import DiagnoseIncidentUseCase
 
+    diag_uc = DiagnoseIncidentUseCase(
+        mcp_client=None,
+        llm=MagicMock(),
+        runner=mock_runner,
+    )
     node = create_coordinator_node(
         mcp_client=None,
         llm=MagicMock(),
-        supervisor=mock_supervisor,
+        diagnose_use_case=diag_uc,
     )
     state = {
         "event_type": "alert",
@@ -59,31 +62,26 @@ async def test_coordinator_handles_alert_diagnose():
 
 
 def test_choose_coordinator_next():
-    from lyoko.domain.models.incident import CoordinatorNext, SpecialistDomain
-
-    # If pending delegation exists for a known specialist
-    state_delegating = {
-        "pending_delegation": {"domain": "kubernetes"},
-    }
-    assert choose_coordinator_next(state_delegating) == CoordinatorNext.KUBERNETES
-    assert choose_coordinator_next(state_delegating) == SpecialistDomain.KUBERNETES
-    assert choose_coordinator_next(state_delegating) == "kubernetes"
+    from lyoko.domain.models.incident import CoordinatorNext
 
     # If message and finished
     state_chat_done = {
-        "pending_delegation": None,
         "event_type": "message",
         "route": "chat",
         "reply": "All good",
     }
     assert choose_coordinator_next(state_chat_done) == CoordinatorNext.CHAT_END
-    assert choose_coordinator_next(state_chat_done) == "chat_end"
 
-    # If alert and actionable or unfixable diagnosis, routes to remediate
+    # If alert routes to remediate
     state_alert = {
-        "pending_delegation": None,
         "event_type": "alert",
         "requires_escalation": True,
     }
     assert choose_coordinator_next(state_alert) == CoordinatorNext.REMEDIATE
-    assert choose_coordinator_next(state_alert) == "remediate"
+
+    # If autonomous single-pass coordinator set NOTIFY
+    state_notify = {
+        "event_type": "alert",
+        "coordinator_next": CoordinatorNext.NOTIFY,
+    }
+    assert choose_coordinator_next(state_notify) == CoordinatorNext.NOTIFY

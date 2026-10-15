@@ -24,8 +24,6 @@ class ToolStatusFormatter:
             else:
                 step_info = f" (Step {turns_used + 1}/{max_turns})"
 
-        if name.startswith("ask_") and name.endswith("_specialist"):
-            return f"🧩 Consulting the {name[4:-11]} specialist{step_info}"
         if name == "gateway_call_tool":
             return f"🛰️ Calling <code>{args.get('tool_name', 'tool')}</code>{step_info}"
         if name == "gateway_get_domain_tools":

@@ -8,10 +8,6 @@ from lyoko.infrastructure.llm.tool_loop import _tool_status
     ("tool_call", "expected"),
     [
         (
-            {"name": "ask_kubernetes_specialist", "args": {"task": "restart"}},
-            "🧩 Consulting the kubernetes specialist",
-        ),
-        (
             {"name": "gateway_call_tool", "args": {"tool_name": "kubectl_get", "arguments": {}}},
             "🛰️ Calling <code>kubectl_get</code>",
         ),

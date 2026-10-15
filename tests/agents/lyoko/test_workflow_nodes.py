@@ -90,18 +90,16 @@ def test_format_incident_report():
 
     from lyoko.domain.models.incident import IncidentStatus
 
-    escalated_with_delegation_state = {
+    escalated_state = {
         "event_type": "alert",
         "is_resolved": False,
         "status": IncidentStatus.ESCALATED,
-        "delegation_history": [{"domain": "kubernetes", "task": "Investigate pod"}],
         "alert_name": "OutOfSync",
         "root_cause": "Investigating with tools",
-        "action_taken": "Delegated to kubernetes specialist",
+        "action_taken": "Investigating with tools",
     }
-    escalated_report = format_incident_report(escalated_with_delegation_state)
+    escalated_report = format_incident_report(escalated_state)
     assert "**Status:** 🚨 ESCALATED / REQUIRES ACTION" in escalated_report
-    assert "**Specialists Consulted:** `kubernetes`" in escalated_report
 
 
 @pytest.mark.asyncio
@@ -127,7 +125,7 @@ async def test_route_node_and_choose_branch():
 
 
 def test_status_callback_reads_only_config_configurable():
-    from lyoko.application.agents.supervisor import status_callback
+    from lyoko.application.agents.runner import status_callback
 
     sentinel = object()
     assert status_callback({"configurable": {"on_status": sentinel}}) is sentinel
@@ -182,10 +180,8 @@ async def test_route_node_sends_recovery_to_chat_without_llm():
 
 
 @pytest.mark.asyncio
-async def test_chat_node_acknowledges_recovery_without_supervisor():
-    supervisor = MagicMock()
-    supervisor.coordinate = AsyncMock()
-    node = create_chat_node(mcp_client=object(), llm=object(), supervisor=supervisor)
+async def test_chat_node_acknowledges_recovery():
+    node = create_chat_node(mcp_client=object(), llm=object())
 
     res = await node(
         {"event_type": "message", "text": "An alert has been resolved: passing successfully"},
@@ -193,7 +189,6 @@ async def test_chat_node_acknowledges_recovery_without_supervisor():
     )
 
     assert res["reply"] == RECOVERY_ACKNOWLEDGEMENT
-    supervisor.coordinate.assert_not_called()
 
 
 def test_is_canary_notification():
@@ -237,10 +232,8 @@ async def test_route_node_sends_canary_to_chat_without_llm():
 
 
 @pytest.mark.asyncio
-async def test_chat_node_acknowledges_canary_without_supervisor():
-    supervisor = MagicMock()
-    supervisor.coordinate = AsyncMock()
-    node = create_chat_node(mcp_client=object(), llm=object(), supervisor=supervisor)
+async def test_chat_node_acknowledges_canary():
+    node = create_chat_node(mcp_client=object(), llm=object())
 
     res = await node(
         {
@@ -251,4 +244,3 @@ async def test_chat_node_acknowledges_canary_without_supervisor():
     )
 
     assert res["reply"] == CANARY_ACKNOWLEDGEMENT
-    supervisor.coordinate.assert_not_called()

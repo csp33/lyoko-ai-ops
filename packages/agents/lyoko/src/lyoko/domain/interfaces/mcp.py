@@ -26,20 +26,6 @@ class MCPClientInterface(ABC):
         """
 
     @abstractmethod
-    async def get_domain_langchain_tools(
-        self,
-        domain: str,
-        authorizer: ToolAuthorizer | None = None,
-    ) -> list[Any]:
-        """Return LangChain tools scoped to one upstream domain for a specialist agent.
-
-        Specialists receive the execution and schema inspection tools (``gateway_call_tool``
-        and ``gateway_get_tool_schema``) scoped to their domain. The domain tool catalog is
-        already injected into the specialist's prompt via ``get_domain_catalog``, so discovery
-        is omitted to prevent redundant paginated loops.
-        """
-
-    @abstractmethod
     async def get_domain_catalog(self, domain: str) -> list[Any]:
         """Return the full tool index (name, description, upstream, parameters) for one domain.
 

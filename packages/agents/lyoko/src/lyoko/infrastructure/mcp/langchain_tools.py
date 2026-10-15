@@ -1,7 +1,7 @@
 """LangChain tool bindings for the MCP gateway.
 
-Builds the discovery trio (list a domain, read a tool schema, execute a tool) that specialists and
-the supervisor use. Each execution is optionally gated by a ``ToolAuthorizer`` before it runs.
+Builds the discovery trio (list a domain, read a tool schema, execute a tool) that the
+agent uses under ToolGate. Each execution is optionally gated by a ``ToolAuthorizer`` before it runs.
 """
 
 import logging
@@ -367,31 +367,3 @@ def build_gateway_tools(
         ),
     )
     return [domain_tool, schema_tool, call_tool]
-
-
-def build_domain_tools(
-    client: MCPClientInterface, domain: str, authorizer: ToolAuthorizer | None = None
-) -> list[Any]:
-    """Domain-locked execution and schema tools for a specialist agent.
-
-    The specialist's system prompt already injects the full domain catalog with argument
-    signatures. Discovery is intentionally omitted so the model executes directly instead
-    of wasting turns paginating.
-    """
-    call_tool = _build_call_tool(
-        client,
-        authorizer,
-        description=(
-            f"Execute a '{domain}' domain tool by exact name with arguments. "
-            "Put the target tool's parameters in the `arguments` object."
-        ),
-        domain=domain,
-    )
-    schema_tool = _build_schema_tool(
-        client,
-        description=(
-            f"Get the parameter schema of one '{domain}' tool. Call only if a previous call was "
-            "rejected for invalid arguments to inspect its parameters."
-        ),
-    )
-    return [call_tool, schema_tool]

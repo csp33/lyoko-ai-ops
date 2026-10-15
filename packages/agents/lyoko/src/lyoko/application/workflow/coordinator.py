@@ -13,7 +13,6 @@ from lyoko.domain.interfaces.embeddings import EmbeddingsServiceInterface
 from lyoko.domain.interfaces.llm import LLMClientInterface
 from lyoko.domain.interfaces.mcp import MCPClientInterface
 from lyoko.domain.interfaces.memory import MemoryRepositoryInterface
-from lyoko.domain.interfaces.supervisor import SupervisorInterface
 from lyoko.domain.models.state import is_message
 
 logger = logging.getLogger("lyoko.application.workflow.coordinator")
@@ -26,13 +25,11 @@ class CoordinateWorkflowUseCase:
         self,
         mcp_client: MCPClientInterface | None,
         llm: LLMClientInterface | None,
-        supervisor: SupervisorInterface | None = None,
         approval_manager: ApprovalManagerInterface | None = None,
         chat_manager: ChatServiceInterface | None = None,
         memory_repository: MemoryRepositoryInterface | None = None,
         embeddings_service: EmbeddingsServiceInterface | None = None,
         diagnose_llm: LLMClientInterface | None = None,
-        diagnose_supervisor: SupervisorInterface | None = None,
         skill_matcher_service: SkillMatcherService | None = None,
         chat_use_case: HandleChatTurnUseCase | None = None,
         diagnose_use_case: DiagnoseIncidentUseCase | None = None,
@@ -41,7 +38,6 @@ class CoordinateWorkflowUseCase:
         self.chat_use_case = chat_use_case or HandleChatTurnUseCase(
             mcp_client=mcp_client,
             llm=llm,
-            supervisor=supervisor,
             approval_manager=approval_manager,
             chat_manager=chat_manager,
             memory_repository=memory_repository,
@@ -53,7 +49,6 @@ class CoordinateWorkflowUseCase:
             or DiagnoseIncidentUseCase(
                 mcp_client=mcp_client,
                 llm=diagnose_llm or llm,
-                supervisor=diagnose_supervisor or supervisor,
                 approval_manager=approval_manager,
                 chat_manager=chat_manager,
                 memory_repository=memory_repository,

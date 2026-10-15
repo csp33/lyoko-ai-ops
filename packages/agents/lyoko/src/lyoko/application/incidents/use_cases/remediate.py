@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from langchain_core.runnables import RunnableConfig
-from lyoko.application.agents.supervisor import run_supervised, status_callback
+from lyoko.application.agents.runner import run_agent, status_callback
 from lyoko.application.context.formatter import IncidentContextFormatter
 from lyoko.application.incidents.parser import IncidentOutputParser
 from lyoko.application.incidents.status import IncidentStatusFormatter
@@ -14,7 +14,6 @@ from lyoko.domain.interfaces.approval import ApprovalManagerInterface
 from lyoko.domain.interfaces.chat_service import ChatServiceInterface
 from lyoko.domain.interfaces.llm import LLMClientInterface
 from lyoko.domain.interfaces.mcp import MCPClientInterface
-from lyoko.domain.interfaces.supervisor import SupervisorInterface
 
 logger = logging.getLogger("lyoko.application.incidents.use_cases.remediate")
 
@@ -52,13 +51,11 @@ class RemediateIncidentUseCase:
         self,
         mcp_client: MCPClientInterface | None,
         llm: LLMClientInterface | None,
-        supervisor: SupervisorInterface | None = None,
         approval_manager: ApprovalManagerInterface | None = None,
         chat_manager: ChatServiceInterface | None = None,
     ) -> None:
         self.mcp_client = mcp_client
         self.llm = llm
-        self.supervisor = supervisor
         self.approval_manager = approval_manager
         self.chat_manager = chat_manager
 
@@ -80,13 +77,12 @@ class RemediateIncidentUseCase:
         error: str | None = None
         summary = ""
         try:
-            answer = await run_supervised(
+            answer = await run_agent(
                 state,
                 gate,
                 config,
                 mcp_client=self.mcp_client,
                 llm=self.llm,
-                supervisor=self.supervisor,
                 phase="remediate",
                 system_prompt=REMEDIATE_SYSTEM_PROMPT,
                 prompt=(

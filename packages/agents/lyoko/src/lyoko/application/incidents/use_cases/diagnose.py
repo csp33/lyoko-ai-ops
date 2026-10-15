@@ -1,7 +1,7 @@
 import logging
 from typing import Any
 
-from lyoko.application.agents.supervisor import run_supervised, status_callback
+from lyoko.application.agents.runner import run_agent, status_callback
 from lyoko.application.context.formatter import IncidentContextFormatter
 from lyoko.application.incidents.parser import IncidentOutputParser
 from lyoko.application.incidents.status import IncidentStatusFormatter
@@ -15,7 +15,6 @@ from lyoko.domain.interfaces.embeddings import EmbeddingsServiceInterface
 from lyoko.domain.interfaces.llm import LLMClientInterface
 from lyoko.domain.interfaces.mcp import MCPClientInterface
 from lyoko.domain.interfaces.memory import MemoryRepositoryInterface
-from lyoko.domain.interfaces.supervisor import SupervisorInterface
 from lyoko.domain.models.state import is_message
 
 logger = logging.getLogger("lyoko.application.incidents.use_cases.diagnose")
@@ -28,7 +27,6 @@ class DiagnoseIncidentUseCase:
         self,
         mcp_client: MCPClientInterface | None,
         llm: LLMClientInterface | None,
-        supervisor: SupervisorInterface | None = None,
         approval_manager: ApprovalManagerInterface | None = None,
         chat_manager: ChatServiceInterface | None = None,
         retrieve_memory_use_case: RetrieveMemoryLessonsUseCase | None = None,
@@ -40,11 +38,10 @@ class DiagnoseIncidentUseCase:
     ) -> None:
         self.mcp_client = mcp_client
         self.llm = llm
-        self.supervisor = supervisor
         self.approval_manager = approval_manager
         self.chat_manager = chat_manager
         self.skill_matcher_service = skill_matcher_service
-        self.runner = runner or run_supervised
+        self.runner = runner or run_agent
         if retrieve_memory_use_case is not None:
             self.retrieve_memory_use_case = retrieve_memory_use_case
         elif memory_repository is not None:
@@ -118,7 +115,6 @@ class DiagnoseIncidentUseCase:
                 config,
                 mcp_client=self.mcp_client,
                 llm=self.llm,
-                supervisor=self.supervisor,
                 phase="diagnose",
                 system_prompt=DIAGNOSE_SYSTEM_PROMPT,
                 prompt=prompt_content,

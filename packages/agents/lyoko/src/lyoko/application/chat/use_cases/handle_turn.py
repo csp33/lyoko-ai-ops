@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from lyoko.application.agents.supervisor import run_supervised, status_callback
+from lyoko.application.agents.runner import run_agent, status_callback
 from lyoko.application.memory.use_cases.retrieve import RetrieveMemoryLessonsUseCase
 from lyoko.application.prompts.chat import CHAT_SYSTEM_PROMPT
 from lyoko.application.safety.tool_gate import GateMode, make_gate
@@ -21,7 +21,6 @@ from lyoko.domain.interfaces.embeddings import EmbeddingsServiceInterface
 from lyoko.domain.interfaces.llm import LLMClientInterface
 from lyoko.domain.interfaces.mcp import MCPClientInterface
 from lyoko.domain.interfaces.memory import MemoryRepositoryInterface
-from lyoko.domain.interfaces.supervisor import SupervisorInterface
 
 logger = logging.getLogger("lyoko.application.chat.use_cases.handle_turn")
 
@@ -35,7 +34,6 @@ class HandleChatTurnUseCase:
         self,
         mcp_client: MCPClientInterface | None,
         llm: LLMClientInterface | None,
-        supervisor: SupervisorInterface | None = None,
         approval_manager: ApprovalManagerInterface | None = None,
         chat_manager: ChatServiceInterface | None = None,
         retrieve_memory_use_case: RetrieveMemoryLessonsUseCase | None = None,
@@ -44,7 +42,6 @@ class HandleChatTurnUseCase:
     ) -> None:
         self.mcp_client = mcp_client
         self.llm = llm
-        self.supervisor = supervisor
         self.approval_manager = approval_manager
         self.chat_manager = chat_manager
         if retrieve_memory_use_case is not None:
@@ -58,16 +55,14 @@ class HandleChatTurnUseCase:
             self.retrieve_memory_use_case = None
 
     async def execute(self, state: dict[str, Any], config: Any = None) -> dict[str, Any]:
-        """Answer the operator via supervised tool execution."""
+        """Answer the operator via Hermes tool execution."""
         text = state.get("text", "")
         history_context = state.get("history_context", "")
         if RecoveryNotificationDetector.is_recovery_notification(text):
-            # A recovery notification has nothing to investigate; acknowledge it and stop.
             logger.info("Recovery notification acknowledged without investigation.")
             return {"reply": RECOVERY_ACKNOWLEDGEMENT}
 
         if CanaryNotificationDetector.is_canary_notification(text):
-            # An external canary alert has nothing to investigate; acknowledge it and stop.
             logger.info("Canary notification acknowledged without investigation.")
             return {"reply": CANARY_ACKNOWLEDGEMENT}
 
@@ -92,16 +87,15 @@ class HandleChatTurnUseCase:
         on_status = status_callback(config)
 
         try:
-            answer = await run_supervised(
+            answer = await run_agent(
                 state,
                 gate,
                 config,
                 mcp_client=self.mcp_client,
                 llm=self.llm,
-                supervisor=self.supervisor,
                 phase="chat",
                 prompt=prompt_with_memory,
-                system_prompt=None if self.supervisor is not None else CHAT_SYSTEM_PROMPT,
+                system_prompt=CHAT_SYSTEM_PROMPT,
                 on_status=on_status,
             )
         except Exception as exc:

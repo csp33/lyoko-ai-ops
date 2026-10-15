@@ -8,9 +8,6 @@ import logging
 
 from fastapi import FastAPI
 
-from lyoko.application.agents.specialist_prompts import SpecialistPromptProvider
-from lyoko.application.agents.specialists import DomainSpecialistAgent
-from lyoko.application.agents.supervisor import SupervisorAgent
 from lyoko.application.chat.agent import InteractiveChatAgent
 from lyoko.application.chat.history import ChatHistoryTracker
 from lyoko.application.chat.sessions import ChatSessionTracker
@@ -92,58 +89,6 @@ def build_llm_adapter(
         use_responses_api=use_responses_api,
         harness_runner=harness_runner,
     )
-
-
-def build_domain_specialists(
-    mcp_client: MCPClientInterface | None,
-    llm: LLMClientInterface | None,
-) -> dict[str, DomainSpecialistAgent]:
-    """Instantiate domain specialist subagents."""
-    return {
-        "kubernetes": DomainSpecialistAgent(
-            name="k8s_specialist",
-            domain="kubernetes",
-            system_prompt=SpecialistPromptProvider.get_prompt("kubernetes"),
-            llm=llm,
-            mcp_client=mcp_client,
-        ),
-        "unifi": DomainSpecialistAgent(
-            name="network_specialist",
-            domain="unifi",
-            system_prompt=SpecialistPromptProvider.get_prompt("unifi"),
-            llm=llm,
-            mcp_client=mcp_client,
-        ),
-        "homeassistant": DomainSpecialistAgent(
-            name="smarthome_specialist",
-            domain="homeassistant",
-            system_prompt=SpecialistPromptProvider.get_prompt("homeassistant"),
-            llm=llm,
-            mcp_client=mcp_client,
-        ),
-        "grafana": DomainSpecialistAgent(
-            name="observability_specialist",
-            domain="grafana",
-            system_prompt=SpecialistPromptProvider.get_prompt("grafana"),
-            llm=llm,
-            mcp_client=mcp_client,
-        ),
-        "langfuse": DomainSpecialistAgent(
-            name="langfuse_specialist",
-            domain="langfuse",
-            system_prompt=SpecialistPromptProvider.get_prompt("langfuse"),
-            llm=llm,
-            mcp_client=mcp_client,
-        ),
-    }
-
-
-def build_supervisor(
-    specialists: dict[str, DomainSpecialistAgent],
-    llm: LLMClientInterface | None,
-) -> SupervisorAgent:
-    """Instantiate central multi-agent supervisor."""
-    return SupervisorAgent(specialists=specialists, llm=llm)
 
 
 def build_triage_handlers(
