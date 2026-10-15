@@ -83,7 +83,7 @@ def build_llm_adapter(
 
     return OpenAILLMAdapter(
         api_key=_secret(settings.openai_api_key),
-        model_name=model_name or settings.openai_model,
+        model_name=model_name or settings.openai_cheap_model,
         use_responses_api=use_responses_api,
         harness_runner=harness_runner,
     )

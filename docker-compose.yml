@@ -53,7 +53,7 @@ services:
       API_SERVER_KEY: ${HERMES_API_KEY:-lyoko-hermes-secret-key}
       HERMES_SINGLE_QUERY_SESSION: "1"
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_CHEAP_MODEL: ${OPENAI_CHEAP_MODEL:-gpt-4o-mini}
       OPENAI_DIAGNOSE_MODEL: ${OPENAI_DIAGNOSE_MODEL:-gpt-4.1}
       LYOKO_GATED_MCP_URL: http://lyoko:9000/gated-mcp/mcp
       LYOKO_GATED_MCP_TOKEN: ${LYOKO_GATED_MCP_TOKEN:-lyoko-gated-local-token}
@@ -100,7 +100,7 @@ services:
       POSTGRES_HOST: "postgres"
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lyoko}
       PYTHONPATH: "/app/packages/agents/lyoko/src"
-      LANGFUSE_ENABLED: ${LANGFUSE_ENABLED:-true}
+      LANGFUSE_ENABLED: "false"
       FASTMCP_TELEMETRY_MODE: "off"
       LYOKO_ORCHESTRATOR: ${LYOKO_ORCHESTRATOR:-hermes}
     env_file:

@@ -23,16 +23,24 @@ class AgentSettings(BaseSettings):
 
     # LLM Provider
     openai_api_key: str = Field(default="", description="OpenAI API Key")
-    openai_model: str = Field(
+    openai_cheap_model: str = Field(
         default="gpt-4o-mini",
-        description="OpenAI model for chat, remediation, verification, and domain specialists.",
+        validation_alias=AliasChoices(
+            "openai_cheap_model",
+            "OPENAI_CHEAP_MODEL",
+        ),
+        description="Cheaper OpenAI model for chat, remediation, verification, subagents, and domain specialists.",
     )
     openai_diagnose_model: str = Field(
         default="gpt-4.1",
+        validation_alias=AliasChoices(
+            "openai_diagnose_model",
+            "OPENAI_DIAGNOSE_MODEL",
+        ),
         description=(
             "OpenAI model for the diagnose phase, which investigates incident evidence and "
             "decides whether the incident is actionable. A stronger model here pays off because "
-            "mis-synthesis is the main failure mode. Empty falls back to openai_model."
+            "mis-synthesis is the main failure mode. Empty falls back to openai_cheap_model."
         ),
     )
     openai_use_responses_api: bool = Field(
