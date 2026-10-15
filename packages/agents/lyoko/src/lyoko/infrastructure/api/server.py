@@ -6,12 +6,18 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from lyoko.application.agents.runner import AgentRunner
+from lyoko.application.chat.use_cases.handle_turn import HandleChatTurnUseCase
+from lyoko.application.incidents.use_cases.enrich_trace_cost import EnrichTraceCostUseCase
+from lyoko.application.incidents.use_cases.notify import NotifyIncidentReportUseCase
 from lyoko.application.incidents.use_cases.resolve import ResolveIncidentUseCase
+from lyoko.application.incidents.use_cases.triage import TriageIncidentUseCase
 from lyoko.application.safety.alert_guard import AlertStormProtector
 from lyoko.application.safety.gated_run_context import get_gated_run_context
 from lyoko.application.safety.hitl.manager import ApprovalManager
 from lyoko.application.safety.task_tracker import TaskTracker
-from lyoko.application.workflow.graph import create_lyoko_graph
+from lyoko.application.workflow.coordinator import CoordinateWorkflowUseCase
+from lyoko.application.workflow.graph import LyokoWorkflow
+from lyoko.application.workflow.routing.route_event import RouteEventUseCase
 from lyoko.composition import (
     build_chat_manager,
     build_llm_adapter,
@@ -98,6 +104,17 @@ async def lifespan(app: FastAPI):
     )
 
     skill_matcher = getattr(app.state, "skill_matcher", None) or build_skill_matcher()
+    tracer = getattr(app.state, "tracer", None)
+
+    route_use_case = RouteEventUseCase(llm=llm)
+    triage_use_case = TriageIncidentUseCase(handlers=triage_handlers)
+
+    chat_runner = AgentRunner(mcp_client=mcp_client, llm=llm)
+    chat_use_case = HandleChatTurnUseCase(
+        runner=chat_runner,
+        approval_manager=approval_manager,
+        chat_manager=chat_manager,
+    )
 
     incident_runner = AgentRunner(mcp_client=mcp_client, llm=diagnose_llm or llm)
     incident_use_case = ResolveIncidentUseCase(
@@ -108,16 +125,31 @@ async def lifespan(app: FastAPI):
         default_chat_id=settings.telegram_default_chat_id or "",
     )
 
-    workflow_engine = create_lyoko_graph(
-        mcp_client,
-        approval_manager=approval_manager,
-        chat_manager=chat_manager,
-        llm=llm,
-        diagnose_llm=diagnose_llm,
-        tracer=getattr(app.state, "tracer", None),
-        triage_handlers=triage_handlers,
-        skill_matcher_service=skill_matcher,
+    coordinator_use_case = CoordinateWorkflowUseCase(
+        chat_use_case=chat_use_case,
         incident_use_case=incident_use_case,
+    )
+
+    enrich_trace_cost = (
+        EnrichTraceCostUseCase(
+            mcp_client=mcp_client,
+            tracer=tracer,
+            enabled=settings.telegram_show_trace_cost,
+        )
+        if mcp_client is not None
+        else None
+    )
+
+    notify_use_case = NotifyIncidentReportUseCase(
+        chat_manager=chat_manager,
+        enrich_trace_cost=enrich_trace_cost,
+    )
+
+    workflow_engine = LyokoWorkflow(
+        route_use_case=route_use_case,
+        triage_use_case=triage_use_case,
+        coordinator_use_case=coordinator_use_case,
+        notify_use_case=notify_use_case,
     )
 
     app.state.triage_handlers = triage_handlers

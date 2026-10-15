@@ -6,28 +6,15 @@ Every event enters at ``route`` and takes one of two branches:
   (powered by Hermes), and conclude with notification.
 """
 
-from collections.abc import Sequence
 from typing import Any
 
 from langchain_core.runnables import RunnableConfig, RunnableLambda
-from lyoko.application.agents.runner import AgentRunner
-from lyoko.application.chat.use_cases.handle_turn import HandleChatTurnUseCase
-from lyoko.application.incidents.triage.base import TriageHandler
 from lyoko.application.incidents.triage.dispatcher import choose_triage
-from lyoko.application.incidents.use_cases.enrich_trace_cost import (
-    EnrichTraceCostUseCase,
-)
 from lyoko.application.incidents.use_cases.notify import NotifyIncidentReportUseCase
-from lyoko.application.incidents.use_cases.resolve import ResolveIncidentUseCase
 from lyoko.application.incidents.use_cases.triage import TriageIncidentUseCase
 from lyoko.application.workflow.coordinator import CoordinateWorkflowUseCase
 from lyoko.application.workflow.routing.edges import WorkflowRouteSelector
 from lyoko.application.workflow.routing.route_event import RouteEventUseCase
-from lyoko.config import settings
-from lyoko.domain.interfaces.approval import ApprovalManagerInterface
-from lyoko.domain.interfaces.chat_service import ChatServiceInterface
-from lyoko.domain.interfaces.llm import LLMClientInterface
-from lyoko.domain.interfaces.mcp import MCPClientInterface
 from lyoko.domain.models.incident import CoordinatorNext
 
 
@@ -112,62 +99,3 @@ class LyokoWorkflow:
         """Execute the workflow asynchronously with hierarchical tracing."""
         runnable = RunnableLambda(self._execute_flow)
         return await runnable.ainvoke(state or {}, config=config)
-
-
-def create_lyoko_graph(
-    mcp_client: MCPClientInterface,
-    approval_manager: ApprovalManagerInterface | None = None,
-    chat_manager: ChatServiceInterface | None = None,
-    llm: LLMClientInterface | None = None,
-    diagnose_llm: LLMClientInterface | None = None,
-    tracer: Any = None,
-    triage_handlers: Sequence[TriageHandler] | None = None,
-    skill_matcher_service: Any = None,
-    enrich_trace_cost: EnrichTraceCostUseCase | None = None,
-    incident_use_case: ResolveIncidentUseCase | Any | None = None,
-    chat_use_case: HandleChatTurnUseCase | Any | None = None,
-) -> LyokoWorkflow:
-    """Build the LYOKO autonomous workflow that routes, triages, resolves, and notifies."""
-    route_use_case = RouteEventUseCase(llm=llm)
-    handlers = triage_handlers if triage_handlers is not None else []
-    triage_use_case = TriageIncidentUseCase(handlers=handlers)
-
-    if chat_use_case is None:
-        chat_runner = AgentRunner(mcp_client=mcp_client, llm=llm)
-        chat_use_case = HandleChatTurnUseCase(
-            runner=chat_runner,
-            approval_manager=approval_manager,
-            chat_manager=chat_manager,
-        )
-
-    if incident_use_case is None:
-        incident_runner = AgentRunner(mcp_client=mcp_client, llm=diagnose_llm or llm)
-        incident_use_case = ResolveIncidentUseCase(
-            runner=incident_runner,
-            approval_manager=approval_manager,
-            chat_manager=chat_manager,
-            skill_matcher_service=skill_matcher_service,
-            default_chat_id=settings.telegram_default_chat_id or "",
-        )
-
-    coordinator_use_case = CoordinateWorkflowUseCase(
-        chat_use_case=chat_use_case,
-        incident_use_case=incident_use_case,
-    )
-    if enrich_trace_cost is None and mcp_client is not None:
-        enrich_trace_cost = EnrichTraceCostUseCase(
-            mcp_client=mcp_client,
-            tracer=tracer,
-            enabled=settings.telegram_show_trace_cost,
-        )
-    notify_use_case = NotifyIncidentReportUseCase(
-        chat_manager=chat_manager,
-        enrich_trace_cost=enrich_trace_cost,
-    )
-
-    return LyokoWorkflow(
-        route_use_case=route_use_case,
-        triage_use_case=triage_use_case,
-        coordinator_use_case=coordinator_use_case,
-        notify_use_case=notify_use_case,
-    )

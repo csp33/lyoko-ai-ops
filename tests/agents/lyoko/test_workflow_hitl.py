@@ -4,10 +4,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 from lyoko.application.safety.hitl.manager import ApprovalManager
-from lyoko.application.workflow.graph import create_lyoko_graph
 from lyoko.domain.interfaces.mcp import ToolAuthorizer
 
-from tests.agents.lyoko.fakes import FakeMCPClient, Operator, ScriptedLLM
+from tests.agents.lyoko.fakes import FakeMCPClient, Operator, ScriptedLLM, create_lyoko_graph
 
 SCALE_ARGS = {"name": "radarr", "namespace": "media", "replicas": 2}
 

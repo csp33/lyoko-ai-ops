@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from lyoko.application.workflow.graph import create_lyoko_graph
 from lyoko.domain.interfaces.mcp import ToolAuthorizer
 
 from tests.agents.lyoko.fakes import (
@@ -11,6 +10,7 @@ from tests.agents.lyoko.fakes import (
     RESOLUTION_RESOLVED,
     FakeMCPClient,
     ScriptedLLM,
+    create_lyoko_graph,
 )
 
 SCALE_ARGS = {"name": "radarr", "namespace": "media", "replicas": 0}

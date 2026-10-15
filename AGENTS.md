@@ -99,7 +99,7 @@ Every package in `lyoko-ai-ops` strictly adheres to **Clean Architecture** (Port
 2. **`application/` (Use Cases & Workflow Orchestration)**:
    - Organized into clean, cohesive feature packages (`incidents/`, `chat/`, `workflow/`, `agents/`, `safety/`, `context/`, `prompts/`, `skills/`).
    - Encapsulates discrete application workflows and operations into dedicated **`UseCase` classes** colocated within their bounded context (e.g. `incidents.use_cases.ResolveIncidentUseCase`, `incidents.use_cases.NotifyIncidentReportUseCase`, `incidents.use_cases.TriageIncidentUseCase`, `chat.use_cases.ProcessChatMessageUseCase`, `chat.use_cases.HandleChatTurnUseCase`, `workflow.routing.route_event.RouteEventUseCase`).
-   - Contains agent runners (`agents.runner.AgentRunner`), workflow execution engine (`workflow.graph.create_lyoko_graph`), safety gates, and HITL managers (`safety.hitl.ApprovalManager`).
+   - Contains agent runners (`agents.runner.AgentRunner`), workflow execution engine (`workflow.graph.LyokoWorkflow`), safety gates, and HITL managers (`safety.hitl.ApprovalManager`).
    - Coordinates domain models and interacts with external capabilities **exclusively through domain interfaces / ports** (`LLMClientInterface`, `MCPClientInterface`, `ChatConnector`, `AuthVerifierInterface`).
    - **ZERO infrastructure imports allowed**: Strictly forbidden to import concrete infrastructure classes or vendor SDKs (e.g., `ChatOpenAI`, `OpenAILLMAdapter`, `FastMCPClient`, `TelegramConnector`, `AsyncConnectionPool`, `LangfuseTracer`). All external services must be injected into application constructors.
 
