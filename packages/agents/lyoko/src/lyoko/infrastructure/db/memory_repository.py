@@ -3,8 +3,6 @@
 import logging
 from pathlib import Path
 
-from alembic import command
-from alembic.config import Config
 from lyoko.domain.interfaces.memory import MemoryRepositoryInterface
 from lyoko.domain.models.memory import MemoryEntry, MemoryQueryResult
 from psycopg.rows import dict_row
@@ -22,8 +20,21 @@ class PostgresMemoryRepository(MemoryRepositoryInterface):
     @staticmethod
     def run_migrations(alembic_ini_path: str | Path | None = None) -> None:
         """Execute Alembic migrations to ensure database schema is up-to-date."""
+        from alembic import command
+        from alembic.config import Config
+
         if alembic_ini_path is None:
-            alembic_ini_path = Path(__file__).parent.parent.parent.parent / "alembic.ini"
+            candidates = [
+                Path(__file__).resolve().parents[4] / "alembic.ini",
+                Path("/app/packages/agents/lyoko/alembic.ini"),
+                Path("/app/alembic.ini"),
+            ]
+            for cand in candidates:
+                if cand.exists():
+                    alembic_ini_path = cand
+                    break
+            else:
+                alembic_ini_path = Path(__file__).resolve().parents[4] / "alembic.ini"
         alembic_ini_path = Path(alembic_ini_path)
 
         if not alembic_ini_path.exists():
