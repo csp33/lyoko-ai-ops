@@ -41,7 +41,7 @@ class ExecuteToolUseCase:
             resolved_name = name
             upstream_name, upstream_client = route
 
-        arguments = self._normalize_arguments(resolved_name, arguments)
+        arguments = self._normalize_arguments(resolved_name, arguments, original_name=name)
 
         # Enforce all active security guardrails (namespace, command exec whitelist/blacklist, tool rules)
         self.guardrail.validate_tool_call(resolved_name, arguments, upstream_name=upstream_name)
@@ -52,7 +52,9 @@ class ExecuteToolUseCase:
         return await upstream_client.call_tool(resolved_name, arguments)
 
     @staticmethod
-    def _normalize_arguments(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+    def _normalize_arguments(
+        tool_name: str, args: dict[str, Any], original_name: str = ""
+    ) -> dict[str, Any]:
         """Normalize commonly confused parameters for upstream tools."""
         normalized = dict(args)
         if tool_name == "grafana_query_prometheus":
@@ -106,4 +108,36 @@ class ExecuteToolUseCase:
                 elif "path" in normalized:
                     normalized["endpoint"] = normalized.pop("path")
             normalized.setdefault("method", "GET")
+        elif tool_name in (
+            "k8s_resources_get",
+            "k8s_resources_list",
+            "k8s_resources_delete",
+            "k8s_resources_scale",
+        ):
+            if "api_version" in normalized and "apiVersion" not in normalized:
+                normalized["apiVersion"] = normalized.pop("api_version")
+            elif "apiversion" in normalized and "apiVersion" not in normalized:
+                normalized["apiVersion"] = normalized.pop("apiversion")
+
+            if "name" not in normalized:
+                for alt_name in ("app", "application", "app_name", "appName", "resource_name"):
+                    if alt_name in normalized:
+                        normalized["name"] = normalized.pop(alt_name)
+                        break
+
+            is_app_intent = (
+                "application" in original_name.lower()
+                or "argo" in original_name.lower()
+                or normalized.get("namespace") == "argocd"
+            )
+            if "kind" not in normalized and is_app_intent:
+                normalized["kind"] = "Application"
+                normalized.setdefault("apiVersion", "argoproj.io/v1alpha1")
+                normalized.setdefault("namespace", "argocd")
+        elif tool_name in ("k8s_pods_get", "k8s_pods_log"):
+            if "name" not in normalized:
+                for alt_name in ("pod", "pod_name", "podName"):
+                    if alt_name in normalized:
+                        normalized["name"] = normalized.pop(alt_name)
+                        break
         return normalized

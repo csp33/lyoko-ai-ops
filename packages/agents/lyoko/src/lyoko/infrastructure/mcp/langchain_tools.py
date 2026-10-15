@@ -42,10 +42,22 @@ _COMMON_ALIASES: dict[str, str] = {
     "prometheus_promql": "grafana_query_prometheus",
     "promql_query": "grafana_query_prometheus",
     "query_prometheus": "grafana_query_prometheus",
+    "k8s_get_application": "k8s_resources_get",
+    "k8s_get_applications": "k8s_resources_list",
+    "k8s_list_applications": "k8s_resources_list",
+    "kubernetes_get_application": "k8s_resources_get",
+    "kubernetes_get_applications": "k8s_resources_list",
+    "kubernetes_list_applications": "k8s_resources_list",
+    "argocd_get_application": "k8s_resources_get",
+    "argocd_get_applications": "k8s_resources_list",
+    "argocd_list_applications": "k8s_resources_list",
+    "argo_get_application": "k8s_resources_get",
+    "argo_get_applications": "k8s_resources_list",
+    "argo_list_applications": "k8s_resources_list",
 }
 
 
-def _normalize_args(tool: str, args: dict[str, Any]) -> None:
+def _normalize_args(tool: str, args: dict[str, Any], original_name: str = "") -> None:
     if tool == "grafana_query_prometheus":
         if "expr" not in args:
             for k in ("query", "target", "targets", "promql", "expression"):
@@ -69,6 +81,36 @@ def _normalize_args(tool: str, args: dict[str, Any]) -> None:
                     args["endpoint"] = args.pop(k)
                     break
         args.setdefault("method", "GET")
+    elif tool in (
+        "k8s_resources_get",
+        "k8s_resources_list",
+        "k8s_resources_delete",
+        "k8s_resources_scale",
+    ):
+        if "api_version" in args and "apiVersion" not in args:
+            args["apiVersion"] = args.pop("api_version")
+        elif "apiversion" in args and "apiVersion" not in args:
+            args["apiVersion"] = args.pop("apiversion")
+        if "name" not in args:
+            for alt in ("app", "application", "app_name", "appName", "resource_name"):
+                if alt in args:
+                    args["name"] = args.pop(alt)
+                    break
+        is_app = (
+            "application" in original_name.lower()
+            or "argo" in original_name.lower()
+            or args.get("namespace") == "argocd"
+        )
+        if "kind" not in args and is_app:
+            args["kind"] = "Application"
+            args.setdefault("apiVersion", "argoproj.io/v1alpha1")
+            args.setdefault("namespace", "argocd")
+    elif tool in ("k8s_pods_get", "k8s_pods_log"):
+        if "name" not in args:
+            for alt in ("pod", "pod_name", "podName"):
+                if alt in args:
+                    args["name"] = args.pop(alt)
+                    break
 
 
 async def _resolve_tool_name(
@@ -81,7 +123,10 @@ async def _resolve_tool_name(
     if tool_name:
         norm = tool_name.replace(".", "_").replace(":", "_")
         resolved = _COMMON_ALIASES.get(norm, norm)
-        _normalize_args(resolved, merged)
+        if resolved.startswith("kubernetes_"):
+            resolved = "k8s_" + resolved.removeprefix("kubernetes_")
+            resolved = _COMMON_ALIASES.get(resolved, resolved)
+        _normalize_args(resolved, merged, original_name=tool_name)
         return resolved, merged
 
     # 2. Common aliases for tool name

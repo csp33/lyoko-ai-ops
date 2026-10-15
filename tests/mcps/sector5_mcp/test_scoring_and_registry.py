@@ -28,6 +28,9 @@ def test_resolve_tool_alias():
     assert resolve_tool_alias("kubernetes_pods_get") == "k8s_pods_get"
     assert resolve_tool_alias("k8s_get_resources") == "k8s_resources_get"
     assert resolve_tool_alias("k8s_get_pod") == "k8s_pods_get"
+    assert resolve_tool_alias("k8s_get_application") == "k8s_resources_get"
+    assert resolve_tool_alias("kubernetes_get_application") == "k8s_resources_get"
+    assert resolve_tool_alias("argocd_get_application") == "k8s_resources_get"
     assert resolve_tool_alias("unifi_get_devices") == "unifi_list_devices"
     assert resolve_tool_alias("grafana_query") == "grafana_query_prometheus"
     assert resolve_tool_alias("grafana_data_query") == "grafana_query_prometheus"
@@ -112,5 +115,71 @@ async def test_tool_registry_resolves_grafana_dot_notation_and_normalizes_args()
             "endTime": "now",
             "queryType": "instant",
             "stepSeconds": 30,
+        },
+    )
+
+
+@pytest.mark.asyncio
+async def test_tool_registry_resolves_kubernetes_application_and_normalizes_args():
+    from sector5_mcp.application.use_cases.execute_tool import ExecuteToolUseCase
+
+    guardrail = GuardrailEngine(GuardrailPolicy())
+    mock_k8s = MagicMock(spec=UpstreamMCPInterface)
+    mock_k8s.list_tools = AsyncMock(
+        return_value=[
+            ToolDefinition(
+                name="k8s_resources_get",
+                description="Get a Kubernetes resource",
+                upstream_type=UpstreamType.KUBERNETES,
+            )
+        ]
+    )
+    mock_k8s.call_tool = AsyncMock(return_value={"status": "success"})
+
+    registry = ToolRegistry(
+        upstreams={UpstreamType.KUBERNETES: mock_k8s},
+        guardrail=guardrail,
+    )
+    await registry.discover_tools()
+
+    # 1. Dot-notation kubernetes.get_application resolves to k8s_resources_get
+    route = registry.resolve_tool_routing("kubernetes.get_application")
+    assert route is not None
+    assert route[0] == "k8s_resources_get"
+
+    # 2. ExecuteToolUseCase normalizes name and defaults kind/apiVersion/namespace for Argo CD
+    use_case = ExecuteToolUseCase(registry, guardrail)
+    await use_case.execute(
+        "kubernetes.get_application", {"name": "bentopdf", "namespace": "argocd"}
+    )
+
+    mock_k8s.call_tool.assert_called_once_with(
+        "k8s_resources_get",
+        {
+            "name": "bentopdf",
+            "namespace": "argocd",
+            "kind": "Application",
+            "apiVersion": "argoproj.io/v1alpha1",
+        },
+    )
+
+    # 3. Direct k8s_resources_get with snake_case api_version normalizes to camelCase apiVersion
+    mock_k8s.call_tool.reset_mock()
+    await use_case.execute(
+        "k8s_resources_get",
+        {
+            "api_version": "argoproj.io/v1alpha1",
+            "kind": "Application",
+            "name": "bentopdf",
+            "namespace": "argocd",
+        },
+    )
+    mock_k8s.call_tool.assert_called_once_with(
+        "k8s_resources_get",
+        {
+            "name": "bentopdf",
+            "namespace": "argocd",
+            "kind": "Application",
+            "apiVersion": "argoproj.io/v1alpha1",
         },
     )

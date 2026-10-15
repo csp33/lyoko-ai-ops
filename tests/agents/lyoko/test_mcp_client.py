@@ -543,3 +543,28 @@ async def test_call_tool_returns_actionable_error_when_tool_name_cannot_be_infer
     output = await tools["gateway_call_tool"].ainvoke({"foo": "bar", "baz": 123})
     assert "Missing required 'tool_name'" in output
     assert "gateway_call_tool" in output
+
+
+@pytest.mark.asyncio
+async def test_call_tool_resolves_kubernetes_application_and_normalizes_args():
+    """Verify kubernetes.get_application resolves to k8s_resources_get and normalizes args."""
+    client = FastMCPClient(server_url="http://x/mcp", token="")
+    client.call_tool = AsyncMock(return_value={"status": "success"})
+    tools = {t.name: t for t in client.get_langchain_tools()}
+
+    await tools["gateway_call_tool"].ainvoke(
+        {
+            "tool_name": "kubernetes.get_application",
+            "arguments": {"name": "bentopdf", "namespace": "argocd"},
+        }
+    )
+
+    client.call_tool.assert_awaited_once_with(
+        "k8s_resources_get",
+        {
+            "name": "bentopdf",
+            "namespace": "argocd",
+            "kind": "Application",
+            "apiVersion": "argoproj.io/v1alpha1",
+        },
+    )
