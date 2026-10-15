@@ -49,6 +49,14 @@ class TraceCostService:
             return "<$0.0001"
         return "$0.0000"
 
+    @staticmethod
+    def derive_trace_id(session_id: str) -> str:
+        """Derive a deterministic 32-character hex trace ID from a session ID matching Hermes."""
+        seed = f"{session_id}::{session_id}"
+        import hashlib
+
+        return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
+
     async def query_metrics_for_trace(
         self, mcp_client: MCPClientInterface | None, trace_id: str
     ) -> float | None:
@@ -96,7 +104,7 @@ class TraceCostService:
             resp = await mcp_client.call_tool(
                 name="langfuse_listObservations",
                 arguments={
-                    "limit": 5,
+                    "limit": 10,
                     "fromStartTime": from_iso,
                     "toStartTime": to_iso,
                     "fields": ["id", "traceId", "name", "type", "sessionId"],
@@ -119,6 +127,14 @@ class TraceCostService:
                 except Exception:
                     return None, None
             if isinstance(data, dict) and "data" in data and isinstance(data["data"], list):
+                # Prioritize root Hermes turn over sub-tasks or background memory consolidations
+                for obs in data["data"]:
+                    if obs.get("name") == "Hermes turn":
+                        tid = obs.get("traceId")
+                        if tid:
+                            raw_url = obs.get("url")
+                            clean_url = raw_url.split("?")[0] if raw_url else None
+                            return tid, clean_url
                 for obs in data["data"]:
                     tid = obs.get("traceId")
                     if tid:
@@ -136,14 +152,16 @@ class TraceCostService:
         session_id: str | None = None,
     ) -> tuple[float | None, str | None, str | None]:
         """Query Langfuse for execution cost and resolved trace info."""
+        target_tid = self.derive_trace_id(session_id) if session_id else trace_id
+        min_threshold = 0.0001 if session_id else 0.0
         query_exc = None
         try:
-            cost = await self.query_metrics_for_trace(mcp_client, trace_id)
-            if cost is not None and cost > 0:
-                return cost, trace_id, None
+            cost = await self.query_metrics_for_trace(mcp_client, target_tid)
+            if cost is not None and cost > min_threshold:
+                return cost, target_tid, None
         except Exception as exc:
             query_exc = exc
-            logger.debug("Direct traceId cost query failed: %s", exc)
+            logger.debug("Direct traceId cost query for %s failed: %s", target_tid, exc)
 
         if session_id:
             resolved_tid, resolved_url = await self.resolve_trace_from_session(
@@ -152,14 +170,23 @@ class TraceCostService:
             if resolved_tid:
                 try:
                     resolved_cost = await self.query_metrics_for_trace(mcp_client, resolved_tid)
-                    if resolved_cost is not None:
+                    if resolved_cost is not None and resolved_cost > min_threshold:
                         return resolved_cost, resolved_tid, resolved_url
                 except Exception as exc:
                     query_exc = exc
                     logger.debug("Resolved traceId cost query failed: %s", exc)
                 return None, resolved_tid, resolved_url
 
+        if target_tid != trace_id:
+            try:
+                fallback_cost = await self.query_metrics_for_trace(mcp_client, trace_id)
+                if fallback_cost is not None and fallback_cost > min_threshold:
+                    return fallback_cost, trace_id, None
+            except Exception as exc:
+                query_exc = exc
+                logger.debug("Fallback traceId cost query for %s failed: %s", trace_id, exc)
+
         if query_exc is not None:
             raise query_exc
 
-        return None, trace_id, None
+        return None, target_tid, None

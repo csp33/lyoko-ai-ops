@@ -1,9 +1,9 @@
 """FastAPI web controllers for webhooks and operator feedback."""
 
-import uuid
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from lyoko.application.incidents.trace_cost_service import TraceCostService
 from lyoko.domain.interfaces.tracer import TracerInterface
 from lyoko.domain.models.incident import Incident, compute_incident_key
 
@@ -42,7 +42,7 @@ def create_webhook_router(
 
         async def _dispatch(incident: Incident) -> None:
             thread_id = f"incident-{compute_incident_key(incident)}"
-            trace_id = uuid.uuid4().hex
+            trace_id = TraceCostService.derive_trace_id(thread_id)
             initial_state = {
                 "event_type": "alert",
                 "event_id": thread_id,

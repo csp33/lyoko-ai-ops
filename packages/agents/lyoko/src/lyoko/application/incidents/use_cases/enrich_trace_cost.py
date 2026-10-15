@@ -76,7 +76,8 @@ class EnrichTraceCostUseCase:
             return text
 
         if not is_llm_called:
-            trace_url = self._resolve_trace_url(trace_id, None, None)
+            target_tid = TraceCostService.derive_trace_id(session_id) if session_id else trace_id
+            trace_url = self._resolve_trace_url(trace_id, target_tid, None)
             footer_parts = [f"💸 **Cost:** {self._format_cost(0.0)}"]
             if trace_url:
                 footer_parts.append(f"🔍 [View Trace]({trace_url})")
@@ -89,7 +90,7 @@ class EnrichTraceCostUseCase:
                 logger.debug("Failed to flush tracer: %s", exc)
 
         cost: float | None = None
-        resolved_tid = trace_id
+        resolved_tid = TraceCostService.derive_trace_id(session_id) if session_id else trace_id
         resolved_url: str | None = None
         query_failed = False
         if self.mcp_client is not None:
@@ -167,7 +168,16 @@ class EnrichTraceCostUseCase:
                     await asyncio.sleep(poll_interval)
 
             if cost is None:
-                cost = 0.0
+                target_tid = (
+                    TraceCostService.derive_trace_id(session_id) if session_id else trace_id
+                )
+                try:
+                    fallback = await self._cost_service.query_metrics_for_trace(
+                        self.mcp_client, target_tid
+                    )
+                    cost = fallback if fallback is not None else 0.0
+                except Exception:
+                    cost = 0.0
 
             cost_str = self._format_cost(cost)
             if not cost_str:
