@@ -115,7 +115,6 @@ class HermesSubprocessBridge:
             **os.environ,
             "HERMES_HOME": str(self.hermes_home),
             "OPENAI_CHEAP_MODEL": settings.openai_cheap_model,
-            "OPENAI_MODEL": settings.openai_cheap_model,
             "OPENAI_DIAGNOSE_MODEL": settings.openai_diagnose_model,
         }
         if session_id:
