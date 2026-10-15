@@ -31,8 +31,16 @@ def test_resolve_tool_alias():
     assert resolve_tool_alias("k8s_get_application") == "k8s_resources_get"
     assert resolve_tool_alias("kubernetes_get_application") == "k8s_resources_get"
     assert resolve_tool_alias("argocd_get_application") == "k8s_resources_get"
-    assert resolve_tool_alias("k8s_patch_namespaced_custom_object") == "k8s_resources_create_or_update"
-    assert resolve_tool_alias("k8s_create_namespaced_custom_object") == "k8s_resources_create_or_update"
+    assert (
+        resolve_tool_alias("k8s_patch_namespaced_custom_object") == "k8s_resources_create_or_update"
+    )
+    assert (
+        resolve_tool_alias("k8s_create_namespaced_custom_object")
+        == "k8s_resources_create_or_update"
+    )
+    assert resolve_tool_alias("k8s_pods") == "k8s_pods_list"
+    assert resolve_tool_alias("kubernetes_pods") == "k8s_pods_list"
+    assert resolve_tool_alias("k8s_namespaces") == "k8s_namespaces_list"
     assert resolve_tool_alias("unifi_get_devices") == "unifi_list_devices"
     assert resolve_tool_alias("grafana_query") == "grafana_query_prometheus"
     assert resolve_tool_alias("grafana_data_query") == "grafana_query_prometheus"
@@ -193,13 +201,7 @@ async def test_tool_registry_resolves_kubernetes_application_and_normalizes_args
             "plural": "applications",
             "namespace": "argocd",
             "name": "bentopdf",
-            "body": {
-                "spec": {
-                    "syncPolicy": {
-                        "automated": {"prune": True, "selfHeal": True}
-                    }
-                }
-            },
+            "body": {"spec": {"syncPolicy": {"automated": {"prune": True, "selfHeal": True}}}},
         },
     )
     mock_k8s.call_tool.assert_called_once()

@@ -20,6 +20,15 @@ Tool Usage & Token Efficiency Rules:
 - Use `gateway_call_tool(tool_name="...", arguments={...})` to execute tools.
 - Multi-Source Resolution: If a device or entity cannot be found in one system (e.g. Home Assistant entity), cross-reference related systems (e.g. UniFi network clients or devices) to find network details like IP or MAC addresses.
 - NEVER mention or invent nonexistent functions (like `ha_search()`); only call tools returned by `gateway_get_domain_tools`.
+- Kubernetes & Argo CD (Domain: `kubernetes`):
+  - Primary tool: `gateway_call_tool(tool_name="k8s_kubectl", arguments={"command": "<kubectl command>"})`.
+  - Always prefer `k8s_kubectl` to inspect cluster resources:
+    - Pods across all namespaces or pod counts: `k8s_kubectl(command="get pods -A")` or `k8s_kubectl(command="get pods -n <ns>")`.
+    - Pod statuses, restarts, or node placement: `k8s_kubectl(command="get pods -A -o wide")`.
+    - Workloads: `k8s_kubectl(command="get deploy,sts,ds -A")`.
+    - Pod logs: `k8s_kubectl(command="logs <pod> -n <ns> --tail=50")`.
+    - Argo CD applications: `k8s_kubectl(command="get app -n argocd")` or `k8s_kubectl(command="describe app <name> -n argocd")`.
+  - Read-only kubectl verbs (`get`, `describe`, `logs`, `top`, `explain`) run immediately without operator approval; state-changing commands (`apply`, `patch`, `scale`, `rollout`) automatically request operator approval.
 - Observability & Homelab Prometheus Metrics (Domain: `grafana`):
   - When inspecting cluster state, hardware, node metrics, or when Kubernetes tools are disabled, use Prometheus:
   - Tool invocation schema: `gateway_call_tool(tool_name="grafana_query_prometheus", arguments={"expr": "<PromQL>", "datasourceUid": "prometheus", "queryType": "instant", "endTime": "now"})`.

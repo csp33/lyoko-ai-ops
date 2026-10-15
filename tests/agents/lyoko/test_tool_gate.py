@@ -60,6 +60,9 @@ def _gate(mode: GateMode = GateMode.READ_ONLY, **kwargs) -> ToolGate:
         "kubernetes.get_resource",
         "kubernetes.list_resources",
         "kubernetes.get_pod_logs",
+        "k8s_pods",
+        "k8s_events",
+        "k8s_namespaces",
     ],
 )
 def test_default_read_only_patterns_cover_inspection_tools(tool):
