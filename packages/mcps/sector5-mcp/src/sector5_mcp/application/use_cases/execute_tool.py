@@ -3,6 +3,8 @@
 import logging
 from typing import Any
 
+import yaml
+
 from sector5_mcp.application.guardrail import GuardrailEngine
 from sector5_mcp.application.registry import ToolRegistry
 from sector5_mcp.domain.exceptions.tool import ToolNotFoundError
@@ -139,5 +141,48 @@ class ExecuteToolUseCase:
                 for alt_name in ("pod", "pod_name", "podName"):
                     if alt_name in normalized:
                         normalized["name"] = normalized.pop(alt_name)
+                        break
+        elif tool_name == "k8s_resources_create_or_update":
+            body = (
+                normalized.pop("body", None)
+                or normalized.pop("manifest", None)
+                or normalized.pop("patch", None)
+            )
+            if body is not None:
+                if isinstance(body, dict):
+                    group = normalized.pop("group", None)
+                    version = normalized.pop("version", None)
+                    if "apiVersion" not in body and group and version:
+                        body["apiVersion"] = f"{group}/{version}"
+                    elif "apiVersion" not in body and (
+                        "argo" in original_name.lower() or normalized.get("namespace") == "argocd"
+                    ):
+                        body["apiVersion"] = "argoproj.io/v1alpha1"
+
+                    if "kind" not in body:
+                        plural = normalized.pop("plural", "")
+                        if (
+                            plural.lower() in ("applications", "application")
+                            or "argo" in original_name.lower()
+                        ):
+                            body["kind"] = "Application"
+                        elif plural:
+                            body["kind"] = plural.rstrip("s").capitalize()
+
+                    meta = body.setdefault("metadata", {})
+                    if "name" in normalized and "name" not in meta:
+                        meta["name"] = normalized["name"]
+                    if "namespace" in normalized and "namespace" not in meta:
+                        meta["namespace"] = normalized["namespace"]
+                    normalized["resource"] = yaml.dump(body, sort_keys=False)
+                else:
+                    normalized["resource"] = str(body)
+            elif "resource" in normalized and isinstance(normalized["resource"], dict):
+                normalized["resource"] = yaml.dump(normalized["resource"], sort_keys=False)
+        elif tool_name == "k8s_kubectl":
+            if "command" not in normalized:
+                for alt_name in ("cmd", "args", "arguments", "c"):
+                    if alt_name in normalized:
+                        normalized["command"] = normalized.pop(alt_name)
                         break
         return normalized

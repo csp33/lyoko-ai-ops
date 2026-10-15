@@ -50,6 +50,8 @@ def test_guardrail_protected_namespaces_allow_reads():
     _call(engine, "resources_get", {"kind": "Pod", "namespace": "kube-system", "name": "x"})
     _call(engine, "resources_list", {"kind": "Pod", "namespace": "longhorn-system"})
     _call(engine, "events_list", {"namespace": "kube-system"})
+    _call(engine, "k8s_kubectl", {"command": "get pods -n kube-system"})
+    _call(engine, "k8s_kubectl", {"command": "describe pod coredns -n kube-system"})
 
 
 @pytest.mark.parametrize(
@@ -61,6 +63,8 @@ def test_guardrail_protected_namespaces_allow_reads():
         ("resources_delete", {"kind": "Pod", "namespace": "longhorn-system", "name": "x"}),
         ("resources_scale", {"kind": "Deployment", "namespace": "kube-system", "name": "x"}),
         ("ns_mutating_tool_nobody_has_heard_of", {"ns": "kube-system"}),
+        ("k8s_kubectl", {"command": "delete pod coredns -n kube-system"}),
+        ("k8s_kubectl", {"command": "patch deployment coredns -n kube-system -p '{}'"}),
     ],
 )
 def test_guardrail_protected_namespaces_block_mutations(tool, arguments):

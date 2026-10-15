@@ -384,3 +384,24 @@ def test_parse_result():
 )
 def test_parse_verdict(text, resolved, evidence):
     assert parse_verdict(text) == (resolved, evidence)
+
+
+@pytest.mark.asyncio
+async def test_k8s_kubectl_read_only_allowed_in_read_only_mode():
+    gate = _gate(GateMode.READ_ONLY)
+    assert await gate.authorize("k8s_kubectl", {"command": "get pods -n default"}) is None
+    assert (
+        await gate.authorize("k8s_kubectl", {"command": "describe app bentopdf -n argocd"}) is None
+    )
+    assert (
+        await gate.authorize("k8s_kubectl", {"command": "logs pod-1 -n default --tail=10"}) is None
+    )
+    assert gate.records == []
+
+
+@pytest.mark.asyncio
+async def test_k8s_kubectl_mutation_refused_in_read_only_mode():
+    gate = _gate(GateMode.READ_ONLY)
+    refusal = await gate.authorize("k8s_kubectl", {"command": "delete pod bentopdf -n default"})
+    assert refusal is not None
+    assert "may change state" in refusal

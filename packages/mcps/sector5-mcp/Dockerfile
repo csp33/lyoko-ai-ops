@@ -8,10 +8,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     npm \
     && rm -rf /var/lib/apt/lists/*
 
-# Install kubernetes-mcp-server binary
-RUN curl -fsSL -o /usr/local/bin/kubernetes-mcp-server \
-    https://github.com/containers/kubernetes-mcp-server/releases/latest/download/kubernetes-mcp-server-linux-amd64 \
-    && chmod +x /usr/local/bin/kubernetes-mcp-server
+# Install kubectl binary
+RUN ARCH=$(dpkg --print-architecture) \
+    && curl -fsSL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/v1.31.0/bin/linux/${ARCH}/kubectl" \
+    && chmod +x /usr/local/bin/kubectl
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv

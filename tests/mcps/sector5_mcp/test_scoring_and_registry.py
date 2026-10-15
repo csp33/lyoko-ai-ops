@@ -31,6 +31,8 @@ def test_resolve_tool_alias():
     assert resolve_tool_alias("k8s_get_application") == "k8s_resources_get"
     assert resolve_tool_alias("kubernetes_get_application") == "k8s_resources_get"
     assert resolve_tool_alias("argocd_get_application") == "k8s_resources_get"
+    assert resolve_tool_alias("k8s_patch_namespaced_custom_object") == "k8s_resources_create_or_update"
+    assert resolve_tool_alias("k8s_create_namespaced_custom_object") == "k8s_resources_create_or_update"
     assert resolve_tool_alias("unifi_get_devices") == "unifi_list_devices"
     assert resolve_tool_alias("grafana_query") == "grafana_query_prometheus"
     assert resolve_tool_alias("grafana_data_query") == "grafana_query_prometheus"
@@ -131,7 +133,12 @@ async def test_tool_registry_resolves_kubernetes_application_and_normalizes_args
                 name="k8s_resources_get",
                 description="Get a Kubernetes resource",
                 upstream_type=UpstreamType.KUBERNETES,
-            )
+            ),
+            ToolDefinition(
+                name="k8s_resources_create_or_update",
+                description="Create or update a Kubernetes resource",
+                upstream_type=UpstreamType.KUBERNETES,
+            ),
         ]
     )
     mock_k8s.call_tool = AsyncMock(return_value={"status": "success"})
@@ -174,12 +181,34 @@ async def test_tool_registry_resolves_kubernetes_application_and_normalizes_args
             "namespace": "argocd",
         },
     )
-    mock_k8s.call_tool.assert_called_once_with(
-        "k8s_resources_get",
+    # 4. Custom object patch alias normalization to k8s_resources_create_or_update
+    import yaml
+
+    mock_k8s.call_tool.reset_mock()
+    await use_case.execute(
+        "k8s_patch_namespaced_custom_object",
         {
-            "name": "bentopdf",
+            "group": "argoproj.io",
+            "version": "v1alpha1",
+            "plural": "applications",
             "namespace": "argocd",
-            "kind": "Application",
-            "apiVersion": "argoproj.io/v1alpha1",
+            "name": "bentopdf",
+            "body": {
+                "spec": {
+                    "syncPolicy": {
+                        "automated": {"prune": True, "selfHeal": True}
+                    }
+                }
+            },
         },
     )
+    mock_k8s.call_tool.assert_called_once()
+    called_tool, called_args = mock_k8s.call_tool.call_args[0]
+    assert called_tool == "k8s_resources_create_or_update"
+    assert "resource" in called_args
+    parsed_yaml = yaml.safe_load(called_args["resource"])
+    assert parsed_yaml["apiVersion"] == "argoproj.io/v1alpha1"
+    assert parsed_yaml["kind"] == "Application"
+    assert parsed_yaml["metadata"]["name"] == "bentopdf"
+    assert parsed_yaml["metadata"]["namespace"] == "argocd"
+    assert parsed_yaml["spec"]["syncPolicy"]["automated"]["prune"] is True

@@ -2,6 +2,7 @@
 
 import fnmatch
 import logging
+import shlex
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -66,29 +67,7 @@ def matches_any(tool_name: str, patterns: Sequence[str]) -> bool:
 
 
 class ToolGate:
-    """Authorizes the tool calls of one agent run.
-
-    The gate serves any run, an incident phase or a chat reply. ``event_id`` identifies the run
-    and prefixes its approval ids (they end up in Telegram callback data, limited to 64 bytes, so
-    keep it short). ``origin`` is the line shown to the operator saying what triggered the run.
-    Replies to an approval message continue ``session_id``, which defaults to ``event_id``.
-
-    Policy, evaluated in order:
-
-    1. If the upstream declared the tool read-only, it always runs and is not recorded.
-    2. A tool matching ``read_only_patterns`` always runs and is not recorded.
-    3. In ``APPROVAL`` mode, a tool matching ``auto_approved_patterns`` runs and is recorded.
-    4. Anything else needs the operator: in ``APPROVAL`` mode they are asked through the chat
-       connectors and the call waits for their answer; in ``READ_ONLY`` mode the call is refused.
-
-    The upstream hint wins over the name patterns: an explicit "not read-only" is never rescued by
-    a matching name, so a declared state-changing tool cannot slip through a heuristic. When the
-    upstream declared nothing the name patterns decide, as before.
-
-    Refusals are returned as text so the agent can adapt instead of crashing. When no approval
-    channel is available the gate refuses rather than guessing, so a missing channel can never
-    turn into an unattended change.
-    """
+    """Authorizes the tool calls of one agent run for incidents and chat replies."""
 
     def __init__(
         self,
@@ -129,9 +108,44 @@ class ToolGate:
             return method in ("GET", "HEAD", "OPTIONS")
         return False
 
+    @staticmethod
+    def _is_kubectl_read_only(tool_name: str, arguments: dict[str, Any]) -> bool:
+        norm = tool_name.replace(".", "_").replace(":", "_")
+        if norm not in ("k8s_kubectl", "kubectl", "kubernetes_kubectl"):
+            return False
+        cmd = arguments.get("command") or arguments.get("cmd") or ""
+        parts = [
+            p
+            for p in (shlex.split(cmd) if isinstance(cmd, str) else [str(x) for x in cmd])
+            if p.lower() != "kubectl"
+        ]
+        while parts and parts[0].startswith("-"):
+            flag = parts.pop(0)
+            if flag in ("-n", "--namespace", "-l", "--selector", "--context") and parts:
+                parts.pop(0)
+        return bool(
+            parts
+            and parts[0].lower()
+            in {
+                "get",
+                "describe",
+                "logs",
+                "log",
+                "top",
+                "explain",
+                "diff",
+                "api-resources",
+                "api-versions",
+                "version",
+                "cluster-info",
+            }
+        )
+
     async def authorize(self, tool_name: str, arguments: dict[str, Any]) -> str | None:
         """Return ``None`` to allow the call, or a refusal message for the agent."""
-        if self._is_http_read_only(tool_name, arguments):
+        if self._is_http_read_only(tool_name, arguments) or self._is_kubectl_read_only(
+            tool_name, arguments
+        ):
             return None
 
         declared = self._readonly_lookup(tool_name) if self._readonly_lookup is not None else None
