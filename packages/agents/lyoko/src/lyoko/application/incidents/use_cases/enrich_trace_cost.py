@@ -4,7 +4,7 @@ import asyncio
 import logging
 from typing import Any
 
-from lyoko.application.incidents.trace_cost_service import TraceCostService
+from lyoko.application.incidents.trace_cost_service import TraceCostResult, TraceCostService
 from lyoko.domain.interfaces.mcp import MCPClientInterface
 from lyoko.domain.interfaces.tracer import TracerInterface
 
@@ -36,7 +36,7 @@ class EnrichTraceCostUseCase:
 
     async def _query_trace_cost(
         self, trace_id: str, session_id: str | None = None
-    ) -> tuple[float | None, str | None, str | None]:
+    ) -> TraceCostResult:
         return await self._cost_service.query_trace_cost(
             self.mcp_client, trace_id, session_id=session_id
         )
@@ -89,23 +89,25 @@ class EnrichTraceCostUseCase:
             except Exception as exc:
                 logger.debug("Failed to flush tracer: %s", exc)
 
-        cost: float | None = None
-        resolved_tid = TraceCostService.derive_trace_id(session_id) if session_id else trace_id
-        resolved_url: str | None = None
+        res: TraceCostResult | None = None
         query_failed = False
         if self.mcp_client is not None:
             try:
-                cost, resolved_tid, resolved_url = await self._query_trace_cost(
-                    trace_id, session_id=session_id
-                )
+                res = await self._query_trace_cost(trace_id, session_id=session_id)
             except Exception:
                 query_failed = True
 
+        resolved_tid = (
+            res.resolved_trace_id
+            if res and res.resolved_trace_id
+            else (TraceCostService.derive_trace_id(session_id) if session_id else trace_id)
+        )
+        resolved_url = res.resolved_url if res else None
         trace_url = self._resolve_trace_url(trace_id, resolved_tid, resolved_url)
 
         cost_str: str | None = None
-        if cost is not None:
-            cost_str = self._format_cost(cost)
+        if res and res.main_cost is not None:
+            cost_str = TraceCostService.format_cost_with_breakdown(res.main_cost, res.memory_cost)
         elif self.mcp_client is not None and not query_failed:
             cost_str = "calculating..."
 
@@ -154,20 +156,21 @@ class EnrichTraceCostUseCase:
 
         try:
             await asyncio.sleep(delay_seconds)
-            cost: float | None = None
-            resolved_tid: str | None = trace_id
-            resolved_url: str | None = None
+            res: TraceCostResult | None = None
 
             for attempt in range(max_attempts):
-                cost, resolved_tid, resolved_url = await self._query_trace_cost(
-                    trace_id, session_id=session_id
-                )
-                if cost is not None:
+                current_res = await self._query_trace_cost(trace_id, session_id=session_id)
+                if current_res.main_cost is not None:
+                    res = current_res
+                    # If memory review is expected and hasn't ingested yet, give it another attempt
+                    if session_id and current_res.memory_cost is None and attempt < 2:
+                        await asyncio.sleep(poll_interval)
+                        continue
                     break
                 if attempt < max_attempts - 1:
                     await asyncio.sleep(poll_interval)
 
-            if cost is None:
+            if res is None or res.main_cost is None:
                 target_tid = (
                     TraceCostService.derive_trace_id(session_id) if session_id else trace_id
                 )
@@ -175,20 +178,25 @@ class EnrichTraceCostUseCase:
                     fallback = await self._cost_service.query_metrics_for_trace(
                         self.mcp_client, target_tid
                     )
-                    cost = fallback if fallback is not None else 0.0
+                    res = TraceCostResult(
+                        main_cost=fallback if fallback is not None else 0.0,
+                        resolved_trace_id=target_tid,
+                    )
                 except Exception:
-                    cost = 0.0
+                    res = TraceCostResult(main_cost=0.0, resolved_trace_id=target_tid)
 
-            cost_str = self._format_cost(cost)
+            cost_str = TraceCostService.format_cost_with_breakdown(res.main_cost, res.memory_cost)
             if not cost_str:
                 return
 
             updated = text_with_placeholder.replace(
                 "💸 **Cost:** calculating...", f"💸 **Cost:** {cost_str}"
             )
-            new_url = self._resolve_trace_url(trace_id, resolved_tid, resolved_url)
+            new_url = self._resolve_trace_url(trace_id, res.resolved_trace_id, res.resolved_url)
             if new_url:
-                updated = self._apply_updated_trace_url(updated, trace_id, new_url, resolved_tid)
+                updated = self._apply_updated_trace_url(
+                    updated, trace_id, new_url, res.resolved_trace_id
+                )
 
             sent = await chat_manager.edit_message(
                 chat_id=chat_id, message_id=message_id, text=updated

@@ -3,11 +3,20 @@
 import json
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, NamedTuple
 
 from lyoko.domain.interfaces.mcp import MCPClientInterface
 
 logger = logging.getLogger("lyoko.application.incidents.trace_cost_service")
+
+
+class TraceCostResult(NamedTuple):
+    """Execution cost metrics with optional memory breakdown and resolved trace URL."""
+
+    main_cost: float | None = None
+    memory_cost: float | None = None
+    resolved_trace_id: str | None = None
+    resolved_url: str | None = None
 
 
 class TraceCostService:
@@ -48,6 +57,22 @@ class TraceCostService:
         if cost > 0:
             return "<$0.0001"
         return "$0.0000"
+
+    @classmethod
+    def format_cost_with_breakdown(
+        cls, main_cost: float | None, memory_cost: float | None = None
+    ) -> str | None:
+        """Format primary execution cost with optional memory review breakdown."""
+        if main_cost is None:
+            return None
+        main_str = cls.format_cost(main_cost)
+        if not main_str:
+            return None
+        if memory_cost is not None and memory_cost > 0:
+            mem_str = cls.format_cost(memory_cost)
+            if mem_str:
+                return f"{main_str} (+{mem_str} mem)"
+        return main_str
 
     @staticmethod
     def derive_trace_id(session_id: str) -> str:
@@ -91,12 +116,16 @@ class TraceCostService:
         )
         return self.parse_cost_from_result(raw_content)
 
-    async def resolve_trace_from_session(
+    async def resolve_session_traces(
         self, mcp_client: MCPClientInterface | None, session_id: str
-    ) -> tuple[str | None, str | None]:
-        """Resolve the active Langfuse trace ID and clean trace URL for a session."""
+    ) -> tuple[str | None, str | None, list[str]]:
+        """Resolve primary trace ID, clean URL, and secondary memory trace IDs for a session."""
         if mcp_client is None or not session_id:
-            return None, None
+            return None, None, []
+        primary_tid = self.derive_trace_id(session_id)
+        resolved_primary = primary_tid
+        primary_url = None
+        memory_tids: list[str] = []
         try:
             now = datetime.now(UTC)
             from_iso = (now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -107,7 +136,7 @@ class TraceCostService:
                     "limit": 10,
                     "fromStartTime": from_iso,
                     "toStartTime": to_iso,
-                    "fields": ["id", "traceId", "name", "type", "sessionId"],
+                    "fields": ["id", "traceId", "name", "type", "sessionId", "url"],
                     "filter": [
                         {
                             "column": "sessionId",
@@ -125,63 +154,111 @@ class TraceCostService:
                 try:
                     data = json.loads(raw_content)
                 except Exception:
-                    return None, None
+                    return resolved_primary, None, []
             if isinstance(data, dict) and "data" in data and isinstance(data["data"], list):
-                # Prioritize root Hermes turn over sub-tasks or background memory consolidations
-                for obs in data["data"]:
-                    if obs.get("name") == "Hermes turn":
-                        tid = obs.get("traceId")
-                        if tid:
-                            raw_url = obs.get("url")
-                            clean_url = raw_url.split("?")[0] if raw_url else None
-                            return tid, clean_url
+                seen_tids: set[str] = set()
+                hermes_turns: list[tuple[str, str | None]] = []
+                other_agent_tids: list[str] = []
+
                 for obs in data["data"]:
                     tid = obs.get("traceId")
-                    if tid:
-                        raw_url = obs.get("url")
-                        clean_url = raw_url.split("?")[0] if raw_url else None
-                        return tid, clean_url
+                    if not tid or tid in seen_tids:
+                        continue
+                    seen_tids.add(tid)
+                    raw_url = obs.get("url")
+                    clean_url = raw_url.split("?")[0] if raw_url else None
+                    if tid == primary_tid:
+                        resolved_primary = tid
+                        if clean_url:
+                            primary_url = clean_url
+                    elif obs.get("name") == "Hermes turn":
+                        hermes_turns.append((tid, clean_url))
+                    elif obs.get("type") in ("CHAIN", "AGENT"):
+                        other_agent_tids.append(tid)
+
+                if resolved_primary == primary_tid and not primary_url and hermes_turns:
+                    first_turn = hermes_turns.pop(0)
+                    resolved_primary, primary_url = first_turn[0], first_turn[1]
+
+                for ht in hermes_turns:
+                    memory_tids.append(ht[0])
+                memory_tids.extend(other_agent_tids)
         except Exception as exc:
-            logger.debug("Failed to resolve trace from session %s: %s", session_id, exc)
-        return None, None
+            logger.debug("Failed to resolve session traces for %s: %s", session_id, exc)
+        return resolved_primary, primary_url, memory_tids
+
+    async def resolve_trace_from_session(
+        self, mcp_client: MCPClientInterface | None, session_id: str
+    ) -> tuple[str | None, str | None]:
+        """Resolve the active Langfuse trace ID and clean trace URL for a session."""
+        primary, url, _ = await self.resolve_session_traces(mcp_client, session_id)
+        return primary, url
 
     async def query_trace_cost(
         self,
         mcp_client: MCPClientInterface | None,
         trace_id: str,
         session_id: str | None = None,
-    ) -> tuple[float | None, str | None, str | None]:
-        """Query Langfuse for execution cost and resolved trace info."""
-        target_tid = self.derive_trace_id(session_id) if session_id else trace_id
-        min_threshold = 0.0001 if session_id else 0.0
+    ) -> TraceCostResult:
+        """Query Langfuse for execution cost, optional memory cost, and resolved trace info."""
+        if not session_id:
+            query_exc = None
+            try:
+                cost = await self.query_metrics_for_trace(mcp_client, trace_id)
+                if cost is not None and cost > 0:
+                    return TraceCostResult(main_cost=cost, resolved_trace_id=trace_id)
+            except Exception as exc:
+                query_exc = exc
+                logger.debug("Direct traceId cost query for %s failed: %s", trace_id, exc)
+            if query_exc is not None:
+                raise query_exc
+            return TraceCostResult(resolved_trace_id=trace_id)
+
+        target_tid, resolved_url, memory_tids = await self.resolve_session_traces(
+            mcp_client, session_id
+        )
+        resolved_primary = target_tid or self.derive_trace_id(session_id)
         query_exc = None
+        main_cost: float | None = None
         try:
-            cost = await self.query_metrics_for_trace(mcp_client, target_tid)
-            if cost is not None and cost > min_threshold:
-                return cost, target_tid, None
+            cost = await self.query_metrics_for_trace(mcp_client, resolved_primary)
+            if cost is not None and cost > 0.0001:
+                main_cost = cost
         except Exception as exc:
             query_exc = exc
-            logger.debug("Direct traceId cost query for %s failed: %s", target_tid, exc)
+            logger.debug("Direct traceId cost query for %s failed: %s", resolved_primary, exc)
 
-        if session_id:
-            resolved_tid, resolved_url = await self.resolve_trace_from_session(
-                mcp_client, session_id
-            )
-            if resolved_tid:
+        memory_cost: float | None = None
+        if memory_tids:
+            mem_costs: list[float] = []
+            for mem_tid in memory_tids:
                 try:
-                    resolved_cost = await self.query_metrics_for_trace(mcp_client, resolved_tid)
-                    if resolved_cost is not None and resolved_cost > min_threshold:
-                        return resolved_cost, resolved_tid, resolved_url
+                    c = await self.query_metrics_for_trace(mcp_client, mem_tid)
+                    if c is not None and c > 0:
+                        mem_costs.append(c)
                 except Exception as exc:
-                    query_exc = exc
-                    logger.debug("Resolved traceId cost query failed: %s", exc)
-                return None, resolved_tid, resolved_url
+                    logger.debug("Memory trace cost query for %s failed: %s", mem_tid, exc)
+            if mem_costs:
+                memory_cost = sum(mem_costs)
 
-        if target_tid != trace_id:
+        if main_cost is not None:
+            return TraceCostResult(
+                main_cost=main_cost,
+                memory_cost=memory_cost,
+                resolved_trace_id=resolved_primary,
+                resolved_url=resolved_url,
+            )
+
+        if resolved_primary != trace_id:
             try:
                 fallback_cost = await self.query_metrics_for_trace(mcp_client, trace_id)
-                if fallback_cost is not None and fallback_cost > min_threshold:
-                    return fallback_cost, trace_id, None
+                if fallback_cost is not None and fallback_cost > 0.0001:
+                    return TraceCostResult(
+                        main_cost=fallback_cost,
+                        memory_cost=memory_cost,
+                        resolved_trace_id=trace_id,
+                        resolved_url=resolved_url,
+                    )
             except Exception as exc:
                 query_exc = exc
                 logger.debug("Fallback traceId cost query for %s failed: %s", trace_id, exc)
@@ -189,4 +266,9 @@ class TraceCostService:
         if query_exc is not None:
             raise query_exc
 
-        return None, target_tid, None
+        return TraceCostResult(
+            main_cost=None,
+            memory_cost=memory_cost,
+            resolved_trace_id=resolved_primary,
+            resolved_url=resolved_url,
+        )

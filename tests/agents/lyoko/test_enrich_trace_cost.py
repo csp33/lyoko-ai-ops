@@ -305,3 +305,90 @@ async def test_update_message_cost_async_resolves_via_session_id():
     assert "💸 **Cost:** $0.0017" in kwargs["text"]
     assert "https://cloud.langfuse.com/project/p1/traces/t-hermes-resolved" in kwargs["text"]
     assert "t-initial" not in kwargs["text"]
+
+
+def test_format_cost_with_breakdown():
+    from lyoko.application.incidents.trace_cost_service import TraceCostService
+
+    assert TraceCostService.format_cost_with_breakdown(None) is None
+    assert TraceCostService.format_cost_with_breakdown(0.0034) == "$0.0034"
+    assert TraceCostService.format_cost_with_breakdown(0.0034, 0.0) == "$0.0034"
+    assert (
+        TraceCostService.format_cost_with_breakdown(0.003408, 0.002762) == "$0.0034 (+0.0028 mem)"
+        or TraceCostService.format_cost_with_breakdown(0.003408, 0.002762)
+        == "$0.0034 (+$0.0028 mem)"
+    )
+    assert (
+        TraceCostService.format_cost_with_breakdown(0.003408, 0.002762) == "$0.0034 (+$0.0028 mem)"
+    )
+    assert (
+        TraceCostService.format_cost_with_breakdown(0.000041, 0.002762) == "<$0.0001 (+$0.0028 mem)"
+    )
+
+
+@pytest.mark.asyncio
+async def test_update_message_cost_async_with_memory_breakdown():
+    from lyoko.application.incidents.trace_cost_service import TraceCostService
+
+    derived_primary = TraceCostService.derive_trace_id("sess-with-mem")
+    mock_mcp = AsyncMock(spec=MCPClientInterface)
+
+    async def mock_call_tool(name: str, arguments: dict):
+        if name == "langfuse_queryMetrics":
+            filters = arguments.get("filters", [])
+            val = filters[0]["value"] if filters else ""
+            if val == derived_primary:
+                return {
+                    "status": "success",
+                    "content": {"data": [{"totalCost": 0.003408}]},
+                    "is_error": False,
+                }
+            if val == "trace-memory-bg":
+                return {
+                    "status": "success",
+                    "content": {"data": [{"totalCost": 0.002762}]},
+                    "is_error": False,
+                }
+        elif name == "langfuse_listObservations":
+            return {
+                "status": "success",
+                "content": {
+                    "data": [
+                        {
+                            "traceId": "trace-memory-bg",
+                            "name": "Hermes turn",
+                            "type": "CHAIN",
+                            "url": "https://cloud.langfuse.com/project/p1/traces/trace-memory-bg",
+                        },
+                        {
+                            "traceId": derived_primary,
+                            "name": "Hermes turn",
+                            "type": "CHAIN",
+                            "url": f"https://cloud.langfuse.com/project/p1/traces/{derived_primary}",
+                        },
+                    ]
+                },
+                "is_error": False,
+            }
+        return {"status": "error", "content": "unknown tool", "is_error": True}
+
+    mock_mcp.call_tool.side_effect = mock_call_tool
+    mock_chat_manager = AsyncMock()
+    use_case = EnrichTraceCostUseCase(mcp_client=mock_mcp, tracer=None, enabled=True)
+    initial_text = f"Here is cluster status\n\n💸 **Cost:** calculating... · 🔍 [View Trace](https://cloud.langfuse.com/project/p1/traces/{derived_primary})"
+
+    await use_case.update_message_cost_async(
+        chat_manager=mock_chat_manager,
+        chat_id="-1001",
+        message_id="77",
+        text_with_placeholder=initial_text,
+        trace_id=derived_primary,
+        session_id="sess-with-mem",
+        delay_seconds=0.01,
+        poll_interval=0.01,
+    )
+
+    mock_chat_manager.edit_message.assert_awaited_once()
+    _, kwargs = mock_chat_manager.edit_message.call_args
+    assert "💸 **Cost:** $0.0034 (+$0.0028 mem)" in kwargs["text"]
+    assert f"https://cloud.langfuse.com/project/p1/traces/{derived_primary}" in kwargs["text"]
