@@ -19,24 +19,14 @@ _DOMAIN_ARG_HELP = "kubernetes, unifi, homeassistant, grafana, github, telegram"
 
 
 class _CallToolArgs(BaseModel):
-    """Permissive schema for ``gateway_call_tool``.
-
-    Models frequently emit the target tool's parameters as top-level siblings of ``tool_name``
-    instead of nesting them under ``arguments``, or emit aliases like ``name`` / ``tool``.
-    Extra keys are accepted here and merged into ``arguments`` so either shape executes the
-    intended call instead of failing validation.
-    """
+    """Permissive schema for ``gateway_call_tool`` supporting flattened arguments."""
 
     model_config = ConfigDict(extra="allow")
 
     tool_name: str | None = Field(
-        default=None,
-        description="The exact name of the tool to execute from the domain tool catalog (e.g., 'ha_get_logs', 'k8s_get_pods').",
+        default=None, description="The exact name of the tool to execute."
     )
-    arguments: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Key-value arguments to pass to the target tool.",
-    )
+    arguments: dict[str, Any] = Field(default_factory=dict, description="Key-value arguments.")
 
 
 _COMMON_ALIASES: dict[str, str] = {
@@ -45,17 +35,33 @@ _COMMON_ALIASES: dict[str, str] = {
     "grafana_query_data": "grafana_query_prometheus",
     "grafana_prometheus_query": "grafana_query_prometheus",
     "grafana_promql": "grafana_query_prometheus",
+    "grafana_query_promql": "grafana_query_prometheus",
     "grafana_get_datasources": "grafana_list_datasources",
+    "prometheus_query": "grafana_query_prometheus",
+    "prometheus_data_query": "grafana_query_prometheus",
+    "prometheus_promql": "grafana_query_prometheus",
+    "promql_query": "grafana_query_prometheus",
+    "query_prometheus": "grafana_query_prometheus",
 }
 
 
 def _normalize_args(tool: str, args: dict[str, Any]) -> None:
     if tool == "grafana_query_prometheus":
-        if "expr" not in args and "query" in args:
-            args["expr"] = args.pop("query")
+        if "expr" not in args:
+            for k in ("query", "target", "targets", "promql", "expression"):
+                if k in args:
+                    v = args.pop(k)
+                    args["expr"] = str(v[0] if isinstance(v, list) and v else v)
+                    break
         args.setdefault("datasourceUid", "prometheus")
         args.setdefault("endTime", "now")
         args.setdefault("queryType", "range" if "startTime" in args else "instant")
+        for tk in ("startTime", "endTime"):
+            val = args.get(tk)
+            if isinstance(val, str) and any(
+                y in val for y in ("2020-", "2021-", "2022-", "2023-", "2024-", "2025-")
+            ):
+                args[tk] = "now-30m" if tk == "startTime" else "now"
     elif tool == "grafana_api_request":
         if "endpoint" not in args:
             for k in ("url", "path"):
@@ -134,12 +140,9 @@ def _authorized_call(
         if isinstance(result, dict):
             if result.get("status") == "failed":
                 raise ToolException(str(result.get("error", "unknown MCP gateway error")))
-            if result.get("status") == "success":
-                content = result.get("content")
-                if content is None or content == "" or content == [] or content == {}:
-                    result = dict(result)
-                    result["content"] = "No resources found or empty result."
-        elif result is None or result == "":
+            if result.get("status") == "success" and not result.get("content"):
+                result = {**result, "content": "No resources found or empty result."}
+        elif not result:
             result = "No resources found or empty result."
         return str(result)
 
@@ -242,9 +245,8 @@ def build_gateway_tools(
         client,
         authorizer,
         description=(
-            "Execute any operational homelab tool by name with arguments to fetch live status, "
-            "manage devices, query metrics, or perform operations. Put the target tool's "
-            "parameters in the `arguments` object."
+            "Execute any operational homelab tool by name with arguments. "
+            "Put the target tool's parameters in the `arguments` object."
         ),
     )
     return [domain_tool, schema_tool, call_tool]
@@ -263,8 +265,7 @@ def build_domain_tools(
         client,
         authorizer,
         description=(
-            f"Execute a '{domain}' domain tool by exact name with arguments. The available tools "
-            "and their argument names are listed in your system prompt under 'AVAILABLE TOOLS IN YOUR DOMAIN'. "
+            f"Execute a '{domain}' domain tool by exact name with arguments. "
             "Put the target tool's parameters in the `arguments` object."
         ),
         domain=domain,

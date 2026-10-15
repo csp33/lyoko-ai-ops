@@ -56,8 +56,14 @@ class ExecuteToolUseCase:
         """Normalize commonly confused parameters for upstream tools."""
         normalized = dict(args)
         if tool_name == "grafana_query_prometheus":
-            if "expr" not in normalized and "query" in normalized:
-                normalized["expr"] = normalized.pop("query")
+            if "expr" not in normalized:
+                for alt_key in ("query", "target", "targets", "promql", "expression"):
+                    if alt_key in normalized:
+                        val = normalized.pop(alt_key)
+                        if isinstance(val, list) and val:
+                            val = val[0]
+                        normalized["expr"] = str(val)
+                        break
             normalized.setdefault("datasourceUid", "prometheus")
             normalized.setdefault("endTime", "now")
             if "queryType" not in normalized:
@@ -77,6 +83,22 @@ class ExecuteToolUseCase:
                         normalized["stepSeconds"] = int(raw_step)
                 except (ValueError, TypeError):
                     pass
+            for time_key in ("startTime", "endTime"):
+                val = normalized.get(time_key)
+                if isinstance(val, str) and any(
+                    y in val for y in ("2020-", "2021-", "2022-", "2023-", "2024-", "2025-")
+                ):
+                    normalized[time_key] = "now-30m" if time_key == "startTime" else "now"
+            valid_grafana_keys = {
+                "datasourceUid",
+                "endTime",
+                "expr",
+                "projectName",
+                "queryType",
+                "startTime",
+                "stepSeconds",
+            }
+            normalized = {k: v for k, v in normalized.items() if k in valid_grafana_keys}
         elif tool_name == "grafana_api_request":
             if "endpoint" not in normalized:
                 if "url" in normalized:

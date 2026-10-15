@@ -84,6 +84,11 @@ TOOL_ALIASES: dict[str, str] = {
     "grafana_get_datasource_list": "grafana_list_datasources",
     "grafana_get_alerts": "grafana_alerting_rules_read",
     "grafana_list_alerts": "grafana_alerting_rules_read",
+    "prometheus_query": "grafana_query_prometheus",
+    "prometheus_data_query": "grafana_query_prometheus",
+    "prometheus_promql": "grafana_query_prometheus",
+    "promql_query": "grafana_query_prometheus",
+    "query_prometheus": "grafana_query_prometheus",
 }
 
 
