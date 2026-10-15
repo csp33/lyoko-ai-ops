@@ -40,4 +40,8 @@ DEFAULT_READ_ONLY_TOOLS: tuple[str, ...] = (
     "*.inspect_*",
     "*_stats_summary",
     "*_tool_index",
+    "*_pods",
+    "*_pod",
+    "*_events",
+    "*_namespaces",
 )
