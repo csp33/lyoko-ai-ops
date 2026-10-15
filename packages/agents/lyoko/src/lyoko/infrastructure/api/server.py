@@ -22,10 +22,8 @@ from lyoko.composition import (
 )
 from lyoko.config import settings
 from lyoko.domain.exceptions.mcp import MCPGatewayError
-from lyoko.infrastructure.api.controller import create_feedback_router, create_webhook_router
+from lyoko.infrastructure.api.controller import create_webhook_router
 from lyoko.infrastructure.db.lock import PostgresAdvisoryLock
-from lyoko.infrastructure.db.memory_repository import PostgresMemoryRepository
-from lyoko.infrastructure.embeddings import EmbeddingsService
 from lyoko.infrastructure.mcp.client import FastMCPClient
 from lyoko.infrastructure.mcp.gated_proxy import GATED_MCP_MOUNT_PATH, build_gated_mcp_app
 from psycopg_pool import AsyncConnectionPool
@@ -39,8 +37,6 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing LYOKO Auto-Remediation Agent...")
     db_uri = settings.get_postgres_uri()
     pool = None
-    memory_repo = None
-    embeddings_service = EmbeddingsService()
 
     if db_uri:
         try:
@@ -57,19 +53,14 @@ async def lifespan(app: FastAPI):
                 timeout=5.0,
             )
             await asyncio.wait_for(pool.open(), timeout=5.0)
-
-            memory_repo = PostgresMemoryRepository(pool)
-            logger.info("PostgreSQL memory repository initialized.")
+            logger.info("PostgreSQL connection pool initialized for distributed locks.")
         except Exception as exc:
             logger.error(f"Failed to initialize PostgreSQL components: {exc}", exc_info=True)
             if pool:
                 await pool.close()
                 pool = None
-            memory_repo = None
     else:
-        logger.warning(
-            "No PostgreSQL credentials configured. LYOKO running without persistent memory."
-        )
+        logger.info("No PostgreSQL credentials configured. Running without multi-pod leader lock.")
 
     llm = getattr(app.state, "llm", None) or build_llm_adapter()
     diagnose_llm = getattr(app.state, "diagnose_llm", None) or build_llm_adapter(
@@ -86,8 +77,6 @@ async def lifespan(app: FastAPI):
     lock = PostgresAdvisoryLock(pool=pool) if pool else None
     chat_manager = build_chat_manager(
         approval_manager,
-        memory_repo=memory_repo,
-        embeddings_service=embeddings_service,
         lock=lock,
     )
     app.state.chat_manager = chat_manager
@@ -114,8 +103,6 @@ async def lifespan(app: FastAPI):
         llm=diagnose_llm or llm,
         approval_manager=approval_manager,
         chat_manager=chat_manager,
-        memory_repository=None,
-        embeddings_service=None,
         skill_matcher_service=skill_matcher,
         default_chat_id=settings.telegram_default_chat_id or "",
     )
@@ -125,8 +112,6 @@ async def lifespan(app: FastAPI):
         approval_manager=approval_manager,
         chat_manager=chat_manager,
         llm=llm,
-        memory_repository=memory_repo,
-        embeddings_service=embeddings_service,
         diagnose_llm=diagnose_llm,
         tracer=getattr(app.state, "tracer", None),
         triage_handlers=triage_handlers,
@@ -140,8 +125,6 @@ async def lifespan(app: FastAPI):
     app.state.diagnose_llm = diagnose_llm
     app.state.workflow_engine = workflow_engine
     app.state.db_pool = pool
-    app.state.memory_repository = memory_repo
-    app.state.embeddings_service = embeddings_service
 
     await chat_manager.start_all()
     gated_inner = getattr(app.state, "gated_mcp_inner", None)
@@ -181,15 +164,12 @@ def create_app() -> FastAPI:
     app.state.workflow_engine = None
     app.state.tracer = tracer
     app.state.db_pool = None
-    app.state.memory_repository = None
-    app.state.embeddings_service = None
 
     wire_chat_agent(app, chat_manager)
 
     app.include_router(
         create_webhook_router(tracer=tracer, alert_guard=alert_guard, task_tracker=task_tracker)
     )
-    app.include_router(create_feedback_router())
 
     app.state.gated_mcp_inner = None
     if settings.gated_mcp_token:
@@ -203,12 +183,10 @@ def create_app() -> FastAPI:
     @app.get("/health")
     async def health_check():
         has_db = getattr(app.state, "db_pool", None) is not None
-        has_memory = getattr(app.state, "memory_repository", None) is not None
         return {
             "status": "healthy",
             "service": "lyoko-agent",
-            "postgres_checkpointer": has_db,
-            "agent_memory": has_memory,
+            "database": has_db,
         }
 
     return app

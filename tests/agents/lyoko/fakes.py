@@ -20,6 +20,18 @@ DIAGNOSIS_NOT_ACTIONABLE = (
     "ACTIONABLE: no\n"
     "PLAN: A human should rotate the credentials."
 )
+RESOLUTION_RESOLVED = (
+    "ROOT_CAUSE: The radarr pod was OOMKilled because its memory limit is too low.\n"
+    "ACTION_TAKEN: Scaled radarr.\n"
+    "VERIFICATION: The pod is Running with 0 restarts.\n"
+    "STATUS: RESOLVED"
+)
+RESOLUTION_ESCALATED = (
+    "ROOT_CAUSE: The database credentials are invalid.\n"
+    "ACTION_TAKEN: Investigated. No modifications required.\n"
+    "VERIFICATION: None\n"
+    "STATUS: ESCALATED"
+)
 
 
 @dataclass
@@ -40,7 +52,7 @@ Behavior = Callable[[ToolAuthorizer], Awaitable[str]]
 
 
 class ScriptedLLM(LLMClientInterface):
-    """LLM double with one scripted behavior per phase (route, chat, diagnose, remediate, verify).
+    """LLM double with one scripted behavior per phase (route, chat, incident).
 
     A behavior receives the real gate authorizer, so it can attempt tool calls exactly like a
     ReAct agent would and the test observes the gate's real decisions.
@@ -67,12 +79,18 @@ class ScriptedLLM(LLMClientInterface):
         parent_config: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> str:
-        phase = next(t.split(":", 1)[1] for t in (tags or []) if t.startswith("phase:"))
+        phase = next(
+            (t.split(":", 1)[1] for t in (tags or []) if t.startswith("phase:")), "incident"
+        )
         self.calls.append(phase)
         self.prompts[phase] = prompt
         self.parent_configs[phase] = parent_config
         self.max_steps.append(max_steps)
-        behavior = self._behaviors[phase]
+        behavior = self._behaviors.get(phase)
+        if behavior is None and phase == "incident":
+            behavior = self._behaviors.get("diagnose")
+        if behavior is None:
+            raise KeyError(f"No scripted behavior for phase '{phase}'")
         if isinstance(behavior, str):
             return behavior
         assert tools, "the workflow must give the agent tools"

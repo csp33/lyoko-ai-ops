@@ -42,9 +42,7 @@ class IncidentContextFormatter:
     @classmethod
     def format_context(cls, state: dict[str, Any]) -> str:
         if is_message(state):
-            base = f"Problem reported by the operator in chat:\n{state.get('text', '')}"
-            history = state.get("history_context", "")
-            return f"{base}{history}"
+            return f"Problem reported by the operator in chat:\n{state.get('text', '')}"
         base = (
             f"Alert: {state.get('alert_name', 'UnknownAlert')}\n"
             f"Labels:\n{cls.format_pairs(state.get('labels') or {})}\n"

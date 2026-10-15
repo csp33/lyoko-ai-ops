@@ -1,4 +1,4 @@
-"""Unit tests for the LYOKO incident workflow (diagnose, remediate, verify, notify)."""
+"""Unit tests for the LYOKO autonomous incident resolution workflow."""
 
 from unittest.mock import AsyncMock
 
@@ -7,8 +7,8 @@ from lyoko.application.workflow.graph import create_lyoko_graph
 from lyoko.domain.interfaces.mcp import ToolAuthorizer
 
 from tests.agents.lyoko.fakes import (
-    DIAGNOSIS_ACTIONABLE,
-    DIAGNOSIS_NOT_ACTIONABLE,
+    RESOLUTION_ESCALATED,
+    RESOLUTION_RESOLVED,
     FakeMCPClient,
     ScriptedLLM,
 )
@@ -18,8 +18,8 @@ SCALE_ARGS = {"name": "radarr", "namespace": "media", "replicas": 0}
 
 @pytest.fixture(autouse=True)
 def fast_verification(monkeypatch):
-    monkeypatch.setattr("lyoko.application.workflow.graph.settings.verification_delay_seconds", 0)
-    monkeypatch.setattr("lyoko.application.workflow.graph.settings.auto_approved_tools", [])
+    monkeypatch.setattr("lyoko.config.settings.verification_delay_seconds", 0)
+    monkeypatch.setattr("lyoko.config.settings.auto_approved_tools", [])
 
 
 def _state(labels: dict[str, str] | None = None) -> dict:
@@ -34,24 +34,13 @@ def _state(labels: dict[str, str] | None = None) -> dict:
 
 async def _scale_with_auto_approval(authorize: ToolAuthorizer) -> str:
     assert await authorize("resources_scale", SCALE_ARGS) is None
-    return "RESULT: Scaled radarr."
-
-
-async def _read_only_check(authorize: ToolAuthorizer) -> str:
-    assert await authorize("pods_get", {"name": "radarr"}) is None
-    return "RESOLVED\nThe pod is Running with 0 restarts."
+    return RESOLUTION_RESOLVED
 
 
 @pytest.mark.asyncio
 async def test_auto_approved_tool_fixes_and_resolves(monkeypatch):
-    monkeypatch.setattr(
-        "lyoko.application.workflow.graph.settings.auto_approved_tools", ["resources_scale"]
-    )
-    llm = ScriptedLLM(
-        diagnose=DIAGNOSIS_ACTIONABLE,
-        remediate=_scale_with_auto_approval,
-        verify=_read_only_check,
-    )
+    monkeypatch.setattr("lyoko.config.settings.auto_approved_tools", ["resources_scale"])
+    llm = ScriptedLLM(incident=_scale_with_auto_approval)
     workflow = create_lyoko_graph(mcp_client=FakeMCPClient(), llm=llm)
 
     final_state = await workflow.ainvoke(_state())
@@ -66,83 +55,30 @@ async def test_auto_approved_tool_fixes_and_resolves(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_alert_context_reaches_the_agent_without_kubernetes_assumptions():
-    llm = ScriptedLLM(diagnose=DIAGNOSIS_NOT_ACTIONABLE)
+    llm = ScriptedLLM(incident=RESOLUTION_ESCALATED)
     workflow = create_lyoko_graph(mcp_client=FakeMCPClient(), llm=llm)
 
     await workflow.ainvoke(
         _state({"alertname": "UnifiApOffline", "site": "home", "device": "ap-living-room"})
     )
 
-    prompt = llm.prompts["diagnose"]
+    prompt = llm.prompts["incident"]
     assert "UnifiApOffline" in prompt
     assert "ap-living-room" in prompt
     assert "radarr is crashlooping" in prompt
 
 
 @pytest.mark.asyncio
-async def test_non_actionable_diagnosis_escalates_without_remediating():
-    llm = ScriptedLLM(diagnose=DIAGNOSIS_NOT_ACTIONABLE)
+async def test_non_actionable_escalates_without_modifications():
+    llm = ScriptedLLM(incident=RESOLUTION_ESCALATED)
     workflow = create_lyoko_graph(mcp_client=FakeMCPClient(), llm=llm)
 
     final_state = await workflow.ainvoke(_state())
 
     assert "credentials" in final_state["root_cause"]
-    assert "requires human inspection" in final_state["action_taken"]
     assert final_state["requires_escalation"] is True
     assert final_state["is_resolved"] is False
-    assert set(llm.prompts) == {"diagnose"}
-
-
-@pytest.mark.asyncio
-async def test_diagnosis_cannot_change_anything():
-    refusals: list[str | None] = []
-
-    async def try_to_mutate(authorize: ToolAuthorizer) -> str:
-        refusals.append(await authorize("resources_scale", SCALE_ARGS))
-        return DIAGNOSIS_ACTIONABLE
-
-    llm = ScriptedLLM(diagnose=try_to_mutate, remediate="RESULT: nothing", verify="RESOLVED")
-    workflow = create_lyoko_graph(mcp_client=FakeMCPClient(), llm=llm)
-
-    await workflow.ainvoke(_state())
-
-    assert len(refusals) == 1
-    assert refusals[0] is not None
-    assert "read-only" in refusals[0]
-
-
-@pytest.mark.asyncio
-async def test_run_without_any_change_is_not_reported_as_fixed():
-    llm = ScriptedLLM(
-        diagnose=DIAGNOSIS_ACTIONABLE,
-        remediate="RESULT: Everything already looked fine, I changed nothing.",
-    )
-    workflow = create_lyoko_graph(mcp_client=FakeMCPClient(), llm=llm)
-
-    final_state = await workflow.ainvoke(_state())
-
-    assert final_state["requires_escalation"] is True
-    assert final_state["is_resolved"] is False
-    assert "I changed nothing" in final_state["action_taken"]
-    assert "verify" not in llm.prompts
-
-
-@pytest.mark.asyncio
-async def test_unresolved_after_fix_is_reported_as_unresolved(monkeypatch):
-    monkeypatch.setattr(
-        "lyoko.application.workflow.graph.settings.auto_approved_tools", ["resources_scale"]
-    )
-    llm = ScriptedLLM(
-        diagnose=DIAGNOSIS_ACTIONABLE,
-        remediate=_scale_with_auto_approval,
-        verify="UNRESOLVED\nThe pod is still crashlooping.",
-    )
-    workflow = create_lyoko_graph(mcp_client=FakeMCPClient(), llm=llm)
-
-    final_state = await workflow.ainvoke(_state())
-
-    assert final_state["is_resolved"] is False
-    assert "still crashlooping" in final_state["verification"]
+    assert set(llm.prompts) == {"incident"}
 
 
 @pytest.mark.asyncio
@@ -150,12 +86,12 @@ async def test_agent_failure_is_escalated_not_raised():
     async def broken(authorize: ToolAuthorizer) -> str:
         raise RuntimeError("model unavailable")
 
-    llm = ScriptedLLM(diagnose=broken)
+    llm = ScriptedLLM(incident=broken)
     workflow = create_lyoko_graph(mcp_client=FakeMCPClient(), llm=llm)
 
     final_state = await workflow.ainvoke(_state())
 
-    assert "Investigation failed: model unavailable" in final_state["root_cause"]
+    assert "Resolution failed: model unavailable" in final_state["root_cause"]
     assert final_state["requires_escalation"] is True
 
 
@@ -172,8 +108,8 @@ async def test_without_llm_the_incident_is_escalated():
 
 @pytest.mark.asyncio
 async def test_agent_runs_are_bounded(monkeypatch):
-    monkeypatch.setattr("lyoko.application.workflow.graph.settings.max_agent_steps", 7)
-    llm = ScriptedLLM(diagnose=DIAGNOSIS_NOT_ACTIONABLE)
+    monkeypatch.setattr("lyoko.config.settings.max_agent_steps", 7)
+    llm = ScriptedLLM(incident=RESOLUTION_ESCALATED)
     workflow = create_lyoko_graph(mcp_client=FakeMCPClient(), llm=llm)
 
     await workflow.ainvoke(_state())
@@ -184,14 +120,11 @@ async def test_agent_runs_are_bounded(monkeypatch):
 @pytest.mark.asyncio
 async def test_report_lists_what_the_gate_allowed():
     chat = AsyncMock()
-    llm = ScriptedLLM(diagnose=DIAGNOSIS_NOT_ACTIONABLE)
+    llm = ScriptedLLM(incident=RESOLUTION_ESCALATED)
     workflow = create_lyoko_graph(mcp_client=FakeMCPClient(), chat_manager=chat, llm=llm)
 
     await workflow.ainvoke(_state({"alertname": "UnifiApOffline", "device": "ap-living-room"}))
 
-    # The live status message is broadcast once, then edited as the incident advances; the final
-    # edit carries the incident report. Collect every delivered text so the assertion covers both
-    # the created progress message and the edited final report.
     chat.broadcast_message.assert_awaited_once()
     delivered = [call.kwargs["text"] for call in chat.broadcast_message.await_args_list]
     if chat.edit_message.await_args is not None:
@@ -204,34 +137,15 @@ async def test_report_lists_what_the_gate_allowed():
 
 
 @pytest.mark.asyncio
-async def test_workflow_state_snapshot():
-    llm = ScriptedLLM(diagnose=DIAGNOSIS_NOT_ACTIONABLE)
-    workflow = create_lyoko_graph(mcp_client=FakeMCPClient(), llm=llm)
-    config = {"configurable": {"thread_id": "incident-abc"}}
-
-    await workflow.ainvoke(_state(), config=config)
-
-    saved = await workflow.aget_state(config)
-    assert saved is not None
-    assert "credentials" in saved.values["root_cause"]
-
-
-@pytest.mark.asyncio
 async def test_incident_workflow_live_status_updates(monkeypatch):
     from lyoko.domain.models.chat import SentMessage
 
-    monkeypatch.setattr(
-        "lyoko.application.workflow.graph.settings.auto_approved_tools", ["resources_scale"]
-    )
+    monkeypatch.setattr("lyoko.config.settings.auto_approved_tools", ["resources_scale"])
     chat = AsyncMock()
     chat.broadcast_message.return_value = [SentMessage(chat_id="12345", message_id="777")]
     chat.edit_message.return_value = [SentMessage(chat_id="12345", message_id="777")]
 
-    llm = ScriptedLLM(
-        diagnose=DIAGNOSIS_ACTIONABLE,
-        remediate=_scale_with_auto_approval,
-        verify=_read_only_check,
-    )
+    llm = ScriptedLLM(incident=_scale_with_auto_approval)
     workflow = create_lyoko_graph(mcp_client=FakeMCPClient(), chat_manager=chat, llm=llm)
 
     state = _state({"alertname": "KubePodCrashLooping", "namespace": "media", "pod": "radarr-0"})
@@ -242,13 +156,13 @@ async def test_incident_workflow_live_status_updates(monkeypatch):
     assert final_state["progress_message_id"] == "777"
     assert final_state["progress_chat_id"] == "12345"
 
-    # Verify initial progress broadcast
     chat.broadcast_message.assert_awaited_once()
     initial_text = chat.broadcast_message.await_args.kwargs["text"]
-    assert "Phase: Diagnose" in initial_text
+    assert (
+        "Investigating" in initial_text or "Status" in initial_text or "DIAGNOSING" in initial_text
+    )
 
-    # Verify progressive edits (after diagnose, after remediate, and final report on notify)
-    assert chat.edit_message.await_count >= 3
+    assert chat.edit_message.await_count >= 1
     final_edit_text = chat.edit_message.await_args_list[-1].kwargs["text"]
     assert "📋 **LYOKO Incident Report**" in final_edit_text
     assert "**Status:** ✅ RESOLVED" in final_edit_text

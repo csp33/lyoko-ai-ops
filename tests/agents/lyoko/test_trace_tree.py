@@ -124,7 +124,9 @@ async def test_alert_incident_phases_are_children_of_the_one_trace():
         messages=iter(
             [
                 _tool_call("pods_get", {"name": "radarr"}),
-                AIMessage(content="ROOT_CAUSE: OOM.\nACTIONABLE: no\nPLAN: raise memory"),
+                AIMessage(
+                    content="ROOT_CAUSE: OOM.\nACTION_TAKEN: none\nVERIFICATION: ok\nSTATUS: ESCALATED"
+                ),
             ]
         )
     )
@@ -148,6 +150,6 @@ async def test_alert_incident_phases_are_children_of_the_one_trace():
     )
 
     assert tree.roots() == ["lyoko-KubePodCrashLooping-1"]
-    assert tree.ancestors("diagnose-agent")[:2] == ["coordinator", "lyoko-KubePodCrashLooping-1"]
+    assert tree.ancestors("incident-agent")[:2] == ["coordinator", "lyoko-KubePodCrashLooping-1"]
     assert "mcp:pods_get" in tree.names.values()
     assert "route-llm" not in tree.names.values()

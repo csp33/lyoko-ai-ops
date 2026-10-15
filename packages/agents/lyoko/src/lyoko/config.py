@@ -229,24 +229,6 @@ class AgentSettings(BaseSettings):
         ge=1,
         description="Maximum concurrent incident investigation workflows allowed",
     )
-    memory_similarity_threshold: float = Field(
-        default=0.2,
-        ge=0.0,
-        le=1.0,
-        description="Minimum cosine similarity required to inject memories into agent context",
-    )
-    chat_memory_similarity_threshold: float = Field(
-        default=0.35,
-        ge=0.0,
-        le=1.0,
-        description=(
-            "Similarity floor for injecting memories into interactive chat. Chat prompts are "
-            "short and generic, so a very low threshold surfaces loosely related rules that can "
-            "hijack the operator's actual request. It must still stay below the similarity of a "
-            "genuinely relevant short operator rule (empirically ~0.45), or real memories are "
-            "silently dropped."
-        ),
-    )
 
     # General Environment
     environment: str = Field(

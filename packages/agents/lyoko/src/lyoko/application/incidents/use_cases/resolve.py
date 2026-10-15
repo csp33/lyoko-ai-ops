@@ -3,20 +3,17 @@
 import logging
 from typing import Any
 
-from lyoko.application.agents.runner import run_agent, status_callback
+from lyoko.application.agents.runner import AgentRunner, run_agent, status_callback
 from lyoko.application.context.formatter import IncidentContextFormatter
 from lyoko.application.incidents.parser import IncidentOutputParser
 from lyoko.application.incidents.status import IncidentStatusFormatter
-from lyoko.application.memory.use_cases.retrieve import RetrieveMemoryLessonsUseCase
 from lyoko.application.prompts.incident import RESOLVE_SYSTEM_PROMPT
 from lyoko.application.safety.tool_gate import CallOutcome, GateMode, make_gate
 from lyoko.application.skills.matcher import SkillMatcherService
 from lyoko.domain.interfaces.approval import ApprovalManagerInterface
 from lyoko.domain.interfaces.chat_service import ChatServiceInterface
-from lyoko.domain.interfaces.embeddings import EmbeddingsServiceInterface
 from lyoko.domain.interfaces.llm import LLMClientInterface
 from lyoko.domain.interfaces.mcp import MCPClientInterface
-from lyoko.domain.interfaces.memory import MemoryRepositoryInterface
 from lyoko.domain.models.incident import CoordinatorNext
 from lyoko.domain.models.state import is_message
 
@@ -32,9 +29,6 @@ class ResolveIncidentUseCase:
         llm: LLMClientInterface | None,
         approval_manager: ApprovalManagerInterface | None = None,
         chat_manager: ChatServiceInterface | None = None,
-        retrieve_memory_use_case: RetrieveMemoryLessonsUseCase | None = None,
-        memory_repository: MemoryRepositoryInterface | None = None,
-        embeddings_service: EmbeddingsServiceInterface | None = None,
         skill_matcher_service: SkillMatcherService | None = None,
         runner: Any = None,
         default_chat_id: str | None = None,
@@ -45,15 +39,6 @@ class ResolveIncidentUseCase:
         self.chat_manager = chat_manager
         self.skill_matcher_service = skill_matcher_service
         self.runner = runner or run_agent
-        if retrieve_memory_use_case is not None:
-            self.retrieve_memory_use_case = retrieve_memory_use_case
-        elif memory_repository is not None:
-            self.retrieve_memory_use_case = RetrieveMemoryLessonsUseCase(
-                memory_repository=memory_repository,
-                embeddings_service=embeddings_service,
-            )
-        else:
-            self.retrieve_memory_use_case = None
         self.default_chat_id = default_chat_id or ""
 
     async def execute(self, state: dict[str, Any], config: Any = None) -> dict[str, Any]:
@@ -67,14 +52,6 @@ class ResolveIncidentUseCase:
                 "requires_escalation": True,
                 "coordinator_next": CoordinatorNext.NOTIFY,
             }
-
-        if self.retrieve_memory_use_case is not None:
-            (
-                matched_memories,
-                lessons_context,
-            ) = await self.retrieve_memory_use_case.execute_for_incident(state=state)
-        else:
-            matched_memories, lessons_context = [], ""
 
         logger.info("Resolving %s autonomously...", IncidentContextFormatter.format_origin(state))
         progress_msg_id: str | None = state.get("progress_message_id")
@@ -112,20 +89,33 @@ class ResolveIncidentUseCase:
             prompt_content = (
                 f"Resolve this incident.\n\n"
                 f"{IncidentContextFormatter.format_context(state)}"
-                f"{lessons_context}{skills_context}"
+                f"{skills_context}"
             )
 
-            answer = await self.runner(
-                state,
-                gate,
-                config,
-                mcp_client=self.mcp_client,
-                llm=self.llm,
-                phase="incident",
-                system_prompt=RESOLVE_SYSTEM_PROMPT,
-                prompt=prompt_content,
-                on_status=status_callback(config),
-            )
+            if isinstance(self.runner, AgentRunner):
+                answer = await self.runner.run(
+                    state,
+                    gate,
+                    config,
+                    mcp_client=self.mcp_client,
+                    llm=self.llm,
+                    phase="incident",
+                    system_prompt=RESOLVE_SYSTEM_PROMPT,
+                    prompt=prompt_content,
+                    on_status=status_callback(config),
+                )
+            else:
+                answer = await self.runner(
+                    state,
+                    gate,
+                    config,
+                    mcp_client=self.mcp_client,
+                    llm=self.llm,
+                    phase="incident",
+                    system_prompt=RESOLVE_SYSTEM_PROMPT,
+                    prompt=prompt_content,
+                    on_status=status_callback(config),
+                )
         except Exception as exc:
             logger.error("Incident resolution failed: %s", exc, exc_info=True)
             return {
@@ -161,8 +151,6 @@ class ResolveIncidentUseCase:
             "verification": resolution["verification"],
             "is_resolved": resolution["is_resolved"],
             "requires_escalation": resolution["requires_escalation"],
-            "matched_memories": matched_memories,
-            "lessons_context": lessons_context,
             "progress_message_id": progress_msg_id,
             "progress_chat_id": progress_chat_id,
             "coordinator_next": CoordinatorNext.NOTIFY,

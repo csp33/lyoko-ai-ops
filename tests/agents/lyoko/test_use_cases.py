@@ -6,11 +6,8 @@ import pytest
 from lyoko.application.incidents.use_cases.notify import (
     NotifyIncidentReportUseCase,
 )
-from lyoko.application.memory.use_cases.feedback import RecordFeedbackUseCase
-from lyoko.application.memory.use_cases.retrieve import RetrieveMemoryLessonsUseCase
 from lyoko.application.workflow.routing.route_event import RouteEventUseCase
 from lyoko.domain.interfaces.llm import LLMClientInterface
-from lyoko.domain.models.memory import FeedbackRequest, MemoryEntry, MemoryQueryResult
 from sector5_mcp.application.use_cases.discover_tools import DiscoverToolsUseCase
 from sector5_mcp.application.use_cases.execute_tool import ExecuteToolUseCase
 from sector5_mcp.domain.models.upstream import ToolDefinition, ToolResult
@@ -30,56 +27,6 @@ async def test_route_event_use_case():
     assert (await use_case_llm.execute({"event_type": "message", "text": "pod down"})) == {
         "route": "incident"
     }
-
-
-@pytest.mark.asyncio
-async def test_record_feedback_use_case():
-    mock_repo = AsyncMock()
-    mock_repo.save_memory.return_value = 42
-    mock_embeddings = AsyncMock()
-    mock_embeddings.embed_text.return_value = [0.1] * 1536
-
-    use_case = RecordFeedbackUseCase(mock_repo, mock_embeddings)
-
-    req = FeedbackRequest(
-        namespace="default",
-        service_name="web",
-        incident_pattern="CrashLoop",
-        operator_feedback="restart service first",
-    )
-    mem_id = await use_case.execute_from_request(req)
-    assert mem_id == 42
-    assert mock_repo.save_memory.called
-
-    chat_mem_id, svc, ns = await use_case.execute_from_chat_command(
-        feedback_content="compact logs first",
-        reply_to_text="Namespace: prod\nPod: web-api-1234\nAlert: HighMemory",
-    )
-    assert chat_mem_id == 42
-    assert svc == "web"
-    assert ns == "prod"
-
-
-@pytest.mark.asyncio
-async def test_retrieve_memory_use_case():
-    mock_repo = AsyncMock()
-    mem = MemoryEntry(
-        namespace="default",
-        service_name="app",
-        incident_pattern="OOM",
-        operator_feedback="raise limits",
-    )
-    mock_repo.search_memories.return_value = [MemoryQueryResult(memory=mem, similarity=0.85)]
-
-    use_case = RetrieveMemoryLessonsUseCase(mock_repo)
-    matched, lessons = await use_case.execute_for_incident(
-        {"alert_name": "OOM", "labels": {"namespace": "default"}}
-    )
-    assert len(matched) == 1
-    assert "raise limits" in lessons
-
-    chat_lessons = await use_case.execute_for_chat("app memory issues")
-    assert "raise limits" in chat_lessons
 
 
 @pytest.mark.asyncio
@@ -172,19 +119,24 @@ async def test_coordinate_workflow_use_case():
 
 
 @pytest.mark.asyncio
-async def test_diagnose_incident_use_case_with_skill_matcher():
-    from lyoko.application.incidents.use_cases.diagnose import DiagnoseIncidentUseCase
+async def test_resolve_incident_use_case_with_skill_matcher():
+    from lyoko.application.incidents.use_cases.resolve import ResolveIncidentUseCase
 
     mock_llm = MagicMock(spec=LLMClientInterface)
     mock_runner = AsyncMock(
-        return_value="ROOT_CAUSE: Container crashed\nACTIONABLE: yes\nPLAN: Inspect container logs"
+        return_value=(
+            "ROOT_CAUSE: Container crashed\n"
+            "ACTION_TAKEN: Checked logs\n"
+            "VERIFICATION: Pod running\n"
+            "STATUS: RESOLVED"
+        )
     )
     mock_matcher = MagicMock()
     mock_matcher.format_matched_skills_context = AsyncMock(
         return_value="\n\n--- RELEVANT OPERATIONAL RUNBOOKS ---\nPod CrashLoop Guide\n---"
     )
 
-    uc = DiagnoseIncidentUseCase(
+    uc = ResolveIncidentUseCase(
         mcp_client=None,
         llm=mock_llm,
         skill_matcher_service=mock_matcher,
@@ -200,7 +152,8 @@ async def test_diagnose_incident_use_case_with_skill_matcher():
     result = await uc.execute(state, config={})
 
     assert result["root_cause"] == "Container crashed"
-    assert result["plan"] == "Inspect container logs"
+    assert result["action_taken"] == "Checked logs"
+    assert result["is_resolved"] is True
     assert not result["requires_escalation"]
 
     # Verify that runner was called with prompt containing matched skill runbook

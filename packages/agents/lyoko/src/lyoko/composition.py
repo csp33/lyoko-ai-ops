@@ -9,7 +9,6 @@ import logging
 from fastapi import FastAPI
 
 from lyoko.application.chat.agent import InteractiveChatAgent
-from lyoko.application.chat.history import ChatHistoryTracker
 from lyoko.application.chat.sessions import ChatSessionTracker
 from lyoko.application.context.buffer import SmartOutputBufferService
 from lyoko.application.incidents.triage.argocd_autosync import ArgoCDAutosyncHandler
@@ -28,8 +27,6 @@ from lyoko.domain.interfaces.mcp import MCPClientInterface
 from lyoko.domain.models.budget import BudgetConfig
 from lyoko.infrastructure.chat.manager import ChatManager
 from lyoko.infrastructure.chat.telegram import TelegramConnector
-from lyoko.infrastructure.db.memory_repository import PostgresMemoryRepository
-from lyoko.infrastructure.embeddings import EmbeddingsService
 from lyoko.infrastructure.llm.hermes_runner import HermesHarnessRunner
 from lyoko.infrastructure.llm.openai import OpenAILLMAdapter
 from lyoko.infrastructure.observability.langfuse import LangfuseTracer
@@ -128,8 +125,6 @@ def build_triage_handlers(
 
 def build_chat_manager(
     approval_manager: ApprovalManager,
-    memory_repo: PostgresMemoryRepository | None = None,
-    embeddings_service: EmbeddingsService | None = None,
     lock: DistributedLock | None = None,
 ) -> ChatManager:
     """Instantiate the chat connectors.
@@ -148,8 +143,6 @@ def build_chat_manager(
             allowed_chat_ids=settings.telegram_allowed_chat_ids,
             default_chat_id=settings.telegram_default_chat_id,
             discussion_group_id=settings.telegram_discussion_group_id,
-            memory_repository=memory_repo,
-            embeddings_service=embeddings_service,
             lock=lock,
         )
         telegram_connector.register_approval_handler(approval_manager.resolve_approval)
@@ -172,7 +165,6 @@ def build_tracer() -> LangfuseTracer:
 
 def wire_chat_agent(app: FastAPI, chat_manager: ChatManager) -> None:
     """Send incoming chat messages to the graph stored in ``app.state.workflow_engine``."""
-    history_tracker = ChatHistoryTracker()
     tracer = getattr(app.state, "tracer", None)
     mcp_client = getattr(app.state, "mcp_client", None)
     enrich_trace_cost = (
@@ -188,7 +180,6 @@ def wire_chat_agent(app: FastAPI, chat_manager: ChatManager) -> None:
         lambda: app.state.workflow_engine,
         tracer=tracer,
         session_tracker=chat_manager.session_tracker,
-        history_tracker=history_tracker,
         enrich_trace_cost=enrich_trace_cost,
         chat_manager=chat_manager,
     )

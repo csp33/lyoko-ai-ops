@@ -1,4 +1,4 @@
-"""Autonomous execution workflow of LYOKO: event routing, triage, and resolution.
+"""Autonomous execution workflow of LYOKO: event routing, triage, resolution, and notification.
 
 Every event enters at ``route`` and takes one of two branches:
 - Interactive chat messages route to the coordinator/chat handler.
@@ -7,7 +7,6 @@ Every event enters at ``route`` and takes one of two branches:
 """
 
 from collections.abc import Sequence
-from dataclasses import dataclass, field
 from typing import Any
 
 from langchain_core.runnables import RunnableConfig, RunnableLambda
@@ -17,28 +16,16 @@ from lyoko.application.incidents.use_cases.enrich_trace_cost import (
     EnrichTraceCostUseCase,
 )
 from lyoko.application.incidents.use_cases.notify import NotifyIncidentReportUseCase
-from lyoko.application.incidents.use_cases.remediate import RemediateIncidentUseCase
 from lyoko.application.incidents.use_cases.triage import TriageIncidentUseCase
-from lyoko.application.incidents.use_cases.verify import VerifyIncidentUseCase
 from lyoko.application.workflow.coordinator import CoordinateWorkflowUseCase
 from lyoko.application.workflow.routing.edges import WorkflowRouteSelector
 from lyoko.application.workflow.routing.route_event import RouteEventUseCase
 from lyoko.config import settings
 from lyoko.domain.interfaces.approval import ApprovalManagerInterface
 from lyoko.domain.interfaces.chat_service import ChatServiceInterface
-from lyoko.domain.interfaces.embeddings import EmbeddingsServiceInterface
 from lyoko.domain.interfaces.llm import LLMClientInterface
 from lyoko.domain.interfaces.mcp import MCPClientInterface
-from lyoko.domain.interfaces.memory import MemoryRepositoryInterface
 from lyoko.domain.models.incident import CoordinatorNext
-
-
-@dataclass
-class WorkflowStateSnapshot:
-    """Snapshot of workflow state for state inspection and recovery."""
-
-    values: dict[str, Any]
-    next: tuple[str, ...] = field(default_factory=tuple)
 
 
 class LyokoWorkflow:
@@ -49,17 +36,12 @@ class LyokoWorkflow:
         route_use_case: RouteEventUseCase,
         triage_use_case: TriageIncidentUseCase,
         coordinator_use_case: CoordinateWorkflowUseCase,
-        remediate_use_case: RemediateIncidentUseCase,
-        verify_use_case: VerifyIncidentUseCase,
         notify_use_case: NotifyIncidentReportUseCase,
     ) -> None:
         self.route_use_case = route_use_case
         self.triage_use_case = triage_use_case
         self.coordinator_use_case = coordinator_use_case
-        self.remediate_use_case = remediate_use_case
-        self.verify_use_case = verify_use_case
         self.notify_use_case = notify_use_case
-        self._saved_states: dict[str, WorkflowStateSnapshot] = {}
 
         # Wrap steps as runnables to maintain transparent child spans in tracing
         self._route_runnable = RunnableLambda(self._run_route).with_config(run_name="route")
@@ -67,10 +49,6 @@ class LyokoWorkflow:
         self._coordinator_runnable = RunnableLambda(self._run_coordinator).with_config(
             run_name="coordinator"
         )
-        self._remediate_runnable = RunnableLambda(self._run_remediate).with_config(
-            run_name="remediate"
-        )
-        self._verify_runnable = RunnableLambda(self._run_verify).with_config(run_name="verify")
         self._notify_runnable = RunnableLambda(self._run_notify).with_config(run_name="notify")
 
     async def _run_route(
@@ -87,16 +65,6 @@ class LyokoWorkflow:
         self, state: dict[str, Any], config: RunnableConfig | None = None
     ) -> dict[str, Any]:
         return await self.coordinator_use_case.execute(state, config=config)
-
-    async def _run_remediate(
-        self, state: dict[str, Any], config: RunnableConfig | None = None
-    ) -> dict[str, Any]:
-        return await self.remediate_use_case.execute(state, config=config)
-
-    async def _run_verify(
-        self, state: dict[str, Any], config: RunnableConfig | None = None
-    ) -> dict[str, Any]:
-        return await self.verify_use_case.execute(state, config=config)
 
     async def _run_notify(
         self, state: dict[str, Any], config: RunnableConfig | None = None
@@ -122,51 +90,25 @@ class LyokoWorkflow:
                 current_state.update(notify_patch)
                 return current_state
 
-        # Step 3: Coordinator / Resolver
+        # Step 3: Coordinator / Resolver (chat interaction or autonomous Hermes resolution)
         coord_patch = await self._coordinator_runnable.ainvoke(current_state, config=config)
         current_state.update(coord_patch)
 
         next_action = WorkflowRouteSelector.choose_coordinator_next(current_state)
         if next_action == CoordinatorNext.CHAT_END:
             return current_state
-        if next_action == CoordinatorNext.REMEDIATE:
-            rem_patch = await self._remediate_runnable.ainvoke(current_state, config=config)
-            current_state.update(rem_patch)
-            ver_patch = await self._verify_runnable.ainvoke(current_state, config=config)
-            current_state.update(ver_patch)
-            notify_patch = await self._notify_runnable.ainvoke(current_state, config=config)
-            current_state.update(notify_patch)
-            return current_state
-        if next_action == CoordinatorNext.NOTIFY:
-            notify_patch = await self._notify_runnable.ainvoke(current_state, config=config)
-            current_state.update(notify_patch)
-            return current_state
 
+        # Step 4: Notify for incident resolution
+        notify_patch = await self._notify_runnable.ainvoke(current_state, config=config)
+        current_state.update(notify_patch)
         return current_state
 
     async def ainvoke(
         self, state: dict[str, Any] | None, config: RunnableConfig | None = None
     ) -> dict[str, Any]:
-        """Execute the workflow asynchronously with hierarchical tracing and state recording."""
+        """Execute the workflow asynchronously with hierarchical tracing."""
         runnable = RunnableLambda(self._execute_flow)
-        result = await runnable.ainvoke(state or {}, config=config)
-
-        if isinstance(config, dict):
-            thread_id = config.get("configurable", {}).get("thread_id")
-            if thread_id:
-                self._saved_states[thread_id] = WorkflowStateSnapshot(values=dict(result))
-
-        return result
-
-    async def aget_state(
-        self, config: RunnableConfig | None = None
-    ) -> WorkflowStateSnapshot | None:
-        """Retrieve the latest recorded state snapshot for a given thread_id."""
-        if isinstance(config, dict):
-            thread_id = config.get("configurable", {}).get("thread_id")
-            if thread_id:
-                return self._saved_states.get(thread_id)
-        return None
+        return await runnable.ainvoke(state or {}, config=config)
 
 
 def create_lyoko_graph(
@@ -174,8 +116,6 @@ def create_lyoko_graph(
     approval_manager: ApprovalManagerInterface | None = None,
     chat_manager: ChatServiceInterface | None = None,
     llm: LLMClientInterface | None = None,
-    memory_repository: MemoryRepositoryInterface | None = None,
-    embeddings_service: EmbeddingsServiceInterface | None = None,
     diagnose_llm: LLMClientInterface | None = None,
     tracer: Any = None,
     triage_handlers: Sequence[TriageHandler] | None = None,
@@ -193,23 +133,10 @@ def create_lyoko_graph(
         llm=llm,
         approval_manager=approval_manager,
         chat_manager=chat_manager,
-        memory_repository=None,
-        embeddings_service=None,
         diagnose_llm=diagnose_llm,
         skill_matcher_service=skill_matcher_service,
         incident_use_case=incident_use_case,
-    )
-    remediate_use_case = RemediateIncidentUseCase(
-        mcp_client=mcp_client,
-        llm=llm,
-        approval_manager=approval_manager,
-        chat_manager=chat_manager,
-    )
-    verify_use_case = VerifyIncidentUseCase(
-        mcp_client=mcp_client,
-        llm=llm,
-        approval_manager=approval_manager,
-        chat_manager=chat_manager,
+        default_chat_id=settings.telegram_default_chat_id or "",
     )
     if enrich_trace_cost is None and mcp_client is not None:
         enrich_trace_cost = EnrichTraceCostUseCase(
@@ -226,7 +153,5 @@ def create_lyoko_graph(
         route_use_case=route_use_case,
         triage_use_case=triage_use_case,
         coordinator_use_case=coordinator_use_case,
-        remediate_use_case=remediate_use_case,
-        verify_use_case=verify_use_case,
         notify_use_case=notify_use_case,
     )

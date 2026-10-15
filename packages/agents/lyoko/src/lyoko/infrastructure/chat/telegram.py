@@ -6,12 +6,9 @@ import logging
 from collections.abc import Awaitable, Callable
 
 from lyoko.domain.interfaces.chat_connector import ChatConnector
-from lyoko.domain.interfaces.embeddings import EmbeddingsServiceInterface
 from lyoko.domain.interfaces.lock import DistributedLock
-from lyoko.domain.interfaces.memory import MemoryRepositoryInterface
 from lyoko.domain.models.chat import ApprovalResponse, IncomingMessage
 from lyoko.infrastructure.chat.callbacks import TelegramCallbackMixin
-from lyoko.infrastructure.chat.feedback import TelegramFeedbackMixin
 from lyoko.infrastructure.chat.inbound import TelegramInboundMixin
 from lyoko.infrastructure.chat.outbound import TelegramOutboundMixin
 from lyoko.infrastructure.chat.replies import TelegramReplyMixin
@@ -30,7 +27,6 @@ logger = logging.getLogger("lyoko.chat.telegram")
 
 class TelegramConnector(
     TelegramInboundMixin,
-    TelegramFeedbackMixin,
     TelegramCallbackMixin,
     TelegramReplyMixin,
     TelegramOutboundMixin,
@@ -39,7 +35,7 @@ class TelegramConnector(
     """Telegram adapter implementing ChatConnector port using python-telegram-bot.
 
     Supports private 1-on-1 chats, group chats, and Telegram channels for
-    interactive assistant communication, alert broadcasting, HITL approvals, and memory feedback.
+    interactive assistant communication, alert broadcasting, and HITL approvals.
     """
 
     def __init__(
@@ -49,8 +45,6 @@ class TelegramConnector(
         allowed_chat_ids: set[str] | list[str] | str | None = None,
         default_chat_id: str | None = None,
         discussion_group_id: str | int | None = None,
-        memory_repository: MemoryRepositoryInterface | None = None,
-        embeddings_service: EmbeddingsServiceInterface | None = None,
         lock: DistributedLock | None = None,
     ) -> None:
         if isinstance(bot_token, SecretStr):
@@ -90,8 +84,6 @@ class TelegramConnector(
         if self.discussion_group_id:
             self.allowed_chat_ids.add(self.discussion_group_id)
 
-        self.memory_repository = memory_repository
-        self.embeddings_service = embeddings_service
         self.lock = lock
         self._leader_polling_task: asyncio.Task[None] | None = None
 
@@ -149,10 +141,6 @@ class TelegramConnector(
         self._app.add_handler(CommandHandler("start", self._handle_telegram_message))
         self._app.add_handler(CommandHandler("help", self._handle_telegram_message))
         self._app.add_handler(CommandHandler("new", self._handle_telegram_message))
-        self._app.add_handler(CommandHandler("feedback", self._handle_telegram_message))
-        self._app.add_handler(CommandHandler("teach", self._handle_telegram_message))
-        self._app.add_handler(CommandHandler("forget", self._handle_telegram_message))
-        self._app.add_handler(CommandHandler("memories", self._handle_telegram_message))
         self._app.add_handler(MessageHandler(filters.COMMAND, self._handle_telegram_message))
 
         self._app.add_handler(CallbackQueryHandler(self._handle_callback_query))

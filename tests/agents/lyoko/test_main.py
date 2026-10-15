@@ -36,22 +36,17 @@ def test_create_app_wires_a_stronger_diagnose_model(monkeypatch):
 
 
 @pytest.mark.asyncio
-@patch("lyoko.infrastructure.api.server.PostgresMemoryRepository")
 @patch("lyoko.infrastructure.api.server.AsyncConnectionPool")
-async def test_lifespan_with_postgres_configured(mock_pool_cls, mock_repo_cls):
+async def test_lifespan_with_postgres_configured(mock_pool_cls):
     mock_pool = MagicMock()
     mock_pool.open = AsyncMock()
     mock_pool.close = AsyncMock()
     mock_pool_cls.return_value = mock_pool
 
-    mock_repo = MagicMock()
-    mock_repo_cls.return_value = mock_repo
-
     with patch("lyoko.infrastructure.api.server.settings.postgres_password", "testpassword"):
         app = create_app()
         async with lifespan(app):
             mock_pool.open.assert_awaited_once()
-            assert app.state.memory_repository is mock_repo
             assert app.state.db_pool is mock_pool
 
         mock_pool.close.assert_awaited_once()

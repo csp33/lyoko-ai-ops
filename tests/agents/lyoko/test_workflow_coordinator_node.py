@@ -35,11 +35,18 @@ async def test_coordinator_handles_message():
 
 
 @pytest.mark.asyncio
-async def test_coordinator_handles_alert_diagnose():
-    mock_runner = AsyncMock(return_value="ROOT_CAUSE: Pod OOM\nACTIONABLE: yes\nPLAN: Scale up")
-    from lyoko.application.incidents.use_cases.diagnose import DiagnoseIncidentUseCase
+async def test_coordinator_handles_alert_incident():
+    mock_runner = AsyncMock(
+        return_value=(
+            "ROOT_CAUSE: Pod OOM\n"
+            "ACTION_TAKEN: Scaled memory\n"
+            "VERIFICATION: Pod running\n"
+            "STATUS: RESOLVED"
+        )
+    )
+    from lyoko.application.incidents.use_cases.resolve import ResolveIncidentUseCase
 
-    diag_uc = DiagnoseIncidentUseCase(
+    incident_uc = ResolveIncidentUseCase(
         mcp_client=None,
         llm=MagicMock(),
         runner=mock_runner,
@@ -47,7 +54,7 @@ async def test_coordinator_handles_alert_diagnose():
     node = create_coordinator_node(
         mcp_client=None,
         llm=MagicMock(),
-        diagnose_use_case=diag_uc,
+        incident_use_case=incident_uc,
     )
     state = {
         "event_type": "alert",
@@ -72,12 +79,11 @@ def test_choose_coordinator_next():
     }
     assert choose_coordinator_next(state_chat_done) == CoordinatorNext.CHAT_END
 
-    # If alert routes to remediate
+    # If alert
     state_alert = {
         "event_type": "alert",
-        "requires_escalation": True,
     }
-    assert choose_coordinator_next(state_alert) == CoordinatorNext.REMEDIATE
+    assert choose_coordinator_next(state_alert) == CoordinatorNext.NOTIFY
 
     # If autonomous single-pass coordinator set NOTIFY
     state_notify = {

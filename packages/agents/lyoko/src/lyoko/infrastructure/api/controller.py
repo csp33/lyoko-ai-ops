@@ -3,10 +3,9 @@
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from lyoko.domain.interfaces.tracer import TracerInterface
 from lyoko.domain.models.incident import Incident, compute_incident_key
-from lyoko.domain.models.memory import FeedbackRequest
 
 
 def create_webhook_router(
@@ -113,54 +112,5 @@ def create_webhook_router(
         background_tasks.add_task(guard.ingest_alerts, alerts)
 
         return {"status": "accepted", "message": f"Processing {len(alerts)} alerts in background."}
-
-    return router
-
-
-def create_feedback_router() -> APIRouter:
-    """Router handling human operator feedback and lessons learned."""
-    router = APIRouter(prefix="/api/v1/feedback", tags=["feedback", "memory"])
-
-    @router.post("")
-    async def submit_feedback(request: Request, payload: FeedbackRequest) -> dict[str, Any]:
-        memory_repo = getattr(request.app.state, "memory_repository", None)
-        if not memory_repo:
-            raise HTTPException(
-                status_code=503,
-                detail="PostgreSQL memory repository is not available or configured.",
-            )
-
-        from lyoko.application.memory.use_cases.feedback import RecordFeedbackUseCase
-
-        embeddings_service = getattr(request.app.state, "embeddings_service", None)
-        use_case = RecordFeedbackUseCase(
-            memory_repository=memory_repo,
-            embeddings_service=embeddings_service,
-        )
-
-        try:
-            memory_id = await use_case.execute_from_request(payload)
-        except RuntimeError as exc:
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
-
-        return {
-            "status": "success",
-            "memory_id": memory_id,
-            "message": "Operator feedback recorded into persistent agent memory.",
-        }
-
-    @router.get("")
-    async def get_feedback_list(
-        request: Request, limit: int = Query(default=50, ge=1, le=100)
-    ) -> dict[str, Any]:
-        memory_repo = getattr(request.app.state, "memory_repository", None)
-        if not memory_repo:
-            return {"memories": [], "count": 0}
-
-        memories = await memory_repo.list_recent_memories(limit=limit)
-        return {
-            "memories": [m.model_dump() for m in memories],
-            "count": len(memories),
-        }
 
     return router

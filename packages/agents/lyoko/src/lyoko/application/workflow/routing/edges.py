@@ -22,8 +22,4 @@ class WorkflowRouteSelector:
         if is_message(state) and state.get("route") != "incident":
             return CoordinatorNext.CHAT_END
 
-        # Autonomous resolution finished in coordinator (single-pass run)
-        if state.get("coordinator_next") == CoordinatorNext.NOTIFY:
-            return CoordinatorNext.NOTIFY
-
-        return CoordinatorNext.REMEDIATE
+        return CoordinatorNext.NOTIFY

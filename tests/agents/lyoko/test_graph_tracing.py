@@ -4,7 +4,6 @@ import pytest
 from lyoko.application.workflow.graph import create_lyoko_graph
 
 from tests.agents.lyoko.fakes import (
-    DIAGNOSIS_ACTIONABLE,
     FakeMCPClient,
     ScriptedLLM,
 )
@@ -33,16 +32,14 @@ async def test_every_agent_call_receives_the_run_config_of_its_node():
 @pytest.mark.asyncio
 async def test_incident_phases_receive_the_run_config_too():
     llm = ScriptedLLM(
-        diagnose=DIAGNOSIS_ACTIONABLE,
-        remediate="RESULT: nothing to do",
+        incident="ROOT_CAUSE: x\nACTION_TAKEN: y\nVERIFICATION: z\nSTATUS: RESOLVED",
     )
     graph = create_lyoko_graph(mcp_client=FakeMCPClient(), llm=llm)
 
     await graph.ainvoke(_alert(), config={"callbacks": [_Recorder()]})
 
-    for phase in ("diagnose", "remediate"):
-        assert llm.parent_configs[phase] is not None, phase
-        assert llm.parent_configs[phase].get("callbacks"), phase
+    assert llm.parent_configs["incident"] is not None
+    assert llm.parent_configs["incident"].get("callbacks")
 
 
 @pytest.mark.asyncio

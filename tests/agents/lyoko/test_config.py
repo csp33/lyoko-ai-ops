@@ -54,11 +54,9 @@ def test_alert_storm_settings_defaults():
     assert settings.max_concurrent_incidents == 2
 
 
-def test_tool_budget_and_memory_threshold_defaults():
+def test_tool_budget_defaults():
     settings = AgentSettings(postgres_password="")
     assert settings.max_tool_calls_per_run == 25
-    assert settings.memory_similarity_threshold == 0.2
-    assert settings.chat_memory_similarity_threshold == 0.35
 
 
 def test_hermes_budget_settings_defaults():

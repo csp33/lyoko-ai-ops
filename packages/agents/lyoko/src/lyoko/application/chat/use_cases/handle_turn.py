@@ -3,8 +3,7 @@
 import logging
 from typing import Any
 
-from lyoko.application.agents.runner import run_agent, status_callback
-from lyoko.application.memory.use_cases.retrieve import RetrieveMemoryLessonsUseCase
+from lyoko.application.agents.runner import AgentRunner, run_agent, status_callback
 from lyoko.application.prompts.chat import CHAT_SYSTEM_PROMPT
 from lyoko.application.safety.tool_gate import GateMode, make_gate
 from lyoko.application.workflow.routing.canary import (
@@ -17,10 +16,8 @@ from lyoko.application.workflow.routing.recovery import (
 )
 from lyoko.domain.interfaces.approval import ApprovalManagerInterface
 from lyoko.domain.interfaces.chat_service import ChatServiceInterface
-from lyoko.domain.interfaces.embeddings import EmbeddingsServiceInterface
 from lyoko.domain.interfaces.llm import LLMClientInterface
 from lyoko.domain.interfaces.mcp import MCPClientInterface
-from lyoko.domain.interfaces.memory import MemoryRepositoryInterface
 
 logger = logging.getLogger("lyoko.application.chat.use_cases.handle_turn")
 
@@ -28,7 +25,7 @@ _NO_LLM_REPLY = "Received message: '{text}'. (LLM provider not configured)"
 
 
 class HandleChatTurnUseCase:
-    """Orchestrates an interactive chat turn with memory recall and tool gating."""
+    """Orchestrates an interactive chat turn with tool gating."""
 
     def __init__(
         self,
@@ -36,28 +33,17 @@ class HandleChatTurnUseCase:
         llm: LLMClientInterface | None,
         approval_manager: ApprovalManagerInterface | None = None,
         chat_manager: ChatServiceInterface | None = None,
-        retrieve_memory_use_case: RetrieveMemoryLessonsUseCase | None = None,
-        memory_repository: MemoryRepositoryInterface | None = None,
-        embeddings_service: EmbeddingsServiceInterface | None = None,
+        runner: Any = None,
     ) -> None:
         self.mcp_client = mcp_client
         self.llm = llm
         self.approval_manager = approval_manager
         self.chat_manager = chat_manager
-        if retrieve_memory_use_case is not None:
-            self.retrieve_memory_use_case = retrieve_memory_use_case
-        elif memory_repository is not None:
-            self.retrieve_memory_use_case = RetrieveMemoryLessonsUseCase(
-                memory_repository=memory_repository,
-                embeddings_service=embeddings_service,
-            )
-        else:
-            self.retrieve_memory_use_case = None
+        self.runner = runner or run_agent
 
     async def execute(self, state: dict[str, Any], config: Any = None) -> dict[str, Any]:
         """Answer the operator via Hermes tool execution."""
         text = state.get("text", "")
-        history_context = state.get("history_context", "")
         if RecoveryNotificationDetector.is_recovery_notification(text):
             logger.info("Recovery notification acknowledged without investigation.")
             return {"reply": RECOVERY_ACKNOWLEDGEMENT}
@@ -68,13 +54,6 @@ class HandleChatTurnUseCase:
 
         if self.llm is None:
             return {"reply": _NO_LLM_REPLY.format(text=text)}
-
-        lessons_context = (
-            await self.retrieve_memory_use_case.execute_for_chat(text)
-            if self.retrieve_memory_use_case is not None
-            else ""
-        )
-        prompt_with_memory = f"{text}{lessons_context}{history_context}"
 
         gate = make_gate(
             state,
@@ -87,17 +66,30 @@ class HandleChatTurnUseCase:
         on_status = status_callback(config)
 
         try:
-            answer = await run_agent(
-                state,
-                gate,
-                config,
-                mcp_client=self.mcp_client,
-                llm=self.llm,
-                phase="chat",
-                prompt=prompt_with_memory,
-                system_prompt=CHAT_SYSTEM_PROMPT,
-                on_status=on_status,
-            )
+            if isinstance(self.runner, AgentRunner):
+                answer = await self.runner.run(
+                    state,
+                    gate,
+                    config,
+                    mcp_client=self.mcp_client,
+                    llm=self.llm,
+                    phase="chat",
+                    prompt=text,
+                    system_prompt=CHAT_SYSTEM_PROMPT,
+                    on_status=on_status,
+                )
+            else:
+                answer = await self.runner(
+                    state,
+                    gate,
+                    config,
+                    mcp_client=self.mcp_client,
+                    llm=self.llm,
+                    phase="chat",
+                    prompt=text,
+                    system_prompt=CHAT_SYSTEM_PROMPT,
+                    on_status=on_status,
+                )
         except Exception as exc:
             logger.error("Failed to generate LLM response: %s", exc)
             return {"reply": f"⚠️ Error processing your question: {exc}"}

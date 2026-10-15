@@ -20,11 +20,8 @@ COPY packages/agents/lyoko/pyproject.toml packages/agents/lyoko/README.md packag
 ENV UV_COMPILE_BYTECODE=1
 RUN uv sync --package lyoko --no-dev --no-install-workspace --frozen --compile-bytecode
 
-# Copy source code, migrations, and alembic configuration
-COPY packages/agents/lyoko/alembic.ini packages/agents/lyoko/alembic.ini
-COPY packages/agents/lyoko/migrations/ packages/agents/lyoko/migrations/
+# Copy source code
 COPY packages/agents/lyoko/src/ packages/agents/lyoko/src/
-RUN ln -sf /app/packages/agents/lyoko/alembic.ini /app/alembic.ini
 
 # Install package into venv and precompile bytecode
 RUN uv sync --package lyoko --no-dev --frozen --compile-bytecode && \

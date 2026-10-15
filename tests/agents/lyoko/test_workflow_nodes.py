@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from lyoko.application.chat.use_cases.handle_turn import HandleChatTurnUseCase
 from lyoko.application.context.formatter import IncidentContextFormatter
-from lyoko.application.incidents.use_cases.diagnose import DiagnoseIncidentUseCase
 from lyoko.application.incidents.use_cases.notify import format_incident_report
+from lyoko.application.incidents.use_cases.resolve import ResolveIncidentUseCase
 from lyoko.application.workflow.routing.canary import (
     CANARY_ACKNOWLEDGEMENT,
     CanaryNotificationDetector,
@@ -135,17 +135,15 @@ def test_status_callback_reads_only_config_configurable():
 
 
 @pytest.mark.asyncio
-async def test_diagnose_node_forwards_streaming_status_callback():
+async def test_resolve_node_forwards_streaming_status_callback():
     """The incident branch must forward on_status so the placeholder shows steps, not 'Thinking…'."""
     captured: dict[str, object] = {}
 
-    async def fake_run_supervised(*args, **kwargs):  # noqa: ANN002, ANN003
+    async def fake_run(*args, **kwargs):  # noqa: ANN002, ANN003
         captured.update(kwargs)
-        return "ROOT_CAUSE: drift\nACTIONABLE: no\nPLAN: check"
+        return "ROOT_CAUSE: drift\nACTION_TAKEN: check\nVERIFICATION: ok\nSTATUS: RESOLVED"
 
-    node = DiagnoseIncidentUseCase(
-        mcp_client=object(), llm=object(), runner=fake_run_supervised
-    ).execute
+    node = ResolveIncidentUseCase(mcp_client=object(), llm=object(), runner=fake_run).execute
     sentinel = object()
     state = {"event_type": "message", "text": "hi", "event_id": "evt-1", "session_id": "s1"}
     await node(state, {"configurable": {"on_status": sentinel}})
