@@ -100,7 +100,7 @@ services:
       POSTGRES_HOST: "postgres"
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lyoko}
       PYTHONPATH: "/app/packages/agents/lyoko/src"
-      LANGFUSE_ENABLED: "false"
+      LANGFUSE_ENABLED: ${LANGFUSE_ENABLED:-true}
       FASTMCP_TELEMETRY_MODE: "off"
       LYOKO_ORCHESTRATOR: ${LYOKO_ORCHESTRATOR:-hermes}
     env_file:
