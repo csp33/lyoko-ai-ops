@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from lyoko.application.agents.runner import AgentRunner, run_agent, status_callback
+from lyoko.application.agents.runner import AgentRunner, status_callback
 from lyoko.application.prompts.chat import CHAT_SYSTEM_PROMPT
 from lyoko.application.safety.tool_gate import GateMode, make_gate
 from lyoko.application.workflow.routing.canary import (
@@ -39,7 +39,7 @@ class HandleChatTurnUseCase:
         self.llm = llm
         self.approval_manager = approval_manager
         self.chat_manager = chat_manager
-        self.runner = runner or run_agent
+        self.runner = runner or AgentRunner(mcp_client=mcp_client, llm=llm)
 
     async def execute(self, state: dict[str, Any], config: Any = None) -> dict[str, Any]:
         """Answer the operator via Hermes tool execution."""
@@ -68,11 +68,9 @@ class HandleChatTurnUseCase:
         try:
             if isinstance(self.runner, AgentRunner):
                 answer = await self.runner.run(
-                    state,
-                    gate,
-                    config,
-                    mcp_client=self.mcp_client,
-                    llm=self.llm,
+                    state=state,
+                    gate=gate,
+                    config=config,
                     phase="chat",
                     prompt=text,
                     system_prompt=CHAT_SYSTEM_PROMPT,

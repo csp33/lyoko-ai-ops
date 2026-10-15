@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from lyoko.application.agents.runner import AgentRunner, run_agent, status_callback
+from lyoko.application.agents.runner import AgentRunner, status_callback
 from lyoko.application.context.formatter import IncidentContextFormatter
 from lyoko.application.incidents.parser import IncidentOutputParser
 from lyoko.application.incidents.status import IncidentStatusFormatter
@@ -38,7 +38,7 @@ class ResolveIncidentUseCase:
         self.approval_manager = approval_manager
         self.chat_manager = chat_manager
         self.skill_matcher_service = skill_matcher_service
-        self.runner = runner or run_agent
+        self.runner = runner or AgentRunner(mcp_client=mcp_client, llm=llm)
         self.default_chat_id = default_chat_id or ""
 
     async def execute(self, state: dict[str, Any], config: Any = None) -> dict[str, Any]:
@@ -94,11 +94,9 @@ class ResolveIncidentUseCase:
 
             if isinstance(self.runner, AgentRunner):
                 answer = await self.runner.run(
-                    state,
-                    gate,
-                    config,
-                    mcp_client=self.mcp_client,
-                    llm=self.llm,
+                    state=state,
+                    gate=gate,
+                    config=config,
                     phase="incident",
                     system_prompt=RESOLVE_SYSTEM_PROMPT,
                     prompt=prompt_content,
