@@ -147,3 +147,80 @@ async def test_chat_manager_ignores_connectors_without_message_reference():
     await manager.broadcast_message(chat_id="42", text="report", session_id="incident-abc")
 
     assert tracker.get_session_id("42", reply_to_message_id="200") != "incident-abc"
+
+
+def test_threads_have_isolated_sessions_in_same_chat():
+    now = _start()
+    tracker = _tracker(now, idle_timeout_seconds=900)
+
+    topic_a_first = tracker.get_session_id("42", thread_id="101")
+    topic_b_first = tracker.get_session_id("42", thread_id="202")
+    main_chat = tracker.get_session_id("42")
+
+    # All three are isolated from each other
+    assert topic_a_first != topic_b_first
+    assert topic_a_first != main_chat
+    assert topic_b_first != main_chat
+    assert topic_a_first.startswith("telegram-42-101-")
+    assert topic_b_first.startswith("telegram-42-202-")
+
+    # Subsequent messages in topic A stay in topic A's session
+    now[0] += timedelta(minutes=5)
+    topic_a_second = tracker.get_session_id("42", thread_id="101")
+    assert topic_a_second == topic_a_first
+
+    # Subsequent messages in topic B stay in topic B's session
+    topic_b_second = tracker.get_session_id("42", thread_id="202")
+    assert topic_b_second == topic_b_first
+
+
+def test_thread_initiated_by_linked_message_resumes_linked_session():
+    now = _start()
+    tracker = _tracker(now, idle_timeout_seconds=900)
+    tracker.link_message("42", "555", "incident-gpu-oom")
+
+    # When a discussion thread is created whose thread_id matches the linked post
+    session = tracker.get_session_id("42", thread_id="555")
+    assert session == "incident-gpu-oom"
+
+    # Follow-up in that thread continues the incident session
+    now[0] += timedelta(minutes=10)
+    assert tracker.get_session_id("42", thread_id="555") == "incident-gpu-oom"
+
+
+def test_start_new_is_scoped_to_thread():
+    now = _start()
+    tracker = _tracker(now, idle_timeout_seconds=900)
+
+    orig_a = tracker.get_session_id("42", thread_id="101")
+    orig_b = tracker.get_session_id("42", thread_id="202")
+
+    # Reset only topic A after some time
+    now[0] += timedelta(seconds=5)
+    new_a = tracker.start_new("42", thread_id="101")
+    assert new_a != orig_a
+    assert tracker.get_session_id("42", thread_id="101") == new_a
+
+    # Topic B is untouched
+    assert tracker.get_session_id("42", thread_id="202") == orig_b
+
+
+def test_message_linking_enables_resuming_session_by_reply():
+    now = _start()
+    tracker = _tracker(now, idle_timeout_seconds=900)
+
+    # First turn in chat
+    sess = tracker.get_session_id("42")
+    user_msg_id = "1001"
+    bot_msg_id = "1002"
+    tracker.link_message("42", user_msg_id, sess)
+    tracker.link_message("42", bot_msg_id, sess)
+
+    # Simulate hours passing, session idle timeout exceeded
+    now[0] += timedelta(hours=5)
+
+    # Replying to bot's response resumes the exact same session
+    assert tracker.get_session_id("42", reply_to_message_id=bot_msg_id) == sess
+
+    # Replying to user's original message also resumes it
+    assert tracker.get_session_id("42", reply_to_message_id=user_msg_id) == sess
