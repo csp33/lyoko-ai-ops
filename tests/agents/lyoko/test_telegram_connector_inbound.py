@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from lyoko.domain.models.chat import (
@@ -67,7 +67,7 @@ async def test_telegram_connector_incoming_message_handler():
 
 
 @pytest.mark.asyncio
-async def test_telegram_connector_reaction_failure_is_logged_and_does_not_block_reply(caplog):
+async def test_telegram_connector_reaction_failure_is_logged_and_does_not_block_reply():
     connector = TelegramConnector(
         bot_token="fake:token", allowed_user_ids={"12345"}, default_chat_id="12345"
     )
@@ -88,12 +88,13 @@ async def test_telegram_connector_reaction_failure_is_logged_and_does_not_block_
     mock_update.message.set_reaction = AsyncMock(side_effect=RuntimeError("REACTION_INVALID"))
     mock_update.message.reply_text = AsyncMock()
 
-    with caplog.at_level("WARNING", logger="lyoko.chat.telegram"):
+    with patch("lyoko.infrastructure.chat.inbound.logger.warning") as mock_warning:
         await connector._handle_telegram_message(mock_update, _context(bot))
 
-    assert "Failed to set" in caplog.text
-    assert "REACTION_INVALID" in caplog.text
-    assert "43" in caplog.text
+    mock_warning.assert_called_once()
+    assert "Failed to set" in mock_warning.call_args[0][0]
+    assert "REACTION_INVALID" in str(mock_warning.call_args[0][4])
+    assert mock_warning.call_args[0][1] == 43
     assert bot.edit_message_text.call_args.kwargs["text"].endswith("Acknowledged")
 
 

@@ -17,7 +17,8 @@ COPY packages/mcps/sector5-mcp/pyproject.toml packages/mcps/sector5-mcp/README.m
 COPY packages/agents/lyoko/pyproject.toml packages/agents/lyoko/README.md packages/agents/lyoko/
 
 # Install dependencies into virtual environment
-RUN uv sync --package lyoko --no-dev --no-install-workspace --frozen
+ENV UV_COMPILE_BYTECODE=1
+RUN uv sync --package lyoko --no-dev --no-install-workspace --frozen --compile-bytecode
 
 # Copy source code, migrations, and alembic configuration
 COPY packages/agents/lyoko/alembic.ini packages/agents/lyoko/alembic.ini
@@ -25,8 +26,9 @@ COPY packages/agents/lyoko/migrations/ packages/agents/lyoko/migrations/
 COPY packages/agents/lyoko/src/ packages/agents/lyoko/src/
 RUN ln -sf /app/packages/agents/lyoko/alembic.ini /app/alembic.ini
 
-# Install package into venv
-RUN uv sync --package lyoko --no-dev --frozen
+# Install package into venv and precompile bytecode
+RUN uv sync --package lyoko --no-dev --frozen --compile-bytecode && \
+    python -m compileall -q /app
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
