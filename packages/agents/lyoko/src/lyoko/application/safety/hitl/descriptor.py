@@ -81,6 +81,14 @@ class ApprovalActionDescriptor:
             action = arguments.get("action") or arguments.get("command") or tool_name
             return f"Execute UniFi network action '{action}'."
 
+        norm = tool_name.replace(".", "_").replace(":", "_")
+        if norm in ("k8s_kubectl", "kubectl", "kubernetes_kubectl"):
+            cmd = arguments.get("command") or arguments.get("cmd") or ""
+            clean_cmd = str(cmd).strip()
+            if clean_cmd.startswith("kubectl "):
+                clean_cmd = clean_cmd[8:].strip()
+            return f"Run kubectl command: kubectl {clean_cmd}"
+
         readable_name = tool_name.replace("_", " ").strip()
         key_params = [
             f"{k}='{v}'"

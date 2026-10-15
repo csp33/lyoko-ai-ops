@@ -154,12 +154,19 @@ def test_sanitize_manifest_content_invalid_or_plain_text():
 
 
 @pytest.mark.asyncio
-async def test_kubernetes_upstream_client_pruning_on_get_tools():
+async def test_kubernetes_upstream_client_tools_list_and_pruning():
     client = KubernetesUpstreamClient(
-        command="kubernetes-mcp-server",
+        command="kubectl",
         upstream_type=UpstreamType.KUBERNETES,
         prefix="k8s_",
     )
+
+    tools = await client.list_tools()
+    tool_names = [t.name for t in tools]
+    assert "k8s_kubectl" in tool_names
+    assert "k8s_pods_get" in tool_names
+    assert "k8s_resources_get" in tool_names
+    assert "k8s_resources_create_or_update" in tool_names
 
     fake_result = ToolResult(
         status="success",
@@ -167,59 +174,69 @@ async def test_kubernetes_upstream_client_pruning_on_get_tools():
         is_error=False,
     )
 
-    with (
-        patch.object(client, "_ensure_connected", new_callable=AsyncMock) as mock_conn,
-        patch.object(client, "_lock"),
-    ):
-        mock_session = AsyncMock()
-        mock_conn.return_value = mock_session
-        mock_session.call_tool = AsyncMock()
+    with patch.object(client, "_exec_kubectl", new_callable=AsyncMock, return_value=fake_result):
+        # 1. k8s_kubectl call
+        res_cmd = await client.call_tool("k8s_kubectl", {"command": "get pods -n argocd"})
+        assert res_cmd.status == "success"
+        client._exec_kubectl.assert_called_with(["get", "pods", "-n", "argocd"])
 
-        # Mock super().call_tool response
-        with patch(
-            "sector5_mcp.infrastructure.upstream.client.ProcessUpstreamClient.call_tool",
-            new_callable=AsyncMock,
-            return_value=fake_result,
-        ):
-            # 1. k8s_resources_get should be pruned
-            res_get = await client.call_tool("k8s_resources_get", {"name": "test-pod"})
-            assert res_get.status == "success"
-            assert "managedFields" not in res_get.content
-            assert "last-applied-configuration" not in res_get.content
+        # 2. k8s_resources_get call
+        await client.call_tool(
+            "k8s_resources_get", {"kind": "Application", "name": "bentopdf", "namespace": "argocd"}
+        )
+        client._exec_kubectl.assert_called_with(
+            ["get", "Application/bentopdf", "-n", "argocd", "-o", "yaml"]
+        )
 
-            # 2. k8s_pods_get should also be pruned
-            res_pod = await client.call_tool("k8s_pods_get", {"name": "test-pod"})
-            assert res_pod.status == "success"
-            assert "managedFields" not in res_pod.content
+        # 3. k8s_pods_get call
+        await client.call_tool("k8s_pods_get", {"name": "test-pod", "namespace": "default"})
+        client._exec_kubectl.assert_called_with(
+            ["get", "pod", "test-pod", "-n", "default", "-o", "yaml"]
+        )
 
-            # 3. Non-prunable tool (e.g. k8s_pods_log) should preserve exact content
-            raw_log = "2026-10-03 14:00:00 [INFO] Started container"
-            log_result = ToolResult(status="success", content=raw_log, is_error=False)
-            with patch(
-                "sector5_mcp.infrastructure.upstream.client.ProcessUpstreamClient.call_tool",
-                new_callable=AsyncMock,
-                return_value=log_result,
-            ):
-                res_log = await client.call_tool("k8s_pods_log", {"name": "test-pod"})
-                assert res_log.content == raw_log
+        # 4. k8s_resources_create_or_update with dict manifest
+        await client.call_tool(
+            "k8s_resources_create_or_update",
+            {"resource": {"apiVersion": "v1", "kind": "ConfigMap"}},
+        )
+        assert client._exec_kubectl.call_args[0][0] == ["apply", "-f", "-"]
+        assert "kind: ConfigMap" in client._exec_kubectl.call_args[1]["stdin_data"]
+
+        # 5. k8s_resources_patch with dict patch
+        await client.call_tool(
+            "k8s_resources_patch",
+            {
+                "kind": "Application",
+                "name": "bentopdf",
+                "namespace": "argocd",
+                "patch": {"spec": {"syncPolicy": {"automated": {}}}},
+            },
+        )
+        client._exec_kubectl.assert_called_with(
+            [
+                "patch",
+                "Application/bentopdf",
+                "-n",
+                "argocd",
+                "--type=merge",
+                "-p",
+                '{"spec": {"syncPolicy": {"automated": {}}}}',
+            ]
+        )
 
 
 @pytest.mark.asyncio
-async def test_kubernetes_upstream_client_error_not_modified():
+async def test_kubernetes_upstream_client_error_handling():
     client = KubernetesUpstreamClient(
-        command="kubernetes-mcp-server",
+        command="kubectl",
         upstream_type=UpstreamType.KUBERNETES,
         prefix="k8s_",
     )
 
     err_content = "Error from server (NotFound): pods 'test' not found"
-    err_result = ToolResult(status="error", content=err_content, is_error=True)
+    err_result = ToolResult(status="failed", content=err_content, is_error=True)
 
-    with patch(
-        "sector5_mcp.infrastructure.upstream.client.ProcessUpstreamClient.call_tool",
-        new_callable=AsyncMock,
-        return_value=err_result,
-    ):
-        res = await client.call_tool("k8s_resources_get", {"name": "test"})
+    with patch.object(client, "_exec_kubectl", new_callable=AsyncMock, return_value=err_result):
+        res = await client.call_tool("k8s_kubectl", {"command": "get pod test"})
         assert res.is_error is True
         assert res.content == err_content

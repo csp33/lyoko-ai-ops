@@ -72,11 +72,9 @@ class GatewaySettings(BaseSettings):
         default=False, description="Verify SSL certificate for UniFi controller"
     )
 
-    # Upstream: Kubernetes MCP (github.com/containers/kubernetes-mcp-server)
-    k8s_enabled: bool = Field(default=True, description="Enable Kubernetes MCP upstream")
-    k8s_command: str = Field(
-        default="kubernetes-mcp-server", description="Command to launch kubernetes-mcp-server"
-    )
+    # Upstream: Kubernetes (native kubectl adapter)
+    k8s_enabled: bool = Field(default=True, description="Enable Kubernetes upstream")
+    k8s_command: str = Field(default="kubectl", description="Command to execute kubectl")
     kubeconfig_path: str | None = Field(
         default=None, description="Path to kubeconfig file if not default"
     )

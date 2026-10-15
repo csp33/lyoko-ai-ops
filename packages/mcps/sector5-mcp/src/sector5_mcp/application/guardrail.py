@@ -58,19 +58,39 @@ class GuardrailEngine:
         # 4. Deep inspection of container exec / command execution arguments
         self._inspect_exec_commands(tool_name, arguments)
 
-    def _is_read_only_tool(self, tool_name: str) -> bool:
-        """Return True when the tool name matches a read-only pattern."""
+    def _is_read_only_tool(self, tool_name: str, arguments: dict[str, Any] | None = None) -> bool:
+        """Return True when the tool name matches a read-only pattern or is a read-only kubectl command."""
+        norm = tool_name.replace(".", "_").replace(":", "_")
+        if norm in ("k8s_kubectl", "kubectl", "kubernetes_kubectl") and arguments is not None:
+            cmd = arguments.get("command") or arguments.get("cmd") or ""
+            parts = [
+                p
+                for p in (shlex.split(cmd) if isinstance(cmd, str) else [str(x) for x in cmd])
+                if p.lower() != "kubectl"
+            ]
+            while parts and parts[0].startswith("-"):
+                flag = parts.pop(0)
+                if flag in ("-n", "--namespace", "-l", "--selector", "--context") and parts:
+                    parts.pop(0)
+            if parts and parts[0].lower() in (
+                "get",
+                "describe",
+                "logs",
+                "log",
+                "top",
+                "explain",
+                "diff",
+                "api-resources",
+                "api-versions",
+                "version",
+                "cluster-info",
+            ):
+                return True
         return any(fnmatch.fnmatchcase(tool_name, p) for p in self.policy.read_only_tools)
 
     def _validate_kubernetes_namespaces(self, tool_name: str, arguments: dict[str, Any]) -> None:
-        """Block every non read-only Kubernetes tool that targets a protected namespace.
-
-        The target namespace is read from the `namespace`/`ns` arguments, from the manifest of
-        tools that take a `resource` document, and from the name of a Namespace object (which is
-        itself the namespace being changed). Tools that do not match a read-only pattern are
-        treated as mutations, so a new or unknown tool cannot bypass the check.
-        """
-        if not self.policy.blocked_namespaces or self._is_read_only_tool(tool_name):
+        """Block every non read-only Kubernetes tool that targets a protected namespace."""
+        if not self.policy.blocked_namespaces or self._is_read_only_tool(tool_name, arguments):
             return
 
         namespaces, inspectable = self._target_namespaces(arguments)
@@ -98,6 +118,17 @@ class GuardrailEngine:
             value = arguments.get(key)
             if isinstance(value, str) and value:
                 found.add(value)
+
+        if "command" in arguments and isinstance(arguments["command"], str):
+            try:
+                cmd_parts = shlex.split(arguments["command"])
+                for idx, part in enumerate(cmd_parts):
+                    if part in ("-n", "--namespace") and idx + 1 < len(cmd_parts):
+                        found.add(cmd_parts[idx + 1])
+                    elif part.startswith(("-n=", "--namespace=")):
+                        found.add(part.split("=", 1)[1])
+            except Exception:
+                pass
 
         # Tools addressing an object by apiVersion, kind and name (e.g. resources_delete).
         if str(arguments.get("kind", "")).lower() == "namespace" and arguments.get("name"):

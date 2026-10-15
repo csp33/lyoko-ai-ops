@@ -7,6 +7,7 @@ the supervisor use. Each execution is optionally gated by a ``ToolAuthorizer`` b
 import logging
 from typing import Any
 
+import yaml
 from langchain_core.runnables import RunnableLambda
 from langchain_core.tools import StructuredTool, ToolException
 from lyoko.domain.exceptions.mcp import MCPGatewayError
@@ -54,6 +55,20 @@ _COMMON_ALIASES: dict[str, str] = {
     "argo_get_application": "k8s_resources_get",
     "argo_get_applications": "k8s_resources_list",
     "argo_list_applications": "k8s_resources_list",
+    "kubectl": "k8s_kubectl",
+    "kubernetes_kubectl": "k8s_kubectl",
+    "k8s_run_kubectl": "k8s_kubectl",
+    "k8s_apply_resources": "k8s_resources_create_or_update",
+    "k8s_apply_resource": "k8s_resources_create_or_update",
+    "k8s_create_or_update_resource": "k8s_resources_create_or_update",
+    "k8s_create_or_update_resources": "k8s_resources_create_or_update",
+    "k8s_patch_resource": "k8s_resources_create_or_update",
+    "k8s_patch_resources": "k8s_resources_create_or_update",
+    "k8s_patch_namespaced_custom_object": "k8s_resources_create_or_update",
+    "k8s_create_namespaced_custom_object": "k8s_resources_create_or_update",
+    "k8s_replace_namespaced_custom_object": "k8s_resources_create_or_update",
+    "k8s_patch_custom_object": "k8s_resources_create_or_update",
+    "k8s_create_custom_object": "k8s_resources_create_or_update",
 }
 
 
@@ -110,6 +125,45 @@ def _normalize_args(tool: str, args: dict[str, Any], original_name: str = "") ->
             for alt in ("pod", "pod_name", "podName"):
                 if alt in args:
                     args["name"] = args.pop(alt)
+                    break
+    elif tool == "k8s_resources_create_or_update":
+        body = args.pop("body", None) or args.pop("manifest", None) or args.pop("patch", None)
+        if body is not None:
+            if isinstance(body, dict):
+                group = args.pop("group", None)
+                version = args.pop("version", None)
+                if "apiVersion" not in body and group and version:
+                    body["apiVersion"] = f"{group}/{version}"
+                elif "apiVersion" not in body and (
+                    "argo" in original_name.lower() or args.get("namespace") == "argocd"
+                ):
+                    body["apiVersion"] = "argoproj.io/v1alpha1"
+
+                if "kind" not in body:
+                    plural = args.pop("plural", "")
+                    if (
+                        plural.lower() in ("applications", "application")
+                        or "argo" in original_name.lower()
+                    ):
+                        body["kind"] = "Application"
+                    elif plural:
+                        body["kind"] = plural.rstrip("s").capitalize()
+
+                meta = body.setdefault("metadata", {})
+                if "name" in args and "name" not in meta:
+                    meta["name"] = args["name"]
+                if "namespace" in args and "namespace" not in meta:
+                    meta["namespace"] = args["namespace"]
+                args["resource"] = yaml.dump(body, sort_keys=False)
+            else:
+                args["resource"] = str(body)
+        elif "resource" in args and isinstance(args["resource"], dict):
+            args["resource"] = yaml.dump(args["resource"], sort_keys=False)
+    elif tool == "k8s_kubectl":
+        if "command" not in args:
+            for alt in ("cmd", "args", "arguments", "c"):
+                if alt in args:
+                    args["command"] = args.pop(alt)
                     break
 
 
