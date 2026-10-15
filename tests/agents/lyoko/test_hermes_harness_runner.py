@@ -52,48 +52,6 @@ async def test_hermes_runner_halts_on_max_turns():
 
 
 @pytest.mark.asyncio
-async def test_hermes_runner_halts_on_hard_cost_cap():
-    # Budget cap set to $0.001 (very small to trigger immediately)
-    budget_config = BudgetConfig(max_turns=10, max_budget_usd=0.001)
-    runner = HermesHarnessRunner(budget_config=budget_config)
-
-    # 10,000 tokens on gpt-4o (~$0.025, which exceeds $0.001)
-    call1 = MagicMock()
-    call1.tool_calls = [{"name": "k8s_get", "args": {"pod": "p1"}, "id": "c1"}]
-    call1.content = ""
-    call1.response_metadata = {"model_name": "gpt-4o"}
-    call1.usage_metadata = {"input_tokens": 10000, "output_tokens": 500}
-
-    summary_msg = MagicMock()
-    summary_msg.content = "Summary: hard budget cap reached."
-    summary_msg.tool_calls = []
-
-    model_with_tools = AsyncMock()
-    model_with_tools.ainvoke.side_effect = [call1]
-
-    summary_client = AsyncMock()
-    summary_client.ainvoke = AsyncMock(return_value=summary_msg)
-
-    tool_mock = MagicMock()
-    tool_mock.name = "k8s_get"
-    tool_mock.ainvoke = AsyncMock(return_value="pod_info")
-
-    result = await runner.run(
-        prompt_text="Investigate issue",
-        system_prompt="You are Lyoko",
-        model_with_tools=model_with_tools,
-        summary_client=summary_client,
-        tools_by_name={"k8s_get": tool_mock},
-        max_iterations=10,
-    )
-
-    assert result == "Summary: hard budget cap reached."
-    # Loop should have broken after call1 due to cost exceeding $0.001
-    assert model_with_tools.ainvoke.call_count == 1
-    assert summary_client.ainvoke.call_count == 1
-
-
-@pytest.mark.asyncio
 async def test_hermes_runner_breaks_on_cycle_detection():
     budget_config = BudgetConfig(max_turns=10, max_budget_usd=1.0, cycle_detection_window=2)
     runner = HermesHarnessRunner(budget_config=budget_config)

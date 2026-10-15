@@ -8,7 +8,6 @@ from typing import Any
 
 from lyoko.domain.interfaces.mcp import MCPClientInterface
 from lyoko.domain.interfaces.tracer import TracerInterface
-from lyoko.domain.models.cost import RunCostTracker
 
 logger = logging.getLogger("lyoko.application.use_cases.enrich_trace_cost")
 
@@ -45,7 +44,7 @@ class EnrichTraceCostUseCase:
             if raw_val is not None:
                 try:
                     val = float(raw_val)
-                    return val if val > 0 else None
+                    return val if val >= 0 else None
                 except (ValueError, TypeError):
                     pass
         return None
@@ -95,13 +94,33 @@ class EnrichTraceCostUseCase:
             return "<$0.0001"
         return "$0.0000"
 
-    async def execute(self, text: str, trace_id: str | None, session_id: str | None = None) -> str:
+    async def execute(
+        self,
+        text: str,
+        trace_id: str | None,
+        session_id: str | None = None,
+        is_llm_called: bool = True,
+    ) -> str:
         """Append trace cost and trace link footer to text if available."""
         if not self.enabled or not trace_id or not text:
             return text
 
         if "[View Trace]" in text or f"/traces/{trace_id}" in text:
             return text
+
+        trace_url: str | None = None
+        if self.tracer is not None:
+            try:
+                trace_url = self.tracer.get_trace_url(trace_id)
+            except Exception as exc:
+                logger.debug("Failed to get trace URL: %s", exc)
+
+        if not is_llm_called:
+            cost_str = "$0.0000"
+            footer_parts = [f"💸 **Cost:** {cost_str}"]
+            if trace_url:
+                footer_parts.append(f"🔍 [View Trace]({trace_url})")
+            return f"{text.rstrip()}\n\n{' · '.join(footer_parts)}"
 
         if self.tracer is not None:
             try:
@@ -122,18 +141,8 @@ class EnrichTraceCostUseCase:
             cost_str = self._format_cost(cost)
         elif self.mcp_client is not None and not query_failed:
             cost_str = "calculating..."
-        else:
-            fallback = RunCostTracker.get_cost(trace_id) or RunCostTracker.get_cost(session_id)
-            cost_str = self._format_cost(fallback)
 
-        trace_url: str | None = None
-        if self.tracer is not None:
-            try:
-                trace_url = self.tracer.get_trace_url(trace_id)
-            except Exception as exc:
-                logger.debug("Failed to get trace URL: %s", exc)
-
-        footer_parts: list[str] = []
+        footer_parts = []
         if cost_str:
             footer_parts.append(f"💸 **Cost:** {cost_str}")
         if trace_url:
@@ -153,7 +162,9 @@ class EnrichTraceCostUseCase:
         text_with_placeholder: str,
         trace_id: str,
         session_id: str | None = None,
-        delay_seconds: float = 1.5,
+        delay_seconds: float = 2.0,
+        max_attempts: int = 5,
+        poll_interval: float = 1.5,
     ) -> None:
         """Background task to query Langfuse after ingestion and update Telegram message."""
         if not self.enabled or not chat_manager or not text_with_placeholder or not trace_id:
@@ -163,13 +174,16 @@ class EnrichTraceCostUseCase:
 
         try:
             await asyncio.sleep(delay_seconds)
-            cost = await self._query_trace_cost(trace_id)
-            if cost is None:
-                await asyncio.sleep(1.0)
+            cost: float | None = None
+            for attempt in range(max_attempts):
                 cost = await self._query_trace_cost(trace_id)
+                if cost is not None:
+                    break
+                if attempt < max_attempts - 1:
+                    await asyncio.sleep(poll_interval)
 
             if cost is None:
-                cost = RunCostTracker.get_cost(trace_id) or RunCostTracker.get_cost(session_id)
+                cost = 0.0
 
             cost_str = self._format_cost(cost)
             if not cost_str:

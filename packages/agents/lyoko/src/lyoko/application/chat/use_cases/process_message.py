@@ -11,6 +11,8 @@ from lyoko.application.chat.sessions import (
     ChatSessionTracker,
 )
 from lyoko.application.incidents.use_cases.enrich_trace_cost import EnrichTraceCostUseCase
+from lyoko.application.workflow.routing.canary import CanaryNotificationDetector
+from lyoko.application.workflow.routing.recovery import RecoveryNotificationDetector
 from lyoko.domain.interfaces.tracer import TracerInterface
 from lyoko.domain.models.chat import IncomingMessage
 from lyoko.domain.models.state import EVENT_MESSAGE
@@ -113,8 +115,14 @@ class ProcessChatMessageUseCase:
                 message.chat_id, message.text, raw_reply, message.message_thread_id
             )
             reply = raw_reply
+            is_llm = not (
+                RecoveryNotificationDetector.is_recovery_notification(message.text)
+                or CanaryNotificationDetector.is_canary_notification(message.text)
+            )
             if self.enrich_trace_cost is not None and reply:
-                reply = await self.enrich_trace_cost.execute(reply, trace_id, session_id=session_id)
+                reply = await self.enrich_trace_cost.execute(
+                    reply, trace_id, session_id=session_id, is_llm_called=is_llm
+                )
                 if (
                     self.chat_manager is not None
                     and "💸 **Cost:** calculating..." in reply
