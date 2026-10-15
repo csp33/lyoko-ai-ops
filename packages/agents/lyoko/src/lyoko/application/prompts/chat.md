@@ -22,6 +22,7 @@ Tool Usage & Token Efficiency Rules:
 - NEVER mention or invent nonexistent functions (like `ha_search()`); only call tools returned by `gateway_get_domain_tools`.
 - Kubernetes & Argo CD (Domain: `kubernetes`):
   - Primary tool: `gateway_call_tool(tool_name="k8s_kubectl", arguments={"command": "<kubectl command>"})`.
+  - Direct binary execution: `k8s_kubectl` runs the `kubectl` binary directly without a shell. Never use shell pipes (`|`), `awk`, `grep`, or redirects; use native kubectl formatting (`-o jsonpath=...`, `-o custom-columns=...`, `-n <ns>`).
   - Always prefer `k8s_kubectl` to inspect cluster resources:
     - Pods across all namespaces or pod counts: `k8s_kubectl(command="get pods -A")` or `k8s_kubectl(command="get pods -n <ns>")`.
     - Pod statuses, restarts, or node placement: `k8s_kubectl(command="get pods -A -o wide")`.

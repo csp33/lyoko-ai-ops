@@ -361,6 +361,25 @@ async def test_empty_tool_result_is_formatted_clearly():
     assert "No resources found or empty result." in output
 
 
+@pytest.mark.asyncio
+async def test_failed_tool_result_surfaces_content_error():
+    """When a gateway tool fails with status 'failed' and error details in 'content', surface it."""
+    client = FastMCPClient(server_url="http://x/mcp", token="")
+    client.call_tool = AsyncMock(
+        return_value={
+            "status": "failed",
+            "content": "error: unknown shorthand flag: 'c' in -c",
+            "is_error": True,
+        }
+    )
+    tools = {t.name: t for t in client.get_langchain_tools()}
+
+    output = await tools["gateway_call_tool"].ainvoke(
+        {"tool_name": "k8s_kubectl", "arguments": {"command": "get pods | sort -c"}}
+    )
+    assert "error: unknown shorthand flag: 'c' in -c" in output
+
+
 class _ResultForTimeout:
     def __init__(self, data: object) -> None:
         self.data = data
