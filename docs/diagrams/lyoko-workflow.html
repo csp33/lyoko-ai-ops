@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="archify 2.17.0-dev.1">
-  <title>LYOKO Autonomous Workflow Architecture Diagram</title>
+  <title>LYOKO Autonomous AIOps Workflow Diagram</title>
   <script>
     // Resolve the theme before first paint so light-preference users don't
     // see a dark flash. The toolbar script below re-applies with UI state.
@@ -4951,11 +4951,11 @@
            data-preset-badge-blueprint="BLUEPRINT / REV 01"
            data-preset-badge-editorial="EDITORIAL / FIELD NOTE">
         <div class="pulse-dot"></div>
-        <h1>LYOKO Autonomous Workflow Architecture</h1>
+        <h1>LYOKO Autonomous AIOps Workflow</h1>
       </div>
     </div>
 
-    <script id="archify-guided-views-data" type="application/json">[{"id":"event-routing","label":"Ingress \u0026 Routing","focus":["event_in","route_node","chat_node","triage"],"note":"Alertmanager webhooks take the incident path; Telegram messages are classified by an LLM."},{"id":"interactive-chat","label":"Interactive Chat \u0026 Tool Execution","focus":["route_node","chat_node","toolgate","mcp_gateway"],"note":"Hermes agent interacts with the operator and executes operational tools under ToolGate."},{"id":"incident-remediation","label":"Autonomous Remediation \u0026 HITL Gate","focus":["triage","resolve","toolgate","mcp_gateway","notify"],"note":"Deterministic triage and autonomous Hermes SRE resolution under zero-trust ToolGate safety."}]</script>
+    <script id="archify-guided-views-data" type="application/json">[{"id":"e2e-incident","label":"End-to-End Remediation","focus":["alerts","router","runbooks","hermes","gate","mcp","notify"],"note":"Complete pipeline from alert trigger to automated resolution and verification."},{"id":"fast-path","label":"Deterministic Runbooks","focus":["alerts","router","runbooks","hermes"],"note":"Zero-LLM fast path matching curated markdown operational procedures."},{"id":"safety-hitl","label":"ToolGate \u0026 Human in the Loop","focus":["hermes","gate","approval","mcp"],"note":"State-changing mutations paused for operator approval via Telegram inline buttons."}]</script>
 
     <script id="archify-i18n-data" type="application/json">{"locale":"en","messages":{"viewer.kind.frontend":"Frontend","viewer.kind.backend":"Backend","viewer.kind.database":"Database","viewer.kind.cloud":"Cloud","viewer.kind.security":"Security","viewer.kind.messagebus":"Message bus","viewer.kind.external":"External","viewer.kind.neutral":"Neutral","viewer.kind.node":"Node","viewer.kind.start":"Start","viewer.kind.active":"Active","viewer.kind.waiting":"Waiting","viewer.kind.decision":"Decision","viewer.kind.success":"Success","viewer.kind.failure":"Failure","viewer.toolbar.actions":"Diagram actions","viewer.theme.toggle.title":"Toggle theme (T)","viewer.theme.toggle":"Toggle color theme","viewer.theme.dark":"Dark","viewer.theme.light":"Light","viewer.preset.choose.title":"Choose visual style (S cycles)","viewer.preset.choose":"Choose visual style","viewer.preset.style":"Style","viewer.preset.menu":"Visual style","viewer.preset.identity":"Visual identity","viewer.preset.cycles":"S cycles","viewer.preset.classic":"Classic","viewer.preset.classic.short":"Classic","viewer.preset.classic.hint":"Stable technical default","viewer.preset.flow":"Signal Flow","viewer.preset.flow.short":"Flow","viewer.preset.flow.hint":"Motion-forward presentation","viewer.preset.blueprint":"Blueprint","viewer.preset.blueprint.hint":"Engineering review","viewer.preset.editorial":"Editorial","viewer.preset.editorial.hint":"Publication and launch notes","viewer.preset.badge.signalFlow":"SIGNAL FLOW","viewer.preset.badge.blueprint":"BLUEPRINT / REV 01","viewer.preset.badge.editorial":"EDITORIAL / FIELD NOTE","viewer.preset.badge.editorialPlate":"ARCHIFY / PLATE 04","viewer.preset.current":"Visual style: {style}. Choose visual style","viewer.motion.live":"Live","viewer.motion.still":"Still","viewer.motion.pause":"Pause motion","viewer.motion.resume":"Resume motion","viewer.motion.reduced":"Motion paused by reduced-motion preference","viewer.motion.hidden":"Motion paused while this page is hidden","viewer.motion.yielding":"Pause motion; currently yielding to {owner}","viewer.motion.yielding.title":"Live preview enabled · yielding to {owner}","viewer.owner.story":"the guided story","viewer.owner.chapter":"the active chapter","viewer.owner.chapterPreview":"the chapter delta preview","viewer.owner.handoff":"the chapter handoff","viewer.owner.route":"Route Probe","viewer.owner.lens":"Semantic Lens","viewer.owner.relationship":"Relationship Preview","viewer.owner.intent":"Intent Trace","viewer.owner.focus":"semantic focus","viewer.owner.legend":"legend preview","viewer.owner.reader":"reader interaction","viewer.present.enter":"Enter presentation stage","viewer.present.enter.title":"Presentation stage (F)","viewer.present.exit":"Exit presentation stage","viewer.present.exit.title":"Exit presentation stage (F or Escape)","viewer.present.present":"Present","viewer.present.exit.label":"Exit","viewer.export.button":"Export","viewer.export.button.title":"Export diagram (E)","viewer.export.diagram":"Export diagram","viewer.export.menu":"Export","viewer.export.subtitle":"Portable, clean outputs","viewer.export.share":"Share","viewer.export.shareCard":"Share Card","viewer.export.routeShareCard":"Route Share Card","viewer.export.reachShareCard":"Reach Share Card","viewer.export.copyShareCard":"Copy Share Card","viewer.export.copyDiagram":"Copy diagram","viewer.export.clipboardPng":"PNG to clipboard","viewer.export.raster":"Raster images","viewer.export.image":"Image","viewer.export.lossless":"Lossless image","viewer.export.compact":"Compact image","viewer.export.modern":"Modern image","viewer.export.vectorMotion":"Vector and motion","viewer.export.vectorMotion.heading":"Vector \u0026 motion","viewer.export.editable":"Editable vector","viewer.export.motion6s":"6s motion","viewer.export.unsupported":"Not supported by this browser","viewer.export.clipboardUnsupported":"Clipboard image write not supported by this browser","viewer.export.clipboardUnsupported.period":"Clipboard image write not supported by this browser.","viewer.export.clipboardUnsupported.short":"Clipboard image write not supported in this browser.","viewer.export.motionUnavailable":"Motion capture unavailable in this browser","viewer.export.webmUnavailable":"WebM unavailable in this browser","viewer.export.failed":"Export failed: {message}","viewer.export.unknownVariant":"Unknown Share Card variant: {variant}","viewer.export.routeRequired":"Trace a route before exporting a Route Share Card","viewer.export.reachRequired":"Trace authored reach before exporting a Reach Share Card","viewer.export.unknown":"unknown","viewer.export.routeFailed":"Route Share Card export failed: {message}","viewer.export.reachFailed":"Reach Share Card export failed: {message}","viewer.export.copyFailed":"Copy failed: {message}","viewer.export.copiedPng":"Copied PNG to clipboard","viewer.export.copiedShare":"Copied Share Card","viewer.export.downloadedShare":"Downloaded Share Card","viewer.export.downloadedRoute":"Downloaded Route Share Card","viewer.export.downloadedReach":"Downloaded Reach Share Card","viewer.export.downloadedWebm":"Downloaded WebM","viewer.export.recording":"Recording 6 seconds of motion…","viewer.export.card.routeSummary.one":"Route: {source} → {target} · {count} directed hop","viewer.export.card.routeSummary.other":"Route: {source} → {target} · {count} directed hops","viewer.export.card.reachSummary":"Authored {direction} from {origin} · {nodes} · {links} · max {hops}","viewer.export.card.node.one":"{count} node","viewer.export.card.node.other":"{count} nodes","viewer.export.card.link.one":"{count} link","viewer.export.card.link.other":"{count} links","viewer.export.card.hop.one":"{count} hop","viewer.export.card.hop.other":"{count} hops","viewer.export.card.routeBadge":"ARCHIFY · ROUTE · {hops}","viewer.export.card.reachBadge":"ARCHIFY · {direction} REACH","viewer.export.card.defaultBadge":"ARCHIFY · {preset} · {theme}","viewer.export.direction.upstream":"Upstream","viewer.export.direction.downstream":"Downstream","viewer.export.error.canvasUnavailable":"Canvas unavailable for {label}","viewer.export.error.contextUnavailable":"2D canvas context unavailable for {label}","viewer.export.error.toBlobUnavailable":"canvas.toBlob unavailable for {label}","viewer.export.error.toBlobNull":"canvas.toBlob returned no data for {label}","viewer.export.error.variantsCombined":"Share Card variants cannot be combined","viewer.export.error.viewerState":"Share Card export could not remove temporary viewer state","viewer.export.error.routeState":"Route Card export could not preserve the resolved route safely","viewer.export.error.reachState":"Reach Card export could not preserve authored reach safely","viewer.export.error.webmRequirements":"WebM motion export requires a trace animation and browser MediaRecorder support","viewer.export.error.mediaRecorder":"MediaRecorder failed","viewer.export.error.emptyWebm":"MediaRecorder produced an empty WebM","viewer.export.error.webmBackground":"SVG background could not be loaded for WebM export","viewer.guided.region":"Guided diagram views","viewer.guided.previous":"Previous guided view","viewer.guided.previous.title":"Previous guided view ([)","viewer.guided.next":"Next guided view","viewer.guided.next.title":"Next guided view (])","viewer.guided.views":"Guided views","viewer.guided.explore":"Explore this system","viewer.guided.intro":"Step through curated paths without changing the source diagram.","viewer.guided.trail":"Story trail","viewer.guided.beat":"Beat","viewer.guided.nextBeat":"Next","viewer.guided.play":"Play guided story","viewer.guided.play.title":"Play guided story (P)","viewer.guided.pause":"Pause guided story","viewer.guided.pause.title":"Pause guided story (P)","viewer.guided.replay":"Replay guided story","viewer.guided.replay.title":"Replay guided story (P)","viewer.guided.playStory":"Play story","viewer.guided.pauseStory":"Pause","viewer.guided.replayStory":"Replay story","viewer.guided.motionUnavailable":"Story playback unavailable while motion is Still","viewer.guided.enableMotion":"Switch motion to Live to play the guided story","viewer.guided.selectBeatLink":"Select a Story Beat to copy its exact link","viewer.guided.copyMoment":"Copy moment","viewer.guided.momentCopied":"Moment link copied","viewer.guided.momentCopyFailed":"Could not copy story moment link","viewer.guided.copied":"Copied","viewer.guided.copyFailed":"Copy failed","viewer.guided.showAll":"Show all","viewer.guided.showAll.aria":"Show entire diagram","viewer.guided.chapters":"Story chapters","viewer.guided.storyTrail":"Story trail for {label}: {count} beats","viewer.guided.chapter.open":"Open chapter {index} of {total}: {label}, {count} stops","viewer.guided.chapter.current":"Current chapter {index} of {total}: {label}, {count} stops","viewer.guided.chapter.selectedNodes":"{count} selected nodes","viewer.guided.chapter.stops":"{count} stops","viewer.guided.chapter.stop.one":"{count} stop","viewer.guided.chapter.stop.other":"{count} stops","viewer.guided.chapter.current.title":"{label} — current chapter, {count} stops","viewer.guided.chapter.delta.expanded":"{stay} stay, {enter} enter, {leave} leave","viewer.guided.chapter.delta.aria":"Open chapter {index} of {total}: {label}. Chapter focus delta: {delta}","viewer.guided.chapter.delta.title":"{label} — {delta} chapter focus","viewer.guided.handoff":"{from} → {to} · via {label}","viewer.guided.share.chapter":"Chapter {index} / {total}","viewer.guided.share.initial":"Chapter 01 / 01","viewer.guided.share.default":"Guided chapter","viewer.guided.state.ready":"Ready","viewer.guided.state.playing":"Playing","viewer.guided.state.settled":"Settled","viewer.guided.state.paused":"Paused","viewer.guided.state.pinned":"Pinned","viewer.guided.state.still":"Still","viewer.guided.share.step":"Step {index} / {total} · {label}","viewer.guided.share.staticMoment":"{step} · Static moment","viewer.guided.share.complete":"{count} steps complete · {note}","viewer.guided.share.settled":"Path settled for reading.","viewer.guided.share.staticPath":"{count} steps · Static path","viewer.guided.share.ready":"{count} steps · Ready","viewer.guided.share.aria":"{state} chapter {index} of {total}: {label}. {beat}. {route}","viewer.guided.beat.start":"Beat {index} / {total} · {label} · starting point","viewer.guided.beat.forward":"Beat {index} / {total} · {from} → {to}","viewer.guided.beat.reverse":"Beat {index} / {total} · {from} → {to} · reverse authored link","viewer.guided.beat.multiple":"Beat {index} / {total} · {from} ⇄ {to} · {count} authored links","viewer.guided.beat.group":"Beat {index} / {total} · {from} · {to} · grouped · no direct link","viewer.guided.beat.aria.prefix":"Story beat {index} of {total}: {label}. ","viewer.guided.beat.aria.start":"Starting point.","viewer.guided.beat.aria.forward":"From {from} through one authored forward relationship.","viewer.guided.beat.aria.reverse":"From {from}; the authored relationship points from {to} to {from}.","viewer.guided.beat.aria.multiple":"From {from} through {count} authored relationships; shown without arbitrary motion.","viewer.guided.beat.aria.group":"Grouped from {from} with no direct authored relationship.","viewer.guided.caption.start":"Starting point","viewer.guided.caption.grouped":"Grouped transition · no direct authored link","viewer.guided.caption.more":" +{count} more","viewer.guided.caption.reverse":"Reverse authored relationship","viewer.guided.caption.relationships":"{count} authored relationships","viewer.guided.caption.relationship":"Authored relationship","viewer.guided.caption.direction":"authored direction: {from} → {to}","viewer.guided.caption.starting":"Authored starting point","viewer.guided.beatLink":"Copy link to current story moment: Beat {index} of {total}: {label}","viewer.guided.noStory":"This diagram has no authored guided story.","viewer.guide.eyebrow":"Diagram guide","viewer.guide.close":"Close diagram guide","viewer.guide.inspecting":"Inspecting compiled semantics","viewer.guide.actions":"Diagram exploration actions","viewer.guide.find":"Find any node","viewer.guide.find.hint":"Search labels, responsibilities, kinds, and stable IDs.","viewer.guide.route":"Trace a route","viewer.guide.route.aria":"Trace a directed route","viewer.guide.route.hint":"Ask how two semantic nodes connect in authored direction.","viewer.guide.map":"See the whole system","viewer.guide.map.hint":"Open Semantic Radar with a live viewport and stable nodes.","viewer.guide.lens":"Compare semantic kinds","viewer.guide.lens.hint":"Count roles, reveal their traffic, and compare direct authored links.","viewer.guide.story":"Play the guided story","viewer.guide.story.hint":"Walk the authored chapters and real relationships.","viewer.guide.present":"Enter Presentation Stage","viewer.guide.present.hint":"Give the live diagram the viewport without changing export.","viewer.guide.shortcuts":"Additional keyboard shortcuts","viewer.guide.shortcut.export":"Export","viewer.guide.shortcut.theme":"Theme","viewer.guide.shortcut.style":"Style","viewer.guide.shortcut.reset":"Reset","viewer.guide.shortcut.zoomIn":"Zoom in","viewer.guide.shortcut.zoomOut":"Zoom out","viewer.guide.shortcut.close":"Close","viewer.guide.facts":"{nodes} · {relationships} · {views}","viewer.guide.fact.node.one":"{count} semantic node","viewer.guide.fact.node.other":"{count} semantic nodes","viewer.guide.fact.relationship.one":"{count} relationship","viewer.guide.fact.relationship.other":"{count} relationships","viewer.guide.fact.view.one":"{count} guided view","viewer.guide.fact.view.other":"{count} guided views","viewer.guide.story.available.one":"Walk {count} authored chapter and its real relationships.","viewer.guide.story.available.other":"Walk {count} authored chapters and their real relationships.","viewer.guide.story.unavailable":"No authored guided story in this diagram.","viewer.guide.open":"Open diagram guide","viewer.guide.noStory":"This diagram has no authored guided story.","viewer.finder.title":"Find a node","viewer.finder.close":"Close node finder","viewer.finder.placeholder":"Search labels or IDs","viewer.finder.search":"Search diagram nodes","viewer.finder.results":"Diagram nodes","viewer.finder.empty":"No matching nodes","viewer.finder.result.focus":"Focus {label}","viewer.finder.result.routeStart":"Choose {label} as route start","viewer.finder.result.routeTarget":"Choose {label} as route destination, {links}","viewer.finder.status.empty":"No matching nodes","viewer.finder.status.count.one":"{count} matching node","viewer.finder.status.count.other":"{count} matching nodes","viewer.finder.noun.nodes":"nodes","viewer.finder.link.one":"{count} link","viewer.finder.link.other":"{count} links","viewer.finder.result.focus.one":"Focus {label}, {count} related connection","viewer.finder.result.focus.other":"Focus {label}, {count} related connections","viewer.finder.status.filtered":"{visible} of {available} {noun}","viewer.finder.status.all":"{available} {noun}","viewer.passport.eyebrow":"Semantic passport","viewer.passport.metadata":"Node metadata","viewer.passport.evidence":"Verified source evidence","viewer.passport.verified":"Verified source","viewer.passport.reach":"Authored reach","viewer.passport.reach.trace":"Trace authored reachability","viewer.passport.upstream":"Upstream","viewer.passport.downstream":"Downstream","viewer.passport.upstream.trace":"Trace upstream authored reachability","viewer.passport.downstream.trace":"Trace downstream authored reachability","viewer.passport.close":"Close semantic passport","viewer.passport.copy":"Copy link","viewer.passport.copy.focus":"Copy link to focused node","viewer.passport.relations":"Relations","viewer.passport.relations.show":"Show connected relationships","viewer.passport.relations.hide":"Hide connected relationships","viewer.passport.relations.list":"Connected relationships","viewer.passport.copyRelation":"Copy relation","viewer.passport.copyNode":"Copy node","viewer.passport.copyPinned":"Copy link to pinned relationship","viewer.passport.copySource":"Copy link to source node","viewer.passport.copy.focused.success":"Focused node link copied","viewer.passport.copy.pinned.success":"Pinned relationship link copied","viewer.passport.copy.focused.failed":"Could not copy focused node link","viewer.passport.copy.pinned.failed":"Could not copy pinned relationship link","viewer.passport.relationship.none":"No connected relationships","viewer.passport.relationship.count.one":"{count} relation","viewer.passport.relationship.count.other":"{count} relations","viewer.passport.relationship.show.one":"Show {count} connected relationship","viewer.passport.relationship.show.other":"Show {count} connected relationships","viewer.passport.relationship.summary":"{out} outgoing · {in} incoming{loops}","viewer.passport.relationship.loops":" · {count} loop","viewer.passport.relationship.explorer":"Direct relationship explorer","viewer.passport.relationship.help":"Use arrow keys to explore relationships. Press Enter or Space to pin details; Escape clears.","viewer.passport.relationship.loopsBack":"loops back","viewer.passport.relationship.connectsTo":"connects to","viewer.passport.relationship.connectsFrom":"connects from","viewer.passport.relationship.pinned":"Pinned relationship · {from} → {to} · {label}","viewer.passport.relationship.inspect":"Inspect relationship {index} of {total}: {from} to {to}, {label}. Press Enter for details.","viewer.passport.relationship.group.out":"Outgoing","viewer.passport.relationship.group.in":"Incoming","viewer.passport.relationship.group.loop":"Self loops","viewer.passport.relationship.row":"{group}: {relationship}, {neighbor}","viewer.passport.relationship.direction.out":"OUT →","viewer.passport.relationship.direction.in":"← IN","viewer.passport.relationship.direction.loop":"LOOP","viewer.passport.sourceCount.one":"{count} verified source reference","viewer.passport.sourceCount.other":"{count} verified source references","viewer.passport.sourceMarker":"SRC","viewer.passport.beacon.one":"{count} verified source; focus this node to inspect","viewer.passport.beacon.other":"{count} verified sources; focus this node to inspect","viewer.passport.repository.open":"Open verified repository revision {revision}","viewer.passport.source.open":"Open verified source {path} at revision {revision}","viewer.passport.source.openLink":"Open ↗","viewer.passport.reach.upstream.one":"Trace {count} upstream authored node","viewer.passport.reach.upstream.other":"Trace {count} upstream authored nodes","viewer.passport.reach.downstream.one":"Trace {count} downstream authored node","viewer.passport.reach.downstream.other":"Trace {count} downstream authored nodes","viewer.passport.reach.noUpstream":"No upstream authored nodes","viewer.passport.reach.noDownstream":"No downstream authored nodes","viewer.passport.reach.status":"{direction} · {nodes} nodes · {links} links · max {hops} hops","viewer.route.eyebrow":"Route probe","viewer.route.start":"Choose a start node","viewer.route.start.find":"Find start","viewer.route.start.find.aria":"Find a route start","viewer.route.copy":"Copy link","viewer.route.copy.aria":"Copy link to traced route","viewer.route.clear":"Clear","viewer.route.clear.aria":"Clear route probe","viewer.route.traced":"Traced route","viewer.route.pickTwo":"Pick two semantic nodes on the diagram","viewer.route.pickOne":"Pick a semantic node on the diagram","viewer.route.controls":"Route journey controls","viewer.route.previous":"Previous route position","viewer.route.play":"Play route journey","viewer.route.pause":"Pause route journey","viewer.route.replay":"Replay route journey","viewer.route.next":"Next route position","viewer.route.journey":"Journey","viewer.route.pause.label":"Pause","viewer.route.replay.label":"Replay","viewer.route.overview":"Overview","viewer.route.overview.aria":"Show complete route overview","viewer.route.instructions":"Choose the source, then the destination. Direction matters.","viewer.route.destination":"Choose a destination from {label}","viewer.route.destination.find":"Find target","viewer.route.destination.find.aria":"Find a reachable route destination","viewer.route.differentDestination":"Choose a different destination","viewer.route.distinct":"A route needs two distinct semantic nodes.","viewer.route.unreachable":"No directed route to {label}","viewer.route.unreachable.detail":"{target} is not reachable from {source}. Pick a highlighted destination.","viewer.route.start.instructions":"Select the source. The next step will reveal only directed destinations.","viewer.route.copy.success":"Traced route link copied","viewer.route.copy.failed":"Could not copy traced route link","viewer.route.position":"Route position {index} of {total}: {label}","viewer.route.step":"Step {index} of {total} · {phase} · {label}","viewer.route.motionRequired":"Automatic journey requires Live motion","viewer.route.trigger.clear":"Clear traced route","viewer.route.overview.status":"{nodes} · {hops} · shortest authored route","viewer.route.overview.node.one":"{count} node","viewer.route.overview.node.other":"{count} nodes","viewer.route.overview.hop.one":"{count} directed hop","viewer.route.overview.hop.other":"{count} directed hops","viewer.route.phase.playing":"Playing","viewer.route.phase.complete":"Complete","viewer.route.phase.inspecting":"Inspecting","viewer.route.destination.count.one":"{count} directed destination available. Pick a highlighted node.","viewer.route.destination.count.other":"{count} directed destinations available. Pick a highlighted node.","viewer.route.noOutgoing":"No outgoing route starts here. Clear and choose another source.","viewer.route.result.title":"{source} to {target}","viewer.route.finder.source.title":"Choose route start","viewer.route.finder.source.placeholder":"Search route sources","viewer.route.finder.source.empty":"No matching route sources","viewer.route.finder.source.results":"Nodes that can start a route","viewer.route.finder.source.noun":"route sources","viewer.route.finder.source.badge":"start","viewer.route.finder.target.title":"Destination from {label}","viewer.route.finder.target.placeholder":"Search reachable destinations","viewer.route.finder.target.empty":"No matching reachable destinations","viewer.route.finder.target.results":"Reachable route destinations","viewer.route.finder.target.noun":"reachable destinations","viewer.route.hop.one":"{count} hop","viewer.route.hop.other":"{count} hops","viewer.lens.eyebrow":"Semantic lens","viewer.lens.title":"Compare system roles","viewer.lens.close":"Close semantic lens","viewer.lens.instruction":"Choose up to two semantic kinds. One reveals its real traffic; two compare only direct authored relationships.","viewer.lens.kinds":"Semantic kinds","viewer.lens.choose":"Choose a kind to inspect its nodes and touching relationships.","viewer.lens.copy":"Copy link to semantic lens","viewer.lens.clear":"Clear semantic lens","viewer.lens.open":"Open semantic lens","viewer.lens.openActive":"Open active semantic lens","viewer.lens.legend":"Semantic legend","viewer.lens.legend.inspect.one":"Inspect {label}, {count} node","viewer.lens.legend.inspect.other":"Inspect {label}, {count} nodes","viewer.lens.kind.count.one":"{label}, {count} node","viewer.lens.kind.count.other":"{label}, {count} nodes","viewer.lens.compare.one":"{first} → {second}: {forward} · {second} → {first}: {reverse} · {count} direct relationship","viewer.lens.compare.other":"{first} → {second}: {forward} · {second} → {first}: {reverse} · {count} direct relationships","viewer.lens.single":"{nodes} · {relationships} · connected peers remain visible","viewer.lens.node.one":"{count} {label} node","viewer.lens.node.other":"{count} {label} nodes","viewer.lens.relationship.one":"{count} touching relationship","viewer.lens.relationship.other":"{count} touching relationships","viewer.radar.title":"Semantic radar","viewer.radar.building":"Building overview","viewer.radar.openFull":"Open full semantic radar","viewer.radar.open":"Open radar","viewer.radar.close":"Close semantic radar","viewer.radar.surface":"Diagram overview. Click a node to focus it, or use arrow keys to pan.","viewer.radar.click":"Click node","viewer.radar.drag":"Drag to pan","viewer.radar.space":"Semantic radar needs more MAP space.","viewer.radar.nodes":"Semantic diagram radar nodes","viewer.radar.focus":"Focus {label} from Semantic Radar","viewer.radar.status":"{count} nodes · {viewport}","viewer.radar.fullMap":"{count} nodes · full map","viewer.radar.compacted":"Radar compacted to avoid covering the Semantic Passport or MAP controls.","viewer.radar.cancelWaiting":"Cancel semantic radar waiting for more MAP space","viewer.radar.needsSpace":"Semantic radar needs more visible MAP space","viewer.radar.viewport.full":"full map","viewer.radar.viewport.width":"{percent}% width","viewer.radar.viewport.scale":"{percent}% viewport","viewer.nav.controls":"Diagram view controls","viewer.nav.route":"Trace a directed route","viewer.nav.route.title":"Trace route (R)","viewer.nav.route.short":"PATH","viewer.nav.radar":"Open semantic radar","viewer.nav.radar.title":"Semantic radar (M)","viewer.nav.radar.short":"MAP","viewer.nav.lens":"Open semantic lens","viewer.nav.lens.title":"Semantic lens (L)","viewer.nav.lens.short":"LENS","viewer.nav.find":"Find a node","viewer.nav.find.title":"Find a node (/)","viewer.nav.guide":"Open diagram guide","viewer.nav.guide.title":"Diagram guide (?)","viewer.nav.zoomOut":"Zoom out","viewer.nav.zoomOut.title":"Zoom out (-)","viewer.nav.reset":"Reset diagram view","viewer.nav.reset.title":"Reset view (0)","viewer.nav.read":"READ","viewer.nav.zoomIn":"Zoom in","viewer.nav.zoomIn.title":"Zoom in (+)","viewer.nav.camera":"{hint}. Reset diagram view","viewer.nav.camera.title":"{semantic}{hint} · reset view (0)","viewer.nav.camera.semantic":"Semantic camera active · ","viewer.nav.level.map":"MAP","viewer.nav.level.read":"READ","viewer.nav.level.full":"FULL","viewer.nav.level.auto":"AUTO","viewer.nav.detail.map":"Zoom in to reveal relationship labels and node context","viewer.nav.detail.read":"Zoom in again to reveal tags and annotations","viewer.nav.detail.full":"Full diagram detail","viewer.intent.summary":"{label}. {out} outgoing, {in} incoming{loops}. {total} connections. Press Enter for details.","viewer.intent.loops":", {count} self loop","viewer.common.copied":"Copied","viewer.common.copyFailed":"Copy failed","viewer.common.copyLink":"Copy link","viewer.common.clear":"Clear","viewer.common.close":"Close"}}</script>
     <div class="guided-views no-print" id="guided-views" hidden aria-label="Guided diagram views">
@@ -5000,8 +5000,8 @@
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / PLATE 04">
-      <svg viewBox="0 0 1074 528" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="showcase">
-        <title id="archify-diagram-title">LYOKO Autonomous Workflow Architecture</title>
+      <svg viewBox="0 0 1028 936" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase">
+        <title id="archify-diagram-title">LYOKO Autonomous AIOps Workflow</title>
         <desc id="archify-diagram-description">A workflow diagram generated by Archify.</desc>
         <!-- Definitions -->
         <defs>
@@ -5026,193 +5026,281 @@
         <rect width="100%" height="100%" fill="url(#grid)" />
 
         <!-- Swimlanes -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-0" x="40" y="52" width="1018" height="104" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="74" class="t-dim" font-size="10" font-weight="600">01 / Route and incident branch</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-0" x="40" y="52" width="894" height="106" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="74" class="t-dim" font-size="10" font-weight="600">01 / Signals &amp; Ingress</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-1" x="40" y="176" width="1018" height="104" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="198" class="t-dim" font-size="10" font-weight="600">02 / Interactive chat branch</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-1" x="40" y="178" width="894" height="114" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="200" class="t-dim" font-size="10" font-weight="600">02 / Triage &amp; Runbooks</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-2" x="40" y="300" width="1018" height="104" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="322" class="t-dim" font-size="10" font-weight="600">03 / Shared ToolGate and gateway</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-2" x="40" y="312" width="894" height="106" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="334" class="t-dim" font-size="10" font-weight="600">03 / Hermes Cognitive Loop</text>
+
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-3" x="40" y="438" width="894" height="114" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="exception-lane" data-composition-frame-id="lane-3-exception" x="46" y="444" width="882" height="102" rx="8" class="c-security-group" stroke-width="1"/>
+        <text x="54" y="460" class="t-security" font-size="10" font-weight="600">EX / Safety Harness</text>
+
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-4" x="40" y="572" width="894" height="114" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="594" class="t-dim" font-size="10" font-weight="600">05 / Target Infrastructure</text>
+
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-5" x="40" y="706" width="894" height="106" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="728" class="t-dim" font-size="10" font-weight="600">06 / Operator &amp; Telegram</text>
 
         <!-- Phase headers -->
-        <line x1="72" y1="35" x2="332" y2="35" class="a-default" stroke-width="1.1"/>
-        <rect x="72" y="27" width="260" height="16" rx="4" class="c-mask"/>
-        <text x="202" y="39" class="t-muted" font-size="8" font-weight="600" text-anchor="middle">Intake &amp; Routing</text>
-        <line x1="436.40000000000003" y1="35" x2="729.5999999999999" y2="35" class="a-emphasis" stroke-width="1.1"/>
-        <rect x="436.40000000000003" y="27" width="293.19999999999993" height="16" rx="4" class="c-mask"/>
-        <text x="583" y="39" class="t-backend" font-size="8" font-weight="600" text-anchor="middle">Triage &amp; Resolve</text>
-        <line x1="833.9999999999999" y1="35" x2="925.9999999999999" y2="35" class="a-dashed" stroke-width="1.1"/>
-        <rect x="833.9999999999999" y="27" width="92" height="16" rx="4" class="c-mask"/>
-        <text x="879.9999999999999" y="39" class="t-messagebus" font-size="8" font-weight="600" text-anchor="middle">Notify</text>
+        <line x1="70" y1="35" x2="282" y2="35" class="a-default" stroke-width="1.1"/>
+        <rect x="70" y="27" width="212" height="16" rx="4" class="c-mask"/>
+        <text x="176" y="39" class="t-muted" font-size="8" font-weight="600" text-anchor="middle">Intake &amp; classify</text>
+        <line x1="416" y1="35" x2="508" y2="35" class="a-emphasis" stroke-width="1.1"/>
+        <rect x="416" y="27" width="92" height="16" rx="4" class="c-mask"/>
+        <text x="462" y="39" class="t-backend" font-size="8" font-weight="600" text-anchor="middle">Runbook lookup</text>
+        <line x1="536" y1="35" x2="633.6" y2="35" class="a-emphasis" stroke-width="1.1"/>
+        <rect x="536" y="27" width="97.6" height="16" rx="4" class="c-mask"/>
+        <text x="584.8" y="39" class="t-backend" font-size="8" font-weight="600" text-anchor="middle">Hermes reasoning</text>
+        <line x1="661.6" y1="35" x2="753.6" y2="35" class="a-dashed" stroke-width="1.1"/>
+        <rect x="661.6" y="27" width="92" height="16" rx="4" class="c-mask"/>
+        <text x="707.6" y="39" class="t-messagebus" font-size="8" font-weight="600" text-anchor="middle">Policy gate</text>
+        <line x1="808" y1="35" x2="905.6" y2="35" class="a-dashed" stroke-width="1.1"/>
+        <rect x="808" y="27" width="97.6" height="16" rx="4" class="c-mask"/>
+        <text x="856.8" y="39" class="t-messagebus" font-size="8" font-weight="600" text-anchor="middle">Execute &amp; report</text>
 
         <!-- Workflow groups -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="group" data-composition-frame-id="group-0" x="604.5999999999999" y="214" width="166.60000000000002" height="62" rx="9" class="c-lane" stroke-width="1"/>
-        <text x="614.5999999999999" y="212" class="t-backend" font-size="7" font-weight="600">Interactive assistant</text>
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="group" data-composition-frame-id="group-1" x="609.5999999999999" y="338" width="344.4" height="62" rx="9" class="c-security-group" stroke-width="1"/>
-        <text x="619.5999999999999" y="336" class="t-security" font-size="7" font-weight="600">Zero-trust harness</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="group" data-composition-frame-id="group-0" x="164" y="216" width="370" height="72" rx="9" class="c-lane" stroke-width="1"/>
+        <text x="174" y="214" class="t-backend" font-size="7" font-weight="600">Deterministic triage</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="group" data-composition-frame-id="group-1" x="635.6" y="476" width="148.39999999999998" height="72" rx="9" class="c-security-group" stroke-width="1"/>
+        <text x="645.6" y="474" class="t-security" font-size="7" font-weight="600">Fail-closed harness</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="group" data-composition-frame-id="group-2" x="782" y="610" width="144" height="72" rx="9" class="c-lane" stroke-width="1"/>
+        <text x="792" y="608" class="t-messagebus" font-size="7" font-weight="600">Execution &amp; report</text>
 
         <!-- Edge paths -->
-        <path data-edge-from="event_in" data-edge-to="route_node" data-edge-key="0" data-edge-id="e1" data-composition-points="188,119;216,119" d="M 188 119 L 216 119" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="route_node" data-edge-to="chat_node" data-edge-label="chat" data-edge-key="1" data-edge-id="e2" data-composition-points="286,145;286,236;608.5999999999999,236" d="M 286 145 L 286 236 L 608.5999999999999 236" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="route_node" data-edge-to="triage" data-edge-label="incident" data-edge-key="2" data-edge-id="e3" data-composition-points="356,119;412.4,119" d="M 356 119 L 412.4 119" class="a-security" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="triage" data-edge-to="resolve" data-edge-label="unhandled" data-edge-key="3" data-edge-id="e4" data-composition-points="552.4,119;613.5999999999999,119" d="M 552.4 119 L 613.5999999999999 119" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="chat_node" data-edge-to="toolgate" data-edge-label="tools" data-edge-key="4" data-edge-id="e5" data-composition-points="608.5999999999999,250;20,250;20,367;613.5999999999999,367" d="M 608.5999999999999 250 L 20 250 L 20 367 L 613.5999999999999 367" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="resolve" data-edge-to="toolgate" data-edge-label="actions" data-edge-key="5" data-edge-id="e6" data-composition-points="753.5999999999999,126;769.5999999999999,126;769.5999999999999,420;683.5999999999999,420;683.5999999999999,393" d="M 753.5999999999999 126 L 769.5999999999999 126 L 769.5999999999999 420 L 683.5999999999999 420 L 683.5999999999999 393" class="a-security" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="toolgate" data-edge-to="mcp_gateway" data-edge-label="approved" data-edge-key="6" data-edge-id="e7" data-composition-points="753.5999999999999,367;769.5999999999999,367;769.5999999999999,420;879.9999999999999,420;879.9999999999999,393" d="M 753.5999999999999 367 L 769.5999999999999 367 L 769.5999999999999 420 L 879.9999999999999 420 L 879.9999999999999 393" class="a-security" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="resolve" data-edge-to="notify" data-edge-key="7" data-edge-id="e8" data-composition-points="683.5999999999999,145;683.5999999999999,161;879.9999999999999,161;879.9999999999999,145" d="M 683.5999999999999 145 L 683.5999999999999 161 L 879.9999999999999 161 L 879.9999999999999 145" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="alerts" data-edge-to="router" data-edge-label="incident alert" data-edge-key="0" data-edge-id="alert-route" data-composition-points="116,146;116,168;320,168;320,253;304,253" d="M 116 146 L 116 168 L 320 168 L 320 253 L 304 253" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="approval" data-edge-to="mcp" data-edge-label="approved" data-edge-key="1" data-edge-id="approval-mcp" data-composition-points="714.6,740;714.6,654;786,654" d="M 714.6 740 L 714.6 654 L 786 654" class="a-emphasis" data-animate="edge" style="--step:8" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="chat_in" data-edge-to="router" data-edge-label="inbound turn" data-edge-key="2" data-edge-id="chat-route" data-composition-points="116,800;116,828;229,828;229,287" d="M 116 800 L 116 828 L 229 828 L 229 287" class="a-default" data-animate="edge" style="--step:9" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="gate" data-edge-to="approval" data-edge-label="needs consent" data-edge-key="3" data-edge-id="gate-approval" data-composition-points="707.6,547;707.6,629;623.6,629;623.6,774;639.6,774" d="M 707.6 547 L 707.6 629 L 623.6 629 L 623.6 774 L 639.6 774" class="a-security" data-animate="edge" style="--step:10" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="gate" data-edge-to="mcp" data-edge-label="read-only / auto" data-edge-key="4" data-edge-id="gate-mcp-readonly" data-composition-points="707.6,547;707.6,702;854,702;854,681" d="M 707.6 547 L 707.6 702 L 854 702 L 854 681" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="hermes" data-edge-to="gate" data-edge-label="tool call" data-edge-key="5" data-edge-id="hermes-gate" data-composition-points="582,414;582,513;639.6,513" d="M 582 414 L 582 513 L 639.6 513" class="a-emphasis" data-animate="edge" style="--step:3" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="mcp" data-edge-to="notify" data-edge-label="verified recovery" data-edge-key="6" data-edge-id="mcp-notify" data-composition-points="922,647;1009.6,647;1009.6,774;922,774" d="M 922 647 L 1009.6 647 L 1009.6 774 L 922 774" class="a-emphasis" data-animate="edge" style="--step:5" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="router" data-edge-to="hermes" data-edge-label="chat query" data-edge-key="7" data-edge-id="route-chat" data-composition-points="243,287;243,373;514,373" d="M 243 287 L 243 373 L 514 373" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="router" data-edge-to="runbooks" data-edge-label="triage incident" data-edge-key="8" data-edge-id="route-runbooks" data-composition-points="236,287;236,303;462,303;462,287" d="M 236 287 L 236 303 L 462 303 L 462 287" class="a-emphasis" data-animate="edge" style="--step:1" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="runbooks" data-edge-to="hermes" data-edge-label="inject runbook" data-edge-key="9" data-edge-id="runbooks-hermes" data-composition-points="462,287;462,434;582,434;582,414" d="M 462 287 L 462 434 L 582 434 L 582 414" class="a-emphasis" data-animate="edge" style="--step:2" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
 
         <!-- Nodes -->
-        <g id="node-event_in" data-node-id="event_in" data-node-label="Event Ingress" tabindex="0" role="button" aria-label="Focus Event Ingress, Alert or Telegram, Route and incident branch › Intake &amp; Routing" aria-pressed="false" data-node-kind="external" data-node-sublabel="Alert or Telegram" data-node-context="Route and incident branch › Intake &amp; Routing">
-          <title>Event Ingress · Alert or Telegram · Route and incident branch › Intake &amp; Routing</title>
-          <rect x="48" y="93" width="140" height="52" rx="6" class="c-mask"/>
-          <rect x="48" y="93" width="140" height="52" rx="6" class="c-external" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(54 99) scale(0.6875)">
+        <g id="node-alerts" data-node-id="alerts" data-node-label="Alertmanager" tabindex="0" role="button" aria-label="Focus Alertmanager, K8s &amp; IoT events, Signals &amp; Ingress › Intake &amp; classify, Prometheus" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="K8s &amp; IoT events" data-node-context="Signals &amp; Ingress › Intake &amp; classify" data-node-brand="Prometheus" data-node-brand-id="prometheus" data-node-brand-status="preset" data-node-brand-source="https://prometheus.io">
+          <title>Alertmanager · K8s &amp; IoT events · Signals &amp; Ingress › Intake &amp; classify · Prometheus</title>
+          <rect x="48" y="94" width="136" height="52" rx="6" class="c-mask"/>
+          <rect x="48" y="94" width="136" height="52" rx="6" class="c-messagebus" data-animate="node" style="--step:0" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(54 100) scale(0.6875)">
+            <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
+            <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
+            <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
+            <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
+          </g>
+          <g aria-hidden="true" data-brand-mark="prometheus" data-brand-title="Prometheus" data-brand-status="preset" data-brand-source="https://prometheus.io" class="brand-mark" transform="translate(162 100)">
+            <rect width="16" height="16" rx="4" class="brand-mark-badge"/>
+            <path d="M12 0C5.373 0 0 5.372 0 12c0 6.627 5.373 12 12 12s12-5.373 12-12c0-6.628-5.373-12-12-12zm0 22.46c-1.885 0-3.414-1.26-3.414-2.814h6.828c0 1.553-1.528 2.813-3.414 2.813zm5.64-3.745H6.36v-2.046h11.28v2.046zm-.04-3.098H6.391c-.037-.043-.075-.086-.111-.13-1.155-1.401-1.427-2.133-1.69-2.879-.005-.025 1.4.287 2.395.511 0 0 .513.119 1.262.255-.72-.843-1.147-1.915-1.147-3.01 0-2.406 1.845-4.508 1.18-6.207.648.053 1.34 1.367 1.387 3.422.689-.951.977-2.69.977-3.755 0-1.103.727-2.385 1.454-2.429-.648 1.069.168 1.984.894 4.256.272.854.237 2.29.447 3.201.07-1.892.395-4.652 1.595-5.605-.529 1.2.079 2.702.494 3.424.671 1.164 1.078 2.047 1.078 3.716a4.642 4.642 0 01-1.11 2.996c.792-.149 1.34-.283 1.34-.283l2.573-.502s-.374 1.538-1.81 3.019z" transform="translate(3 3) scale(0.4166666666666667)" fill="#E6522C"/>
+            <rect width="16" height="16" rx="4" class="brand-mark-frame"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="116" y="115" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Alertmanager</text>
+          <text data-detail="context" x="116" y="132" class="t-muted" font-size="8" text-anchor="middle">K8s &amp; IoT events</text>
+        </g>
+
+        <g id="node-router" data-node-id="router" data-node-label="Event Router" tabindex="0" role="button" aria-label="Focus Event Router, classify chat vs alert, Triage &amp; Runbooks › Deterministic triage › Intake &amp; classify" aria-pressed="false" data-node-kind="backend" data-node-sublabel="classify chat vs alert" data-node-tag="deterministic / LLM" data-node-context="Triage &amp; Runbooks › Deterministic triage › Intake &amp; classify">
+          <title>Event Router · classify chat vs alert · Triage &amp; Runbooks › Deterministic triage › Intake &amp; classify · deterministic / LLM</title>
+          <rect x="168" y="219" width="136" height="68" rx="6" class="c-mask"/>
+          <rect x="168" y="219" width="136" height="68" rx="6" class="c-backend" data-animate="node" style="--step:1" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(174 225) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="236" y="240" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Event Router</text>
+          <text data-detail="context" x="236" y="257" class="t-muted" font-size="8" text-anchor="middle">classify chat vs alert</text>
+        <text data-detail="fine" x="236" y="275" class="t-backend" font-size="7" text-anchor="middle">deterministic / LLM</text>
+        </g>
+
+        <g id="node-runbooks" data-node-id="runbooks" data-node-label="Runbooks &amp; Triage" tabindex="0" role="button" aria-label="Focus Runbooks &amp; Triage, zero-LLM fast path, Triage &amp; Runbooks › Deterministic triage › Runbook lookup" aria-pressed="false" data-node-kind="database" data-node-sublabel="zero-LLM fast path" data-node-tag="markdown skills" data-node-context="Triage &amp; Runbooks › Deterministic triage › Runbook lookup">
+          <title>Runbooks &amp; Triage · zero-LLM fast path · Triage &amp; Runbooks › Deterministic triage › Runbook lookup · markdown skills</title>
+          <rect x="394" y="219" width="136" height="68" rx="6" class="c-mask"/>
+          <rect x="394" y="219" width="136" height="68" rx="6" class="c-database" data-animate="node" style="--step:2" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(400 225) scale(0.6875)">
+            <ellipse cx="8" cy="4" rx="5" ry="2"/>
+            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="462" y="240" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Runbooks &amp; Triage</text>
+          <text data-detail="context" x="462" y="257" class="t-muted" font-size="8" text-anchor="middle">zero-LLM fast path</text>
+        <text data-detail="fine" x="462" y="275" class="t-database" font-size="7" text-anchor="middle">markdown skills</text>
+        </g>
+
+        <g id="node-hermes" data-node-id="hermes" data-node-label="Hermes Agent" tabindex="0" role="button" aria-label="Focus Hermes Agent, diagnose &amp; remediate, Hermes Cognitive Loop › Hermes reasoning, OpenAI" aria-pressed="false" data-node-kind="backend" data-node-sublabel="diagnose &amp; remediate" data-node-tag="ReAct loop" data-node-context="Hermes Cognitive Loop › Hermes reasoning" data-node-brand="OpenAI" data-node-brand-id="openai" data-node-brand-status="preset" data-node-brand-source="https://openai.com/brand/">
+          <title>Hermes Agent · diagnose &amp; remediate · Hermes Cognitive Loop › Hermes reasoning · ReAct loop · OpenAI</title>
+          <rect x="514" y="346" width="136" height="68" rx="6" class="c-mask"/>
+          <rect x="514" y="346" width="136" height="68" rx="6" class="c-backend" data-animate="node" style="--step:3" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(520 352) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <g aria-hidden="true" data-brand-mark="openai" data-brand-title="OpenAI" data-brand-status="preset" data-brand-source="https://openai.com/brand/" class="brand-mark" transform="translate(628 352)">
+            <rect width="16" height="16" rx="4" class="brand-mark-badge"/>
+            <path d="M11.248 18.25q-.825 0-1.568-.314a4.3 4.3 0 0 1-1.32-.874 4 4 0 0 1-1.304.214 4 4 0 0 1-2.046-.544 4.27 4.27 0 0 1-1.518-1.485 4 4 0 0 1-.56-2.095q0-.48.131-1.04A4.4 4.4 0 0 1 2.04 10.71a4.07 4.07 0 0 1 .017-3.4 4.2 4.2 0 0 1 1.056-1.418 3.8 3.8 0 0 1 1.6-.842 3.9 3.9 0 0 1 .76-1.683q.593-.759 1.451-1.188a4.04 4.04 0 0 1 1.832-.429q.825 0 1.567.313.742.314 1.32.875a4 4 0 0 1 1.304-.215q1.106 0 2.046.545a4.14 4.14 0 0 1 1.501 1.485q.578.941.578 2.095 0 .48-.132 1.04.66.61 1.023 1.419.363.792.363 1.666 0 .892-.38 1.717a4.3 4.3 0 0 1-1.072 1.435 3.8 3.8 0 0 1-1.584.825 3.8 3.8 0 0 1-.775 1.683 4.06 4.06 0 0 1-1.436 1.188 4.04 4.04 0 0 1-1.832.429m-4.076-2.062q.825 0 1.435-.347l3.103-1.782a.36.36 0 0 0 .164-.313v-1.42L7.881 14.62a.67.67 0 0 1-.726 0l-3.118-1.798a.5.5 0 0 1-.017.115v.198q0 .841.396 1.551.413.693 1.139 1.089a3.2 3.2 0 0 0 1.617.412m.165-2.69a.4.4 0 0 0 .181.05q.083 0 .165-.05l1.238-.71-3.977-2.31a.7.7 0 0 1-.363-.643v-3.58q-.825.362-1.32 1.122a2.9 2.9 0 0 0-.495 1.65q0 .809.413 1.55.412.743 1.072 1.123zm3.91 3.663q.875 0 1.585-.396a2.96 2.96 0 0 0 1.534-2.64v-3.564a.32.32 0 0 0-.165-.297l-1.254-.726v4.604a.7.7 0 0 1-.363.643l-3.119 1.799a3 3 0 0 0 1.783.577m.627-6.039V8.878L10.01 7.822 8.129 8.878v2.244l1.881 1.056zM7.057 5.859a.7.7 0 0 1 .363-.644l3.119-1.798a3 3 0 0 0-1.782-.578q-.874 0-1.584.396A2.96 2.96 0 0 0 6.05 4.324a3.07 3.07 0 0 0-.396 1.551v3.547q0 .199.165.314l1.237.726zm8.383 7.887q.825-.364 1.303-1.123.495-.758.495-1.65a3.15 3.15 0 0 0-.412-1.55q-.413-.743-1.073-1.123l-3.086-1.782q-.099-.065-.181-.049a.3.3 0 0 0-.165.05l-1.238.692 3.993 2.327a.6.6 0 0 1 .264.264.64.64 0 0 1 .1.363zm-3.317-8.382a.63.63 0 0 1 .726 0l3.135 1.831v-.297q0-.792-.396-1.501a2.86 2.86 0 0 0-1.105-1.155q-.71-.43-1.65-.43-.825 0-1.436.347L8.294 5.941a.36.36 0 0 0-.165.314v1.418z" transform="translate(3 3) scale(0.5)" fill="#000000"/>
+            <rect width="16" height="16" rx="4" class="brand-mark-frame"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="582" y="367" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Hermes Agent</text>
+          <text data-detail="context" x="582" y="384" class="t-muted" font-size="8" text-anchor="middle">diagnose &amp; remediate</text>
+        <text data-detail="fine" x="582" y="402" class="t-backend" font-size="7" text-anchor="middle">ReAct loop</text>
+        </g>
+
+        <g id="node-gate" data-node-id="gate" data-node-label="ToolGate Harness" tabindex="0" role="button" aria-label="Focus ToolGate Harness, inspects every call, Safety Harness › Fail-closed harness › Policy gate" aria-pressed="false" data-node-kind="security" data-node-sublabel="inspects every call" data-node-tag="fail-closed" data-node-context="Safety Harness › Fail-closed harness › Policy gate">
+          <title>ToolGate Harness · inspects every call · Safety Harness › Fail-closed harness › Policy gate · fail-closed</title>
+          <rect x="639.6" y="479" width="136" height="68" rx="6" class="c-mask"/>
+          <rect x="639.6" y="479" width="136" height="68" rx="6" class="c-security" data-animate="node" style="--step:4" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(645.6 485) scale(0.6875)">
+            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
+            <path d="m5.8 8 1.5 1.5 3-3"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="707.6" y="500" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">ToolGate Harness</text>
+          <text data-detail="context" x="707.6" y="517" class="t-muted" font-size="8" text-anchor="middle">inspects every call</text>
+        <text data-detail="fine" x="707.6" y="535" class="t-security" font-size="7" text-anchor="middle">fail-closed</text>
+        </g>
+
+        <g id="node-mcp" data-node-id="mcp" data-node-label="sector5-mcp" tabindex="0" role="button" aria-label="Focus sector5-mcp, K8s, UniFi, Home Assistant, Target Infrastructure › Execution &amp; report › Execute &amp; report, Kubernetes" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="K8s, UniFi, Home Assistant" data-node-tag="unified gateway" data-node-context="Target Infrastructure › Execution &amp; report › Execute &amp; report" data-node-brand="Kubernetes" data-node-brand-id="kubernetes" data-node-brand-status="preset" data-node-brand-source="https://github.com/kubernetes/kubernetes/tree/cac53883f4714452f3084a22e4be20d042a9df33/logo">
+          <title>sector5-mcp · K8s, UniFi, Home Assistant · Target Infrastructure › Execution &amp; report › Execute &amp; report · unified gateway · Kubernetes</title>
+          <rect x="786" y="613" width="136" height="68" rx="6" class="c-mask"/>
+          <rect x="786" y="613" width="136" height="68" rx="6" class="c-cloud" data-animate="node" style="--step:5" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(792 619) scale(0.6875)">
+            <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
+          </g>
+          <g aria-hidden="true" data-brand-mark="kubernetes" data-brand-title="Kubernetes" data-brand-status="preset" data-brand-source="https://github.com/kubernetes/kubernetes/tree/cac53883f4714452f3084a22e4be20d042a9df33/logo" class="brand-mark" transform="translate(900 619)">
+            <rect width="16" height="16" rx="4" class="brand-mark-badge"/>
+            <path d="M10.204 14.35l.007.01-.999 2.413a5.171 5.171 0 0 1-2.075-2.597l2.578-.437.004.005a.44.44 0 0 1 .484.606zm-.833-2.129a.44.44 0 0 0 .173-.756l.002-.011L7.585 9.7a5.143 5.143 0 0 0-.73 3.255l2.514-.725.002-.009zm1.145-1.98a.44.44 0 0 0 .699-.337l.01-.005.15-2.62a5.144 5.144 0 0 0-3.01 1.442l2.147 1.523.004-.002zm.76 2.75l.723.349.722-.347.18-.78-.5-.623h-.804l-.5.623.179.779zm1.5-3.095a.44.44 0 0 0 .7.336l.008.003 2.134-1.513a5.188 5.188 0 0 0-2.992-1.442l.148 2.615.002.001zm10.876 5.97l-5.773 7.181a1.6 1.6 0 0 1-1.248.594l-9.261.003a1.6 1.6 0 0 1-1.247-.596l-5.776-7.18a1.583 1.583 0 0 1-.307-1.34L2.1 5.573c.108-.47.425-.864.863-1.073L11.305.513a1.606 1.606 0 0 1 1.385 0l8.345 3.985c.438.209.755.604.863 1.073l2.062 8.955c.108.47-.005.963-.308 1.34zm-3.289-2.057c-.042-.01-.103-.026-.145-.034-.174-.033-.315-.025-.479-.038-.35-.037-.638-.067-.895-.148-.105-.04-.18-.165-.216-.216l-.201-.059a6.45 6.45 0 0 0-.105-2.332 6.465 6.465 0 0 0-.936-2.163c.052-.047.15-.133.177-.159.008-.09.001-.183.094-.282.197-.185.444-.338.743-.522.142-.084.273-.137.415-.242.032-.024.076-.062.11-.089.24-.191.295-.52.123-.736-.172-.216-.506-.236-.745-.045-.034.027-.08.062-.111.088-.134.116-.217.23-.33.35-.246.25-.45.458-.673.609-.097.056-.239.037-.303.033l-.19.135a6.545 6.545 0 0 0-4.146-2.003l-.012-.223c-.065-.062-.143-.115-.163-.25-.022-.268.015-.557.057-.905.023-.163.061-.298.068-.475.001-.04-.001-.099-.001-.142 0-.306-.224-.555-.5-.555-.275 0-.499.249-.499.555l.001.014c0 .041-.002.092 0 .128.006.177.044.312.067.475.042.348.078.637.056.906a.545.545 0 0 1-.162.258l-.012.211a6.424 6.424 0 0 0-4.166 2.003 8.373 8.373 0 0 1-.18-.128c-.09.012-.18.04-.297-.029-.223-.15-.427-.358-.673-.608-.113-.12-.195-.234-.329-.349-.03-.026-.077-.062-.111-.088a.594.594 0 0 0-.348-.132.481.481 0 0 0-.398.176c-.172.216-.117.546.123.737l.007.005.104.083c.142.105.272.159.414.242.299.185.546.338.743.522.076.082.09.226.1.288l.16.143a6.462 6.462 0 0 0-1.02 4.506l-.208.06c-.055.072-.133.184-.215.217-.257.081-.546.11-.895.147-.164.014-.305.006-.48.039-.037.007-.09.02-.133.03l-.004.002-.007.002c-.295.071-.484.342-.423.608.061.267.349.429.645.365l.007-.001.01-.003.129-.029c.17-.046.294-.113.448-.172.33-.118.604-.217.87-.256.112-.009.23.069.288.101l.217-.037a6.5 6.5 0 0 0 2.88 3.596l-.09.218c.033.084.069.199.044.282-.097.252-.263.517-.452.813-.091.136-.185.242-.268.399-.02.037-.045.095-.064.134-.128.275-.034.591.213.71.248.12.556-.007.69-.282v-.002c.02-.039.046-.09.062-.127.07-.162.094-.301.144-.458.132-.332.205-.68.387-.897.05-.06.13-.082.215-.105l.113-.205a6.453 6.453 0 0 0 4.609.012l.106.192c.086.028.18.042.256.155.136.232.229.507.342.84.05.156.074.295.145.457.016.037.043.09.062.129.133.276.442.402.69.282.247-.118.341-.435.213-.71-.02-.039-.045-.096-.065-.134-.083-.156-.177-.261-.268-.398-.19-.296-.346-.541-.443-.793-.04-.13.007-.21.038-.294-.018-.022-.059-.144-.083-.202a6.499 6.499 0 0 0 2.88-3.622c.064.01.176.03.213.038.075-.05.144-.114.28-.104.266.039.54.138.87.256.154.06.277.128.448.173.036.01.088.019.13.028l.009.003.007.001c.297.064.584-.098.645-.365.06-.266-.128-.537-.423-.608zM16.4 9.701l-1.95 1.746v.005a.44.44 0 0 0 .173.757l.003.01 2.526.728a5.199 5.199 0 0 0-.108-1.674A5.208 5.208 0 0 0 16.4 9.7zm-4.013 5.325a.437.437 0 0 0-.404-.232.44.44 0 0 0-.372.233h-.002l-1.268 2.292a5.164 5.164 0 0 0 3.326.003l-1.27-2.296h-.01zm1.888-1.293a.44.44 0 0 0-.27.036.44.44 0 0 0-.214.572l-.003.004 1.01 2.438a5.15 5.15 0 0 0 2.081-2.615l-2.6-.44-.004.005z" transform="translate(3 3) scale(0.4166666666666667)" fill="#326CE5"/>
+            <rect width="16" height="16" rx="4" class="brand-mark-frame"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="854" y="634" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">sector5-mcp</text>
+          <text data-detail="context" x="854" y="651" class="t-muted" font-size="8" text-anchor="middle">K8s, UniFi, Home Assistant</text>
+        <text data-detail="fine" x="854" y="669" class="t-cloud" font-size="7" text-anchor="middle">unified gateway</text>
+        </g>
+
+        <g id="node-chat_in" data-node-id="chat_in" data-node-label="Operator Turn" tabindex="0" role="button" aria-label="Focus Operator Turn, chat or incident report, Operator &amp; Telegram › Intake &amp; classify, Telegram" aria-pressed="false" data-node-kind="external" data-node-sublabel="chat or incident report" data-node-context="Operator &amp; Telegram › Intake &amp; classify" data-node-brand="Telegram" data-node-brand-id="telegram" data-node-brand-status="preset" data-node-brand-source="https://telegram.org/tour/screenshots">
+          <title>Operator Turn · chat or incident report · Operator &amp; Telegram › Intake &amp; classify · Telegram</title>
+          <rect x="48" y="748" width="136" height="52" rx="6" class="c-mask"/>
+          <rect x="48" y="748" width="136" height="52" rx="6" class="c-external" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(54 754) scale(0.6875)">
             <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
             <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="118" y="114" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Event Ingress</text>
-          <text data-detail="context" x="118" y="131" class="t-muted" font-size="8" text-anchor="middle">Alert or Telegram</text>
-        </g>
-
-        <g id="node-route_node" data-node-id="route_node" data-node-label="Route Classifier" tabindex="0" role="button" aria-label="Focus Route Classifier, Alert / Chat Intent, Route and incident branch › Intake &amp; Routing" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Alert / Chat Intent" data-node-context="Route and incident branch › Intake &amp; Routing">
-          <title>Route Classifier · Alert / Chat Intent · Route and incident branch › Intake &amp; Routing</title>
-          <rect x="216" y="93" width="140" height="52" rx="6" class="c-mask"/>
-          <rect x="216" y="93" width="140" height="52" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(222 99) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          <g aria-hidden="true" data-brand-mark="telegram" data-brand-title="Telegram" data-brand-status="preset" data-brand-source="https://telegram.org/tour/screenshots" class="brand-mark" transform="translate(162 754)">
+            <rect width="16" height="16" rx="4" class="brand-mark-badge"/>
+            <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" transform="translate(3 3) scale(0.4166666666666667)" fill="#26A5E4"/>
+            <rect width="16" height="16" rx="4" class="brand-mark-frame"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="286" y="114" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Route Classifier</text>
-          <text data-detail="context" x="286" y="131" class="t-muted" font-size="8" text-anchor="middle">Alert / Chat Intent</text>
+          <text data-node-label="" data-detail-anchor="" x="116" y="769" class="t-primary" font-size="10.2" font-weight="600" text-anchor="middle">Operator Turn</text>
+          <text data-detail="context" x="116" y="786" class="t-muted" font-size="8" text-anchor="middle">chat or incident report</text>
         </g>
 
-        <g id="node-triage" data-node-id="triage" data-node-label="1. Triage" tabindex="0" role="button" aria-label="Focus 1. Triage, Deterministic fast-path, Route and incident branch › Triage &amp; Resolve" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Deterministic fast-path" data-node-context="Route and incident branch › Triage &amp; Resolve">
-          <title>1. Triage · Deterministic fast-path · Route and incident branch › Triage &amp; Resolve</title>
-          <rect x="412.4" y="93" width="140" height="52" rx="6" class="c-mask"/>
-          <rect x="412.4" y="93" width="140" height="52" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(418.4 99) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+        <g id="node-approval" data-node-id="approval" data-node-label="HITL Approval" tabindex="0" role="button" aria-label="Focus HITL Approval, Approve / Deny buttons, Operator &amp; Telegram › Policy gate, Telegram" aria-pressed="false" data-node-kind="security" data-node-sublabel="Approve / Deny buttons" data-node-tag="operator consent" data-node-context="Operator &amp; Telegram › Policy gate" data-node-brand="Telegram" data-node-brand-id="telegram" data-node-brand-status="preset" data-node-brand-source="https://telegram.org/tour/screenshots">
+          <title>HITL Approval · Approve / Deny buttons · Operator &amp; Telegram › Policy gate · operator consent · Telegram</title>
+          <rect x="639.6" y="740" width="136" height="68" rx="6" class="c-mask"/>
+          <rect x="639.6" y="740" width="136" height="68" rx="6" class="c-security" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(645.6 746) scale(0.6875)">
+            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
+            <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="482.4" y="114" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">1. Triage</text>
-          <text data-detail="context" x="482.4" y="131" class="t-muted" font-size="8" text-anchor="middle">Deterministic fast-path</text>
-        </g>
-
-        <g id="node-resolve" data-node-id="resolve" data-node-label="2. Resolve" tabindex="0" role="button" aria-label="Focus 2. Resolve, Hermes SRE Engine, Route and incident branch › Triage &amp; Resolve" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Hermes SRE Engine" data-node-context="Route and incident branch › Triage &amp; Resolve">
-          <title>2. Resolve · Hermes SRE Engine · Route and incident branch › Triage &amp; Resolve</title>
-          <rect x="613.5999999999999" y="93" width="140" height="52" rx="6" class="c-mask"/>
-          <rect x="613.5999999999999" y="93" width="140" height="52" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(619.5999999999999 99) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          <g aria-hidden="true" data-brand-mark="telegram" data-brand-title="Telegram" data-brand-status="preset" data-brand-source="https://telegram.org/tour/screenshots" class="brand-mark" transform="translate(753.6 746)">
+            <rect width="16" height="16" rx="4" class="brand-mark-badge"/>
+            <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" transform="translate(3 3) scale(0.4166666666666667)" fill="#26A5E4"/>
+            <rect width="16" height="16" rx="4" class="brand-mark-frame"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="683.5999999999999" y="114" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">2. Resolve</text>
-          <text data-detail="context" x="683.5999999999999" y="131" class="t-muted" font-size="8" text-anchor="middle">Hermes SRE Engine</text>
+          <text data-node-label="" data-detail-anchor="" x="707.6" y="761" class="t-primary" font-size="10.2" font-weight="600" text-anchor="middle">HITL Approval</text>
+          <text data-detail="context" x="707.6" y="778" class="t-muted" font-size="8" text-anchor="middle">Approve / Deny buttons</text>
+        <text data-detail="fine" x="707.6" y="796" class="t-security" font-size="7" text-anchor="middle">operator consent</text>
         </g>
 
-        <g id="node-notify" data-node-id="notify" data-node-label="3. Notify" tabindex="0" role="button" aria-label="Focus 3. Notify, Structured SRE report, Route and incident branch › Notify, Telegram" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Structured SRE report" data-node-context="Route and incident branch › Notify" data-node-brand="Telegram" data-node-brand-id="telegram" data-node-brand-status="preset" data-node-brand-source="https://telegram.org/tour/screenshots">
-          <title>3. Notify · Structured SRE report · Route and incident branch › Notify · Telegram</title>
-          <rect x="809.9999999999999" y="93" width="140" height="52" rx="6" class="c-mask"/>
-          <rect x="809.9999999999999" y="93" width="140" height="52" rx="6" class="c-frontend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(815.9999999999999 99) scale(0.6875)">
+        <g id="node-notify" data-node-id="notify" data-node-label="Incident Report" tabindex="0" role="button" aria-label="Focus Incident Report, resolution &amp; traces, Operator &amp; Telegram › Execute &amp; report, Telegram" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="resolution &amp; traces" data-node-tag="Langfuse trace" data-node-context="Operator &amp; Telegram › Execute &amp; report" data-node-brand="Telegram" data-node-brand-id="telegram" data-node-brand-status="preset" data-node-brand-source="https://telegram.org/tour/screenshots">
+          <title>Incident Report · resolution &amp; traces · Operator &amp; Telegram › Execute &amp; report · Langfuse trace · Telegram</title>
+          <rect x="786" y="740" width="136" height="68" rx="6" class="c-mask"/>
+          <rect x="786" y="740" width="136" height="68" rx="6" class="c-frontend" data-animate="node" style="--step:6" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(792 746) scale(0.6875)">
             <rect x="2" y="3" width="12" height="10" rx="2"/>
             <path d="M2 6.5h12"/>
             <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
             <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <g aria-hidden="true" data-brand-mark="telegram" data-brand-title="Telegram" data-brand-status="preset" data-brand-source="https://telegram.org/tour/screenshots" class="brand-mark" transform="translate(927.9999999999999 99)">
+          <g aria-hidden="true" data-brand-mark="telegram" data-brand-title="Telegram" data-brand-status="preset" data-brand-source="https://telegram.org/tour/screenshots" class="brand-mark" transform="translate(900 746)">
             <rect width="16" height="16" rx="4" class="brand-mark-badge"/>
             <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" transform="translate(3 3) scale(0.4166666666666667)" fill="#26A5E4"/>
             <rect width="16" height="16" rx="4" class="brand-mark-frame"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="879.9999999999999" y="114" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">3. Notify</text>
-          <text data-detail="context" x="879.9999999999999" y="131" class="t-muted" font-size="8" text-anchor="middle">Structured SRE report</text>
-        </g>
-
-        <g id="node-chat_node" data-node-id="chat_node" data-node-label="Interactive Chat" tabindex="0" role="button" aria-label="Focus Interactive Chat, Hermes Agent, Interactive chat branch › Interactive assistant › Triage &amp; Resolve, Telegram" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Hermes Agent" data-node-context="Interactive chat branch › Interactive assistant › Triage &amp; Resolve" data-node-brand="Telegram" data-node-brand-id="telegram" data-node-brand-status="preset" data-node-brand-source="https://telegram.org/tour/screenshots">
-          <title>Interactive Chat · Hermes Agent · Interactive chat branch › Interactive assistant › Triage &amp; Resolve · Telegram</title>
-          <rect x="608.5999999999999" y="217" width="150" height="52" rx="6" class="c-mask"/>
-          <rect x="608.5999999999999" y="217" width="150" height="52" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(614.5999999999999 223) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <g aria-hidden="true" data-brand-mark="telegram" data-brand-title="Telegram" data-brand-status="preset" data-brand-source="https://telegram.org/tour/screenshots" class="brand-mark" transform="translate(736.5999999999999 223)">
-            <rect width="16" height="16" rx="4" class="brand-mark-badge"/>
-            <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" transform="translate(3 3) scale(0.4166666666666667)" fill="#26A5E4"/>
-            <rect width="16" height="16" rx="4" class="brand-mark-frame"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="683.5999999999999" y="238" class="t-primary" font-size="9.7" font-weight="600" text-anchor="middle">Interactive Chat</text>
-          <text data-detail="context" x="683.5999999999999" y="255" class="t-muted" font-size="8" text-anchor="middle">Hermes Agent</text>
-        </g>
-
-        <g id="node-toolgate" data-node-id="toolgate" data-node-label="ToolGate Policy" tabindex="0" role="button" aria-label="Focus ToolGate Policy, All tool calls, both branches, Shared ToolGate and gateway › Zero-trust harness › Triage &amp; Resolve" aria-pressed="false" data-node-kind="security" data-node-sublabel="All tool calls, both branches" data-node-context="Shared ToolGate and gateway › Zero-trust harness › Triage &amp; Resolve">
-          <title>ToolGate Policy · All tool calls, both branches · Shared ToolGate and gateway › Zero-trust harness › Triage &amp; Resolve</title>
-          <rect x="613.5999999999999" y="341" width="140" height="52" rx="6" class="c-mask"/>
-          <rect x="613.5999999999999" y="341" width="140" height="52" rx="6" class="c-security" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(619.5999999999999 347) scale(0.6875)">
-            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
-            <path d="m5.8 8 1.5 1.5 3-3"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="683.5999999999999" y="362" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">ToolGate Policy</text>
-          <text data-detail="context" x="683.5999999999999" y="379" class="t-muted" font-size="7.5" text-anchor="middle">All tool calls, both branches</text>
-        </g>
-
-        <g id="node-mcp_gateway" data-node-id="mcp_gateway" data-node-label="sector5-mcp Gateway" tabindex="0" role="button" aria-label="Focus sector5-mcp Gateway, FastMCP Tool Exec, Shared ToolGate and gateway › Zero-trust harness › Notify" aria-pressed="false" data-node-kind="security" data-node-sublabel="FastMCP Tool Exec" data-node-context="Shared ToolGate and gateway › Zero-trust harness › Notify">
-          <title>sector5-mcp Gateway · FastMCP Tool Exec · Shared ToolGate and gateway › Zero-trust harness › Notify</title>
-          <rect x="809.9999999999999" y="341" width="140" height="52" rx="6" class="c-mask"/>
-          <rect x="809.9999999999999" y="341" width="140" height="52" rx="6" class="c-security" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(815.9999999999999 347) scale(0.6875)">
-            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
-            <path d="m5.8 8 1.5 1.5 3-3"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="879.9999999999999" y="362" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">sector5-mcp Gateway</text>
-          <text data-detail="context" x="879.9999999999999" y="379" class="t-muted" font-size="8" text-anchor="middle">FastMCP Tool Exec</text>
+          <text data-node-label="" data-detail-anchor="" x="854" y="761" class="t-primary" font-size="9" font-weight="600" text-anchor="middle">Incident Report</text>
+          <text data-detail="context" x="854" y="778" class="t-muted" font-size="8" text-anchor="middle">resolution &amp; traces</text>
+        <text data-detail="fine" x="854" y="796" class="t-frontend" font-size="7" text-anchor="middle">Langfuse trace</text>
         </g>
 
         <!-- Edge labels -->
-
-        <g data-detail="context" data-edge-from="route_node" data-edge-to="chat_node" data-edge-label="chat" data-edge-key="1" data-edge-id="e2">
-          <rect x="432.29999999999995" y="216" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="447.29999999999995" y="226" class="t-backend" font-size="8" text-anchor="middle">chat</text>
+        <g data-detail="context" data-edge-from="alerts" data-edge-to="router" data-edge-label="incident alert" data-edge-key="0" data-edge-id="alert-route">
+          <rect x="179.4" y="148" width="77.2" height="14" rx="3" class="c-mask"/>
+          <text x="218" y="158" class="t-backend" font-size="8" text-anchor="middle">incident alert</text>
         </g>
-        <g data-detail="context" data-edge-from="route_node" data-edge-to="triage" data-edge-label="incident" data-edge-key="2" data-edge-id="e3">
-          <rect x="360" y="99" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="384.2" y="109" class="t-security" font-size="8" text-anchor="middle">incident</text>
+        <g data-detail="context" data-edge-from="approval" data-edge-to="mcp" data-edge-label="approved" data-edge-key="1" data-edge-id="approval-mcp">
+          <rect x="726.0999999999999" y="634" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="750.3" y="644" class="t-backend" font-size="8" text-anchor="middle">approved</text>
         </g>
-        <g data-detail="context" data-edge-from="triage" data-edge-to="resolve" data-edge-label="unhandled" data-edge-key="3" data-edge-id="e4">
-          <rect x="556.4" y="99" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
-          <text x="583" y="109" class="t-backend" font-size="8" text-anchor="middle">unhandled</text>
+        <g data-detail="context" data-edge-from="chat_in" data-edge-to="router" data-edge-label="inbound turn" data-edge-key="2" data-edge-id="chat-route">
+          <rect x="138.7" y="808" width="67.6" height="14" rx="3" class="c-mask"/>
+          <text x="172.5" y="818" class="t-muted" font-size="8" text-anchor="middle">inbound turn</text>
         </g>
-        <g data-detail="context" data-edge-from="chat_node" data-edge-to="toolgate" data-edge-label="tools" data-edge-key="4" data-edge-id="e5">
-          <rect x="299.79999999999995" y="347" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="316.79999999999995" y="357" class="t-backend" font-size="8" text-anchor="middle">tools</text>
+        <g data-detail="context" data-edge-from="gate" data-edge-to="approval" data-edge-label="needs consent" data-edge-key="3" data-edge-id="gate-approval">
+          <rect x="629.4" y="609" width="72.4" height="14" rx="3" class="c-mask"/>
+          <text x="665.6" y="619" class="t-security" font-size="8" text-anchor="middle">needs consent</text>
         </g>
-        <g data-detail="context" data-edge-from="resolve" data-edge-to="toolgate" data-edge-label="actions" data-edge-key="5" data-edge-id="e6">
-          <rect x="704.8" y="400" width="43.6" height="14" rx="3" class="c-mask"/>
-          <text x="726.5999999999999" y="410" class="t-security" font-size="8" text-anchor="middle">actions</text>
+        <g data-detail="context" data-edge-from="gate" data-edge-to="mcp" data-edge-label="read-only / auto" data-edge-key="4" data-edge-id="gate-mcp-readonly">
+          <rect x="737.4" y="682" width="86.8" height="14" rx="3" class="c-mask"/>
+          <text x="780.8" y="692" class="t-muted" font-size="8" text-anchor="middle">read-only / auto</text>
         </g>
-        <g data-detail="context" data-edge-from="toolgate" data-edge-to="mcp_gateway" data-edge-label="approved" data-edge-key="6" data-edge-id="e7">
-          <rect x="800.5999999999999" y="400" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="824.8" y="410" class="t-security" font-size="8" text-anchor="middle">approved</text>
+        <g data-detail="context" data-edge-from="hermes" data-edge-to="gate" data-edge-label="tool call" data-edge-key="5" data-edge-id="hermes-gate">
+          <rect x="584.1999999999999" y="493" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
+          <text x="610.8" y="503" class="t-backend" font-size="8" text-anchor="middle">tool call</text>
         </g>
-
+        <g data-detail="context" data-edge-from="mcp" data-edge-to="notify" data-edge-label="verified recovery" data-edge-key="6" data-edge-id="mcp-notify">
+          <rect x="920" y="627" width="91.6" height="14" rx="3" class="c-mask"/>
+          <text x="965.8" y="637" class="t-backend" font-size="8" text-anchor="middle">verified recovery</text>
+        </g>
+        <g data-detail="context" data-edge-from="router" data-edge-to="hermes" data-edge-label="chat query" data-edge-key="7" data-edge-id="route-chat">
+          <rect x="349.5" y="353" width="58" height="14" rx="3" class="c-mask"/>
+          <text x="378.5" y="363" class="t-database" font-size="8" text-anchor="middle">chat query</text>
+        </g>
+        <g data-detail="context" data-edge-from="router" data-edge-to="runbooks" data-edge-label="triage incident" data-edge-key="8" data-edge-id="route-runbooks">
+          <rect x="308" y="283" width="82" height="14" rx="3" class="c-mask"/>
+          <text x="349" y="293" class="t-backend" font-size="8" text-anchor="middle">triage incident</text>
+        </g>
+        <g data-detail="context" data-edge-from="runbooks" data-edge-to="hermes" data-edge-label="inject runbook" data-edge-key="9" data-edge-id="runbooks-hermes">
+          <rect x="483.4" y="414" width="77.2" height="14" rx="3" class="c-mask"/>
+          <text x="522" y="424" class="t-backend" font-size="8" text-anchor="middle">inject runbook</text>
+        </g>
 
         <!-- Legend -->
         <g data-legend="" data-legend-bridge="">
-          <text x="20" y="428" class="t-primary" font-size="12" font-weight="650">Legend</text>
-          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="User UI" data-legend-x="20" data-legend-baseline="448" data-legend-width="74">
-            <rect x="20" y="440" width="14" height="9" rx="2" class="c-frontend" stroke-width="1"/>
-            <text x="42" y="448" class="t-muted" font-size="7.5" font-weight="500">User UI</text>
+          <text x="20" y="836" class="t-primary" font-size="12" font-weight="650">Legend</text>
+          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="User UI" data-legend-x="20" data-legend-baseline="856" data-legend-width="74">
+            <rect x="20" y="848" width="14" height="9" rx="2" class="c-frontend" stroke-width="1"/>
+            <text x="42" y="856" class="t-muted" font-size="7.5" font-weight="500">User UI</text>
           </g>
-          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Agent logic" data-legend-x="101" data-legend-baseline="448" data-legend-width="91">
-            <rect x="101" y="440" width="14" height="9" rx="2" class="c-backend" stroke-width="1"/>
-            <text x="123" y="448" class="t-muted" font-size="7.5" font-weight="500">Agent logic</text>
+          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Agent logic" data-legend-x="101" data-legend-baseline="856" data-legend-width="91">
+            <rect x="101" y="848" width="14" height="9" rx="2" class="c-backend" stroke-width="1"/>
+            <text x="123" y="856" class="t-muted" font-size="7.5" font-weight="500">Agent logic</text>
           </g>
-          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Policy" data-legend-x="199" data-legend-baseline="448" data-legend-width="70">
-            <rect x="199" y="440" width="14" height="9" rx="2" class="c-security" stroke-width="1"/>
-            <text x="221" y="448" class="t-muted" font-size="7.5" font-weight="500">Policy</text>
+          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Policy" data-legend-x="199" data-legend-baseline="856" data-legend-width="70">
+            <rect x="199" y="848" width="14" height="9" rx="2" class="c-security" stroke-width="1"/>
+            <text x="221" y="856" class="t-muted" font-size="7.5" font-weight="500">Policy</text>
           </g>
-          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="External system" data-legend-x="276" data-legend-baseline="448" data-legend-width="109">
-            <rect x="276" y="440" width="14" height="9" rx="2" class="c-external" stroke-width="1"/>
-            <text x="298" y="448" class="t-muted" font-size="7.5" font-weight="500">External system</text>
+          <g data-legend-semantic-kind="messagebus" data-legend-kind="messagebus" data-legend-label="Tool action" data-legend-x="276" data-legend-baseline="856" data-legend-width="91">
+            <rect x="276" y="848" width="14" height="9" rx="2" class="c-messagebus" stroke-width="1"/>
+            <text x="298" y="856" class="t-muted" font-size="7.5" font-weight="500">Tool action</text>
+          </g>
+          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Context / trace" data-legend-x="374" data-legend-baseline="856" data-legend-width="109">
+            <rect x="374" y="848" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
+            <text x="396" y="856" class="t-muted" font-size="7.5" font-weight="500">Context / trace</text>
+          </g>
+          <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="Cloud service" data-legend-x="490" data-legend-baseline="856" data-legend-width="100">
+            <rect x="490" y="848" width="14" height="9" rx="2" class="c-cloud" stroke-width="1"/>
+            <text x="512" y="856" class="t-muted" font-size="7.5" font-weight="500">Cloud service</text>
+          </g>
+          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="External system" data-legend-x="597" data-legend-baseline="856" data-legend-width="109">
+            <rect x="597" y="848" width="14" height="9" rx="2" class="c-external" stroke-width="1"/>
+            <text x="619" y="856" class="t-muted" font-size="7.5" font-weight="500">External system</text>
           </g>
         </g>
       </svg>
@@ -5404,36 +5492,22 @@
       <div class="card">
         <div class="card-header">
           <div class="card-dot cyan"></div>
-          <h3>One Workflow, Dual Branches</h3>
+          <h3>Deterministic Triage</h3>
         </div>
         <ul>
-          <li>&bull; Interactive Chat Branch: Hermes agent assists the operator and runs operational tools</li>
-          <li>&bull; Autonomous Incident Branch: Fast-path triage followed by autonomous Hermes resolution</li>
-          <li>&bull; Unified Hermes engine drives tool calling, domain investigation, and structured reporting</li>
+          <li>&bull; Alerts bypass LLM router straight to incident triage</li>
+          <li>&bull; Known alerts match curated Markdown runbooks before LLM reasoning</li>
         </ul>
       </div>
 
       <div class="card">
         <div class="card-header">
-          <div class="card-dot emerald"></div>
-          <h3>Strict ToolGate Safety</h3>
+          <div class="card-dot rose"></div>
+          <h3>Fail-Closed Safety</h3>
         </div>
         <ul>
-          <li>&bull; Read-only tools always execute immediately without interruption</li>
-          <li>&bull; State-changing tools require Telegram HITL operator approval buttons</li>
-          <li>&bull; Guarantees the model cannot apply unapproved mutations without confirmation</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot violet"></div>
-          <h3>Comprehensive Observability</h3>
-        </div>
-        <ul>
-          <li>&bull; Every event generates a single hierarchical Langfuse trace tree</li>
-          <li>&bull; Child spans record exact tool parameters, outputs, and token usage</li>
-          <li>&bull; Clean operational execution without heavy graph checkpoints or state bloat</li>
+          <li>&bull; Every tool call passes through ToolGate before reaching upstream</li>
+          <li>&bull; State-changing mutations require Telegram HITL operator approval</li>
         </ul>
       </div>
     </div>
