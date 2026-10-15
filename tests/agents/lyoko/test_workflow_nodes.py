@@ -90,18 +90,18 @@ def test_format_incident_report():
 
     from lyoko.domain.models.incident import IncidentStatus
 
-    delegated_state = {
+    escalated_with_delegation_state = {
         "event_type": "alert",
         "is_resolved": False,
-        "status": IncidentStatus.DELEGATED,
-        "pending_delegation": {"domain": "kubernetes"},
+        "status": IncidentStatus.ESCALATED,
+        "delegation_history": [{"domain": "kubernetes", "task": "Investigate pod"}],
         "alert_name": "OutOfSync",
         "root_cause": "Investigating with tools",
         "action_taken": "Delegated to kubernetes specialist",
     }
-    delegated_report = format_incident_report(delegated_state)
-    assert "**Status:** 🔄 DELEGATED (kubernetes)" in delegated_report
-    assert "ESCALATED" not in delegated_report
+    escalated_report = format_incident_report(escalated_with_delegation_state)
+    assert "**Status:** 🚨 ESCALATED / REQUIRES ACTION" in escalated_report
+    assert "**Specialists Consulted:** `kubernetes`" in escalated_report
 
 
 @pytest.mark.asyncio

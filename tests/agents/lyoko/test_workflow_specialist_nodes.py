@@ -33,10 +33,7 @@ async def test_specialist_node_runs_specialist_and_updates_state():
 
     result = await node(state, {})
 
-    from lyoko.domain.models.incident import IncidentStatus
-
     assert result["pending_delegation"] is None
-    assert result["status"] == IncidentStatus.DELEGATED
     assert result["delegated_to"] == "kubernetes"
     assert len(result["delegation_history"]) == 1
     assert result["delegation_history"][0]["domain"] == "kubernetes"
@@ -46,15 +43,14 @@ async def test_specialist_node_runs_specialist_and_updates_state():
 
 
 @pytest.mark.asyncio
-async def test_specialist_node_updates_progress_message():
+async def test_specialist_node_streams_status_updates():
     mock_specialist = MagicMock()
     mock_specialist.run = AsyncMock(return_value="Restarted 0 pods.")
-    mock_chat = AsyncMock()
+    mock_on_status = AsyncMock()
 
     node = create_specialist_node(
         domain="kubernetes",
         specialist=mock_specialist,
-        chat_manager=mock_chat,
     )
 
     state = {
@@ -63,13 +59,13 @@ async def test_specialist_node_updates_progress_message():
             "domain": "kubernetes",
             "task": "Investigate bentopdf",
         },
-        "progress_message_id": "999",
-        "progress_chat_id": "12345",
     }
+    config = {"configurable": {"on_status": mock_on_status}}
 
-    result = await node(state, {})
-    assert result["status"] == "delegated"
-    assert mock_chat.edit_message.await_count == 2
+    result = await node(state, config)
+    assert result["delegated_to"] == "kubernetes"
+    assert result["pending_delegation"] is None
+    assert mock_on_status.await_count >= 2
 
 
 @pytest.mark.asyncio

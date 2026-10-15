@@ -60,37 +60,3 @@ def test_format_verifying_status():
     assert "• *Root Cause:* Memory limit too low" in status
     assert "• *Action Taken:* Scaled memory to 1Gi" in status
     assert "🔬 *Phase: Verify*" in status
-
-
-def test_format_delegating_status():
-    from lyoko.domain.models.incident import IncidentStatus
-
-    state = {"alert_name": "KubePodCrashLooping"}
-    status = IncidentStatusFormatter.format_delegating_status(
-        state,
-        domain="kubernetes",
-        task="Inspect pod events and recent crash logs",
-    )
-    assert (
-        f"• *Status:* {IncidentStatus.DELEGATED.badge} — Consulting `kubernetes` specialist"
-        in status
-    )
-    assert "Inspect pod events and recent crash logs" in status
-    assert "🧩 *Phase: Specialist Execution*" in status
-
-
-def test_format_delegation_completed_status():
-    from lyoko.domain.models.incident import IncidentStatus
-
-    state = {"alert_name": "KubePodCrashLooping"}
-    status = IncidentStatusFormatter.format_delegation_completed_status(
-        state,
-        domain="kubernetes",
-        summary="Pod OOMKilled due to 512Mi limit",
-    )
-    assert (
-        f"• *Status:* {IncidentStatus.DELEGATED.badge} — `kubernetes` specialist completed execution"
-        in status
-    )
-    assert "Pod OOMKilled due to 512Mi limit" in status
-    assert "🧠 *Phase: Coordinator*" in status

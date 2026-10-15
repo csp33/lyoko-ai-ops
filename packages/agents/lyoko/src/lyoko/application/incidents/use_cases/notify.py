@@ -19,7 +19,6 @@ def format_incident_report(state: dict[str, Any]) -> str:
     """Build a structured Markdown incident summary from workflow state."""
     resolved = bool(state.get("is_resolved"))
     raw_status = state.get("status")
-    pending = state.get("pending_delegation")
 
     status_enum: IncidentStatus | None = None
     if isinstance(raw_status, IncidentStatus):
@@ -32,13 +31,6 @@ def format_incident_report(state: dict[str, Any]) -> str:
 
     if resolved or status_enum == IncidentStatus.RESOLVED:
         status = IncidentStatus.RESOLVED.badge
-    elif status_enum == IncidentStatus.DELEGATED or pending or state.get("is_delegated"):
-        domain = ""
-        if isinstance(pending, dict) and pending.get("domain"):
-            domain = f" ({pending['domain']})"
-        elif state.get("delegated_to"):
-            domain = f" ({state['delegated_to']})"
-        status = f"{IncidentStatus.DELEGATED.badge}{domain}"
     elif status_enum is not None:
         status = status_enum.badge
     else:
@@ -61,6 +53,11 @@ def format_incident_report(state: dict[str, Any]) -> str:
             "**Tool Calls:** "
             + ", ".join(IncidentContextFormatter.describe_call(a) for a in actions)
         )
+    delegations = state.get("delegation_history") or []
+    if delegations:
+        domains = list(dict.fromkeys(d.get("domain") for d in delegations if d.get("domain")))
+        if domains:
+            lines.append(f"**Specialists Consulted:** {', '.join(f'`{dom}`' for dom in domains)}")
     if state.get("verification"):
         lines.append(f"**Verification:** {state['verification']}")
     return "\n".join(lines)
