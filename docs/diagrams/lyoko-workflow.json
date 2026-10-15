@@ -7,56 +7,246 @@
     "quality_profile": "showcase",
     "views": [
       {
-        "id": "main-flow",
-        "label": "End-to-End Pipeline",
-        "focus": ["event_in", "router", "runbooks", "hermes", "toolgate", "mcp_gateway"],
-        "note": "Linear autonomous remediation pipeline from intake to execution."
+        "id": "e2e-pipeline",
+        "label": "End-to-End Remediation",
+        "focus": [
+          "event_in",
+          "router",
+          "runbooks",
+          "hermes",
+          "toolgate",
+          "mcp_gateway",
+          "report"
+        ],
+        "note": "Autonomous operational pipeline from event intake to verified resolution."
       },
       {
-        "id": "safety-hitl",
+        "id": "safety-harness",
         "label": "ToolGate & Human Approval",
-        "focus": ["hermes", "toolgate", "hitl_approval", "mcp_gateway", "notify"],
-        "note": "Fail-closed safety harness pausing mutations for operator approval."
+        "focus": [
+          "hermes",
+          "toolgate",
+          "approval",
+          "mcp_gateway",
+          "report"
+        ],
+        "note": "Fail-closed safety harness pausing state-changing mutations for operator consent."
       }
     ],
     "output": "docs/diagrams/lyoko-workflow.html"
   },
   "lanes": [
-    { "id": "pipeline", "label": "Autonomous Operations Pipeline" },
-    { "id": "telegram_lane", "label": "Telegram HITL & Reporting", "variant": "exception" }
+    {
+      "id": "pipeline",
+      "label": "Autonomous Operations Pipeline"
+    },
+    {
+      "id": "telegram",
+      "label": "Telegram HITL & Incident Reporting",
+      "variant": "exception"
+    }
   ],
   "phases": [
-    { "id": "intake", "label": "Intake", "fromCol": 0, "toCol": 1 },
-    { "id": "triage", "label": "Triage", "fromCol": 2, "toCol": 2, "variant": "emphasis" },
-    { "id": "cognition", "label": "Reasoning", "fromCol": 3, "toCol": 3, "variant": "emphasis" },
-    { "id": "safety", "label": "Policy", "fromCol": 4, "toCol": 4, "variant": "dashed" },
-    { "id": "execution", "label": "Execution", "fromCol": 5, "toCol": 5, "variant": "dashed" }
+    {
+      "id": "intake",
+      "label": "Intake & Routing",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "triage",
+      "label": "Runbook Lookup",
+      "fromCol": 2,
+      "toCol": 2,
+      "variant": "emphasis"
+    },
+    {
+      "id": "cognition",
+      "label": "Hermes Reasoning",
+      "fromCol": 3,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "safety",
+      "label": "Policy & Approval",
+      "fromCol": 4,
+      "toCol": 4,
+      "variant": "dashed"
+    },
+    {
+      "id": "execution",
+      "label": "Execution & Report",
+      "fromCol": 5,
+      "toCol": 5,
+      "variant": "dashed"
+    }
   ],
-  "groups": [
-    { "id": "triage_group", "label": "Deterministic Fast Path", "lane": "pipeline", "fromCol": 1, "toCol": 2, "variant": "emphasis" },
-    { "id": "safety_group", "label": "Fail-Closed Gate", "lane": "telegram_lane", "fromCol": 4, "toCol": 5, "variant": "security" }
+  "groups": [],
+  "mainPath": [
+    "event_in",
+    "router",
+    "runbooks",
+    "hermes",
+    "toolgate",
+    "mcp_gateway",
+    "report"
   ],
-  "mainPath": ["event_in", "router", "runbooks", "hermes", "toolgate", "mcp_gateway"],
   "nodes": [
-    { "id": "event_in", "lane": "pipeline", "col": 0, "type": "messagebus", "brand": "prometheus", "label": "Ingress", "sublabel": "Alert / Chat", "width": 110 },
-    { "id": "router", "lane": "pipeline", "col": 1, "type": "backend", "label": "Router", "sublabel": "Chat vs Alert", "tag": "Classifier", "width": 110 },
-    { "id": "runbooks", "lane": "pipeline", "col": 2, "type": "database", "label": "Runbooks", "sublabel": "Zero-LLM", "tag": "Fast Path", "width": 110 },
-    { "id": "hermes", "lane": "pipeline", "col": 3, "type": "backend", "brand": "openai", "label": "Hermes", "sublabel": "Autonomous SRE", "tag": "ReAct Loop", "width": 110 },
-    { "id": "toolgate", "lane": "pipeline", "col": 4, "type": "security", "label": "ToolGate", "sublabel": "Policy Check", "tag": "Fail-Closed", "width": 110 },
-    { "id": "hitl_approval", "lane": "telegram_lane", "col": 4, "type": "security", "brand": "telegram", "label": "Approval", "sublabel": "Approve / Deny", "tag": "Operator", "width": 110 },
-    { "id": "mcp_gateway", "lane": "pipeline", "col": 5, "type": "cloud", "brand": "kubernetes", "label": "Gateway", "sublabel": "sector5-mcp", "tag": "K8s / IoT / UniFi", "width": 110 },
-    { "id": "notify", "lane": "telegram_lane", "col": 5, "type": "frontend", "brand": "telegram", "label": "Report", "sublabel": "Verified Status", "tag": "Langfuse", "width": 110 }
+    {
+      "id": "event_in",
+      "lane": "pipeline",
+      "col": 0,
+      "type": "messagebus",
+      "brand": "prometheus",
+      "label": "Ingress",
+      "sublabel": "Alerts & Telegram",
+      "width": 110
+    },
+    {
+      "id": "router",
+      "lane": "pipeline",
+      "col": 1,
+      "type": "backend",
+      "label": "Event Classifier",
+      "sublabel": "Chat vs Incident",
+      "tag": "Deterministic / LLM",
+      "width": 110
+    },
+    {
+      "id": "runbooks",
+      "lane": "pipeline",
+      "col": 2,
+      "type": "database",
+      "label": "Runbook Matcher",
+      "sublabel": "Fast-path lookup",
+      "tag": "Zero-LLM",
+      "width": 110
+    },
+    {
+      "id": "hermes",
+      "lane": "pipeline",
+      "col": 3,
+      "type": "backend",
+      "brand": "openai",
+      "label": "Hermes",
+      "sublabel": "ReAct reasoning loop",
+      "tag": "Autonomous SRE",
+      "width": 110
+    },
+    {
+      "id": "toolgate",
+      "lane": "pipeline",
+      "col": 4,
+      "type": "security",
+      "label": "ToolGate Harness",
+      "sublabel": "Inspects every tool",
+      "tag": "Fail-closed",
+      "width": 110
+    },
+    {
+      "id": "mcp_gateway",
+      "lane": "pipeline",
+      "col": 5,
+      "type": "cloud",
+      "brand": "kubernetes",
+      "label": "sector5-mcp",
+      "sublabel": "K8s / IoT / UniFi",
+      "tag": "Unified gateway",
+      "width": 110
+    },
+    {
+      "id": "approval",
+      "lane": "telegram",
+      "col": 4,
+      "type": "security",
+      "brand": "telegram",
+      "label": "Approval",
+      "sublabel": "Approve / Deny",
+      "tag": "Operator buttons",
+      "width": 110
+    },
+    {
+      "id": "report",
+      "lane": "telegram",
+      "col": 5,
+      "type": "frontend",
+      "brand": "telegram",
+      "label": "Report",
+      "sublabel": "Verified recovery",
+      "tag": "Langfuse trace",
+      "width": 110
+    }
   ],
   "edges": [
-    { "id": "e_ingress", "from": "event_in", "to": "router", "label": "event", "variant": "emphasis" },
-    { "id": "e_triage", "from": "router", "to": "runbooks", "label": "incident", "variant": "emphasis" },
-    { "id": "e_chat", "from": "router", "to": "hermes", "label": "chat", "variant": "dashed" },
-    { "id": "e_runbook", "from": "runbooks", "to": "hermes", "label": "runbook", "variant": "emphasis" },
-    { "id": "e_toolcall", "from": "hermes", "to": "toolgate", "label": "tool call", "variant": "emphasis" },
-    { "id": "e_readonly", "from": "toolgate", "to": "mcp_gateway", "label": "read-only", "variant": "default" },
-    { "id": "e_needs_approval", "from": "toolgate", "to": "hitl_approval", "label": "mutation", "variant": "security" },
-    { "id": "e_approved", "from": "hitl_approval", "to": "mcp_gateway", "label": "approved", "variant": "emphasis" },
-    { "id": "e_notify", "from": "mcp_gateway", "to": "notify", "label": "verified", "variant": "emphasis" }
+    {
+      "id": "e_ingress",
+      "from": "event_in",
+      "to": "router",
+      "label": "incoming event",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e_triage",
+      "from": "router",
+      "to": "runbooks",
+      "label": "incident alert",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e_runbook",
+      "from": "runbooks",
+      "to": "hermes",
+      "label": "injected runbook",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e_toolcall",
+      "from": "hermes",
+      "to": "toolgate",
+      "label": "tool call",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "e_readonly",
+      "from": "toolgate",
+      "to": "mcp_gateway",
+      "label": "read-only / auto",
+      "variant": "default"
+    },
+    {
+      "id": "e_needs_approval",
+      "from": "toolgate",
+      "to": "approval",
+      "variant": "security",
+      "route": "straight",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e_approved",
+      "from": "approval",
+      "to": "mcp_gateway",
+      "label": "approved",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_report",
+      "from": "mcp_gateway",
+      "to": "report",
+      "variant": "emphasis",
+      "route": "straight",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
   ],
   "cards": [
     {
