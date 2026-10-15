@@ -29,7 +29,7 @@
   },
   "participants": [
     { "id": "alertmanager", "type": "external", "label": "Alertmanager", "sublabel": "Prometheus Alerts", "brand": "prometheus" },
-    { "id": "lyoko", "type": "backend", "label": "LYOKO Agent", "sublabel": "LangGraph Loop", "brand": "openai" },
+    { "id": "lyoko", "type": "backend", "label": "LYOKO Agent", "sublabel": "Hermes Engine", "brand": "openai" },
     { "id": "postgres", "type": "database", "label": "Vector Memory", "sublabel": "PostgreSQL pgvector", "brand": "postgresql" },
     { "id": "mcp_gw", "type": "security", "label": "sector5-mcp", "sublabel": "Tool Gate & Safety" },
     { "id": "operator_tg", "type": "frontend", "label": "Operator", "sublabel": "Telegram HITL", "brand": "telegram" },

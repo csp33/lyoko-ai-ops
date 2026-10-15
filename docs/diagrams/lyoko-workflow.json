@@ -2,7 +2,7 @@
   "schema_version": 2,
   "diagram_type": "workflow",
   "meta": {
-    "title": "LYOKO LangGraph StateGraph Architecture",
+    "title": "LYOKO Autonomous Workflow Architecture",
     "quality_profile": "showcase",
     "views": [
       {
@@ -262,11 +262,11 @@
   "cards": [
     {
       "dot": "cyan",
-      "title": "One Graph, Dual Branches",
+      "title": "One Workflow, Dual Branches",
       "items": [
-        "Interactive Chat Branch: Multi-agent supervisor coordinates domain specialists",
+        "Interactive Chat Branch: Multi-turn Hermes agent coordinates domain specialists",
         "Autonomous Incident Branch: 4-stage deterministic SRE remediation lifecycle",
-        "LangGraph StateGraph guarantees typed transitions and checkpointed state"
+        "Autonomous Hermes engine drives tool calling, domain investigation, and structured reporting"
       ]
     },
     {

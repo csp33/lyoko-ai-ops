@@ -18,7 +18,6 @@ SCALE_ARGS = {"name": "radarr", "namespace": "media", "replicas": 0}
 
 @pytest.fixture(autouse=True)
 def fast_verification(monkeypatch):
-    monkeypatch.setattr("lyoko.config.settings.lyoko_orchestrator", "langgraph")
     monkeypatch.setattr("lyoko.application.workflow.graph.settings.verification_delay_seconds", 0)
     monkeypatch.setattr("lyoko.application.workflow.graph.settings.auto_approved_tools", [])
 
@@ -205,16 +204,15 @@ async def test_report_lists_what_the_gate_allowed():
 
 
 @pytest.mark.asyncio
-async def test_workflow_works_with_a_checkpointer():
-    from langgraph.checkpoint.memory import MemorySaver
-
+async def test_workflow_state_snapshot():
     llm = ScriptedLLM(diagnose=DIAGNOSIS_NOT_ACTIONABLE)
-    workflow = create_lyoko_graph(mcp_client=FakeMCPClient(), checkpointer=MemorySaver(), llm=llm)
+    workflow = create_lyoko_graph(mcp_client=FakeMCPClient(), llm=llm)
     config = {"configurable": {"thread_id": "incident-abc"}}
 
     await workflow.ainvoke(_state(), config=config)
 
     saved = await workflow.aget_state(config)
+    assert saved is not None
     assert "credentials" in saved.values["root_cause"]
 
 

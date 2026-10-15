@@ -2,7 +2,6 @@ import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from lyoko.composition import build_domain_specialists, build_llm_adapter, build_supervisor
 from lyoko.config import settings
 from lyoko.infrastructure.api.server import create_app, lifespan
@@ -13,7 +12,6 @@ from lyoko.logging_config import HealthEndpointFilter
 async def test_healthz_endpoint():
     app = create_app()
     async with lifespan(app):
-        # Without postgres credentials, app state has no checkpointer
         assert app.state.workflow_engine is not None
         assert "kubernetes" in app.state.specialists
         assert "unifi" in app.state.specialists
@@ -59,24 +57,22 @@ def test_create_app_wires_a_stronger_diagnose_model(monkeypatch):
 
 
 @pytest.mark.asyncio
-@patch("lyoko.infrastructure.api.server.AsyncPostgresSaver")
+@patch("lyoko.infrastructure.api.server.PostgresMemoryRepository")
 @patch("lyoko.infrastructure.api.server.AsyncConnectionPool")
-async def test_lifespan_with_postgres_configured(mock_pool_cls, mock_saver_cls):
+async def test_lifespan_with_postgres_configured(mock_pool_cls, mock_repo_cls):
     mock_pool = MagicMock()
     mock_pool.open = AsyncMock()
     mock_pool.close = AsyncMock()
     mock_pool_cls.return_value = mock_pool
 
-    mock_saver = MagicMock(spec=AsyncPostgresSaver)
-    mock_saver.setup = AsyncMock()
-    mock_saver_cls.return_value = mock_saver
+    mock_repo = MagicMock()
+    mock_repo_cls.return_value = mock_repo
 
     with patch("lyoko.infrastructure.api.server.settings.postgres_password", "testpassword"):
         app = create_app()
         async with lifespan(app):
             mock_pool.open.assert_awaited_once()
-            mock_saver.setup.assert_awaited_once()
-            assert app.state.checkpointer is mock_saver
+            assert app.state.memory_repository is mock_repo
             assert app.state.db_pool is mock_pool
 
         mock_pool.close.assert_awaited_once()

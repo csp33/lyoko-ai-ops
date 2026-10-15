@@ -127,7 +127,7 @@ class LangfuseTracer(TracerInterface):
         tags: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Build a LangChain / LangGraph RunnableConfig dict with Langfuse tracing, session, and metadata."""
+        """Build a RunnableConfig dict with Langfuse tracing, session, and metadata."""
         config: dict[str, Any] = {}
         handler = self.get_callback_handler(trace_id=trace_id)
         if handler:
@@ -198,7 +198,7 @@ def get_langfuse_trace_config(
     tags: list[str] | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Create a full LangChain/LangGraph trace config dict with Langfuse session_id, user_id, tags and metadata."""
+    """Create a full trace config dict with Langfuse session_id, user_id, tags and metadata."""
     if not settings.langfuse_enabled:
         return {}
 

@@ -128,12 +128,7 @@ class AgentSettings(BaseSettings):
         ge=1,
         description="Maximum supervisor delegation iterations per phase",
     )
-    # Agent Orchestrator & Budget Controls
-    lyoko_orchestrator: str = Field(
-        default="hermes",
-        validation_alias=AliasChoices("lyoko_orchestrator", "orchestrator"),
-        description="Execution orchestrator for LLM tool use ('hermes' or 'langgraph')",
-    )
+    # Hermes Agent & Budget Controls
     hermes_venv_path: str = Field(
         default=".venv-hermes",
         validation_alias=AliasChoices("hermes_venv_path", "hermes_path"),
@@ -237,7 +232,7 @@ class AgentSettings(BaseSettings):
     max_concurrent_incidents: int = Field(
         default=2,
         ge=1,
-        description="Maximum concurrent LangGraph incident investigation workflows allowed",
+        description="Maximum concurrent incident investigation workflows allowed",
     )
     memory_similarity_threshold: float = Field(
         default=0.2,
@@ -289,7 +284,7 @@ class AgentSettings(BaseSettings):
         ),
     )
 
-    # PostgreSQL Checkpointer (Persistent LangGraph state)
+    # PostgreSQL Database (Episodic Memory & Advisory Locks)
     postgres_uri: str | None = Field(
         default=None,
         description="Full PostgreSQL connection URI (e.g., postgresql://user:pass@host:5432/dbname)",

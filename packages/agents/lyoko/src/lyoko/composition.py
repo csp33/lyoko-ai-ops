@@ -33,7 +33,6 @@ from lyoko.infrastructure.chat.manager import ChatManager
 from lyoko.infrastructure.chat.telegram import TelegramConnector
 from lyoko.infrastructure.db.memory_repository import PostgresMemoryRepository
 from lyoko.infrastructure.embeddings import EmbeddingsService
-from lyoko.infrastructure.llm.harness_runner import ReActHarnessRunner
 from lyoko.infrastructure.llm.hermes_runner import HermesHarnessRunner
 from lyoko.infrastructure.llm.openai import OpenAILLMAdapter
 from lyoko.infrastructure.observability.langfuse import LangfuseTracer
@@ -73,22 +72,19 @@ def build_llm_adapter(
     storage = ScratchpadFileStorage()
     buffer_service = SmartOutputBufferService(storage=storage)
 
-    if settings.lyoko_orchestrator.lower() == "hermes":
-        budget_config = BudgetConfig(
-            max_turns=max(
-                settings.max_turns_chat,
-                settings.max_turns_diagnose,
-                settings.max_turns_remediate,
-            ),
-            max_budget_usd=settings.max_budget_usd_per_event,
-            cycle_detection_window=settings.cycle_detection_window,
-        )
-        harness_runner = HermesHarnessRunner(
-            buffer_service=buffer_service,
-            budget_config=budget_config,
-        )
-    else:
-        harness_runner = ReActHarnessRunner(buffer_service=buffer_service)
+    budget_config = BudgetConfig(
+        max_turns=max(
+            settings.max_turns_chat,
+            settings.max_turns_diagnose,
+            settings.max_turns_remediate,
+        ),
+        max_budget_usd=settings.max_budget_usd_per_event,
+        cycle_detection_window=settings.cycle_detection_window,
+    )
+    harness_runner = HermesHarnessRunner(
+        buffer_service=buffer_service,
+        budget_config=budget_config,
+    )
 
     return OpenAILLMAdapter(
         api_key=_secret(settings.openai_api_key),

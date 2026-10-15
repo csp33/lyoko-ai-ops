@@ -5,7 +5,6 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from lyoko.application.incidents.recovery import OrphanRecoveryService
 from lyoko.application.incidents.use_cases.resolve import ResolveIncidentUseCase
 from lyoko.application.safety.alert_guard import AlertStormProtector
@@ -50,7 +49,7 @@ async def lifespan(app: FastAPI):
     if db_uri:
         try:
             logger.info(
-                f"Connecting to PostgreSQL checkpointer at {settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}..."
+                f"Connecting to PostgreSQL at {settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}..."
             )
             pool = AsyncConnectionPool(
                 conninfo=db_uri,
@@ -63,11 +62,6 @@ async def lifespan(app: FastAPI):
             )
             await asyncio.wait_for(pool.open(), timeout=5.0)
 
-            # Setup LangGraph checkpointer
-            checkpointer = AsyncPostgresSaver(pool)
-            await asyncio.wait_for(checkpointer.setup(), timeout=5.0)
-            logger.info("PostgreSQL checkpointer initialized and tables ready.")
-
             # Setup Memory repository
             memory_repo = PostgresMemoryRepository(pool)
             logger.info("PostgreSQL memory repository initialized.")
@@ -76,11 +70,10 @@ async def lifespan(app: FastAPI):
             if pool:
                 await pool.close()
                 pool = None
-            checkpointer = None
             memory_repo = None
     else:
         logger.warning(
-            "No PostgreSQL credentials configured. LYOKO running without persistent memory & checkpointer."
+            "No PostgreSQL credentials configured. LYOKO running without persistent memory."
         )
 
     llm = getattr(app.state, "llm", None) or build_llm_adapter()
@@ -129,22 +122,17 @@ async def lifespan(app: FastAPI):
 
     skill_matcher = getattr(app.state, "skill_matcher", None) or build_skill_matcher()
 
-    is_autonomous = settings.lyoko_orchestrator.lower() == "hermes"
-    graph_supervisor = None if is_autonomous else supervisor
-    graph_diagnose_supervisor = None if is_autonomous else diagnose_supervisor
-    incident_use_case = None
-    if is_autonomous:
-        incident_use_case = ResolveIncidentUseCase(
-            mcp_client=mcp_client,
-            llm=diagnose_llm or llm,
-            supervisor=None,
-            approval_manager=approval_manager,
-            chat_manager=chat_manager,
-            memory_repository=None,
-            embeddings_service=None,
-            skill_matcher_service=skill_matcher,
-            default_chat_id=settings.telegram_default_chat_id or "",
-        )
+    incident_use_case = ResolveIncidentUseCase(
+        mcp_client=mcp_client,
+        llm=diagnose_llm or llm,
+        supervisor=None,
+        approval_manager=approval_manager,
+        chat_manager=chat_manager,
+        memory_repository=None,
+        embeddings_service=None,
+        skill_matcher_service=skill_matcher,
+        default_chat_id=settings.telegram_default_chat_id or "",
+    )
 
     # Rebuilt now that the checkpointer exists. Everything reads the graph from app.state.
     workflow_engine = create_lyoko_graph(
@@ -153,12 +141,12 @@ async def lifespan(app: FastAPI):
         chat_manager=chat_manager,
         checkpointer=checkpointer,
         llm=llm,
-        supervisor=graph_supervisor,
+        supervisor=None,
         specialists=specialists,
         memory_repository=memory_repo,
         embeddings_service=embeddings_service,
         diagnose_llm=diagnose_llm,
-        diagnose_supervisor=graph_diagnose_supervisor,
+        diagnose_supervisor=None,
         tracer=getattr(app.state, "tracer", None),
         triage_handlers=triage_handlers,
         skill_matcher_service=skill_matcher,
@@ -250,7 +238,7 @@ def create_app() -> FastAPI:
     @app.get("/healthz")
     @app.get("/health")
     async def health_check():
-        has_db = getattr(app.state, "checkpointer", None) is not None
+        has_db = getattr(app.state, "db_pool", None) is not None
         has_memory = getattr(app.state, "memory_repository", None) is not None
         return {
             "status": "healthy",

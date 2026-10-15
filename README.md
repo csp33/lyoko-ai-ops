@@ -13,7 +13,7 @@
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![FastMCP](https://img.shields.io/badge/FastMCP-gateway-009688.svg?style=flat)](https://github.com/jlowin/fastmcp)
-[![LangGraph](https://img.shields.io/badge/LangGraph-workflow-orange.svg?style=flat)](https://github.com/langchain-ai/langgraph)
+[![Hermes Agent](https://img.shields.io/badge/Hermes-Agent-0066FF.svg?style=flat)](https://github.com/NousResearch/Hermes-Function-Calling)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-336791.svg?style=flat&logo=postgresql&logoColor=white)](https://github.com/pgvector/pgvector)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -29,7 +29,7 @@
 
 ## Overview
 
-**LYOKO AIOps** is an event-driven, self-healing SRE platform built around a hierarchical multi-agent engine (**LYOKO**) and a unified, guardrail-protected tool gateway (**`sector5-mcp`**). 
+**LYOKO AIOps** is an event-driven, self-healing SRE platform built around an autonomous remediation engine (**LYOKO**, powered by Hermes Agent) and a unified, guardrail-protected tool gateway (**`sector5-mcp`**). 
 
 When incidents occur, the system diagnoses root causes using read-only specialists, retrieves prior lessons from persistent vector memory (**PostgreSQL + pgvector**), and requests human approval (HITL) via **Telegram** before applying any state modification.
 
@@ -51,7 +51,7 @@ When incidents occur, the system diagnoses root causes using read-only specialis
 - **Continuous Episodic Memory**: Stores incident resolutions and operator rules as vector embeddings in PostgreSQL. Retrieves relevant lessons during triage and allows operators to teach custom operational guidelines on the fly.
 - **Zero-Trust Safety Harness**: Investigation and verification phases are strictly read-only. Destructive shell commands and protected namespaces are blocked at the gateway, while state-changing operations require explicit operator approval.
 - **Unified Tool Gateway**: Aggregates Kubernetes, UniFi Network, Home Assistant, Grafana, and GitHub behind a single authenticated FastMCP gateway over Streamable HTTP and stdio.
-- **Hierarchical Multi-Agent Engine**: A central LangGraph supervisor coordinates specialized domain subagents for cluster, network, smart home, and observability operations.
+- **Autonomous SRE Engine**: Powered by Hermes Agent, LYOKO coordinates domain investigations, diagnoses root causes, remediates incidents under ToolGate supervision, and produces structured reports.
 
 ---
 
@@ -75,7 +75,7 @@ When incidents occur, the system diagnoses root causes using read-only specialis
 | Package | Role | Description |
 | :--- | :--- | :--- |
 | [`sector5-mcp`](packages/mcps/sector5-mcp) | Tool Gateway | FastMCP server aggregating upstream APIs with authentication, per-domain tool catalogs, and namespace guardrails. |
-| [`lyoko`](packages/agents/lyoko) | Multi-Agent Engine | LangGraph orchestrator with hierarchical domain specialists, Telegram approvals, and episodic vector memory. |
+| [`lyoko`](packages/agents/lyoko) | Autonomous SRE Engine | Hermes-powered autonomous agent with domain specialists, Telegram approvals, and episodic vector memory. |
 
 ---
 
@@ -103,7 +103,7 @@ For environment variables, local `uv` development, and testing guides, see the [
 - [System Architecture](docs/architecture.md): Multi-agent design, sequence diagrams, and vector memory model.
 - [Security & Guardrails](docs/security-guardrails.md): Namespace protections, command execution filtering, and GitOps policies.
 - [`sector5-mcp` Gateway](packages/mcps/sector5-mcp/README.md): Available tools, scoped search, and IDE integration.
-- [`lyoko` Agent](packages/agents/lyoko/README.md): StateGraph workflows, Alertmanager integration, and Langfuse tracing.
+- [`lyoko` Agent](packages/agents/lyoko/README.md): Workflow engine, Alertmanager integration, and Langfuse tracing.
 
 ---
 

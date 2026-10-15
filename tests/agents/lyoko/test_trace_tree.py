@@ -1,4 +1,4 @@
-"""One event, one readable trace: real LangGraph + ReAct agent, recorded like a tracing backend."""
+"""One event, one readable trace: real LYOKO workflow + tool-using agent, recorded like a tracing backend."""
 
 from typing import Any
 from unittest.mock import AsyncMock
@@ -17,11 +17,6 @@ class _ToolCallingFakeModel(GenericFakeChatModel):
 
     def bind_tools(self, tools: Any, **kwargs: Any) -> "_ToolCallingFakeModel":
         return self
-
-
-@pytest.fixture(autouse=True)
-def configure_orchestrator(monkeypatch):
-    monkeypatch.setattr("lyoko.config.settings.lyoko_orchestrator", "langgraph")
 
 
 class _Tree(BaseCallbackHandler):

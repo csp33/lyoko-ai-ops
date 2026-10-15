@@ -34,8 +34,8 @@ async def test_postgres_checkpointer_integration_with_local_container():
     ):
         try:
             async with lifespan(app):
-                # Ensure checkpointer is initialized
-                assert app.state.checkpointer is not None
+                # Ensure database pool is initialized
+                assert app.state.db_pool is not None
 
                 async with AsyncClient(
                     transport=ASGITransport(app=app), base_url="http://test"

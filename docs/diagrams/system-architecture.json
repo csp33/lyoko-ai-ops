@@ -14,9 +14,9 @@
       },
       {
         "id": "agent-coordination",
-        "label": "Supervisor & Specialists",
+        "label": "Hermes Agent & Specialists",
         "focus": ["lyoko_sup", "k8s_spec", "net_spec", "ha_spec", "obs_spec", "postgres"],
-        "note": "Supervisor coordinates domain specialists and queries episodic vector memory."
+        "note": "Hermes agent coordinates domain specialists and queries episodic vector memory."
       },
       {
         "id": "gateway-upstream",
@@ -35,7 +35,7 @@
     { "id": "lyoko_chat", "type": "backend", "label": "Chat Handler", "sublabel": "Async Telegram", "pos": [225, 180], "size": [155, 54], "brand": "python" },
     { "id": "postgres", "type": "database", "label": "PostgreSQL", "sublabel": "pgvector Memory", "pos": [225, 300], "size": [155, 54], "brand": "postgresql" },
 
-    { "id": "lyoko_sup", "type": "backend", "label": "Supervisor Agent", "sublabel": "LangGraph Engine", "pos": [430, 150], "size": [165, 60], "brand": "openai" },
+    { "id": "lyoko_sup", "type": "backend", "label": "LYOKO Agent", "sublabel": "Hermes Engine", "pos": [430, 150], "size": [165, 60] },
 
     { "id": "k8s_spec", "type": "backend", "label": "K8s SRE Spec", "sublabel": "Pods & Restarts", "pos": [645, 45], "size": [160, 52], "brand": "kubernetes" },
     { "id": "net_spec", "type": "backend", "label": "Network Spec", "sublabel": "UniFi Clients", "pos": [645, 120], "size": [160, 52] },
@@ -52,7 +52,7 @@
   ],
   "boundaries": [
     { "kind": "region", "label": "Ingress & Triggers", "wraps": ["alertmanager", "operator_tg", "dev_ide"], "pad": 12 },
-    { "kind": "region", "label": "LYOKO Multi-Agent Platform (LangGraph)", "wraps": ["lyoko_webhook", "lyoko_chat", "postgres", "lyoko_sup", "k8s_spec", "net_spec", "ha_spec", "obs_spec"], "pad": 14 },
+    { "kind": "region", "label": "LYOKO Autonomous Platform (Hermes)", "wraps": ["lyoko_webhook", "lyoko_chat", "postgres", "lyoko_sup", "k8s_spec", "net_spec", "ha_spec", "obs_spec"], "pad": 14 },
     { "kind": "region", "label": "Homelab Infrastructure & Upstream Services", "wraps": ["k8s_cluster", "unifi_net", "ha_iot", "graf_prom", "github_gitops"], "pad": 12 }
   ],
   "connections": [
@@ -80,7 +80,7 @@
     { "from": "mcp_gw", "to": "github_gitops", "variant": "security" }
   ],
   "cards": [
-    { "dot": "cyan", "title": "Multi-Agent Orchestration", "items": ["LangGraph StateGraph coordinates supervisor and 4 domain specialists", "Per-domain tool discovery with paginated catalogs and lazy schema lookup", "Continuous episodic learning from operator feedback via pgvector"] },
+    { "dot": "cyan", "title": "Autonomous Hermes Orchestration", "items": ["Hermes Agent coordinates investigations and 4 domain specialists", "Per-domain tool discovery with paginated catalogs and lazy schema lookup", "Continuous episodic learning from operator feedback via pgvector"] },
     { "dot": "emerald", "title": "Zero-Trust Safety Gateway", "items": ["Unified FastMCP endpoint aggregates all upstream capabilities", "ToolGate enforces read-only investigation and human approval for changes", "GuardrailEngine blocks namespace violations and destructive commands"] },
     { "dot": "violet", "title": "Comprehensive Observability", "items": ["End-to-end Langfuse trace tree for every alert and Telegram message", "Deterministic token tracking and cost accounting across all agent steps", "Single source of truth across Kubernetes, UniFi, and Home Assistant"] }
   ]
