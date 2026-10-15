@@ -133,17 +133,11 @@ class TraceCostService:
             resp = await mcp_client.call_tool(
                 name="langfuse_listObservations",
                 arguments={
-                    "limit": 10,
+                    "limit": 20,
                     "fromStartTime": from_iso,
                     "toStartTime": to_iso,
-                    "fields": ["id", "traceId", "name", "type", "sessionId", "url"],
-                    "filter": [
-                        {
-                            "column": "sessionId",
-                            "operator": "=",
-                            "value": session_id,
-                        }
-                    ],
+                    "fields": ["id", "traceId", "name", "type", "sessionId"],
+                    "filter": [{"column": "sessionId", "operator": "=", "value": session_id}],
                 },
             )
             raw_content = (
@@ -156,33 +150,41 @@ class TraceCostService:
                 except Exception:
                     return resolved_primary, None, []
             if isinstance(data, dict) and "data" in data and isinstance(data["data"], list):
+                project_base: str | None = None
+                has_primary_in_data = False
+                candidate_turns: list[tuple[str, str | None]] = []
                 seen_tids: set[str] = set()
-                hermes_turns: list[tuple[str, str | None]] = []
-                other_agent_tids: list[str] = []
 
                 for obs in data["data"]:
                     tid = obs.get("traceId")
-                    if not tid or tid in seen_tids:
+                    if not tid:
                         continue
-                    seen_tids.add(tid)
-                    raw_url = obs.get("url")
-                    clean_url = raw_url.split("?")[0] if raw_url else None
+                    clean_url = (obs.get("url") or "").split("?")[0] or None
+                    if clean_url and "/traces/" in clean_url and not project_base:
+                        project_base = clean_url.rsplit("/traces/", 1)[0]
                     if tid == primary_tid:
-                        resolved_primary = tid
-                        if clean_url:
+                        has_primary_in_data = True
+                        if clean_url and not primary_url:
                             primary_url = clean_url
-                    elif obs.get("name") == "Hermes turn":
-                        hermes_turns.append((tid, clean_url))
-                    elif obs.get("type") in ("CHAIN", "AGENT"):
-                        other_agent_tids.append(tid)
+                    elif (
+                        obs.get("name") == "Hermes turn" or obs.get("type") in ("CHAIN", "AGENT")
+                    ) and tid not in seen_tids:
+                        seen_tids.add(tid)
+                        candidate_turns.append((tid, clean_url))
 
-                if resolved_primary == primary_tid and not primary_url and hermes_turns:
-                    first_turn = hermes_turns.pop(0)
-                    resolved_primary, primary_url = first_turn[0], first_turn[1]
+                if has_primary_in_data:
+                    memory_tids.extend(tid for tid, _ in candidate_turns)
+                elif candidate_turns:
+                    main_turn = (
+                        candidate_turns.pop(-1)
+                        if len(candidate_turns) > 1
+                        else candidate_turns.pop(0)
+                    )
+                    resolved_primary, primary_url = main_turn[0], main_turn[1] or primary_url
+                    memory_tids.extend(tid for tid, _ in candidate_turns)
 
-                for ht in hermes_turns:
-                    memory_tids.append(ht[0])
-                memory_tids.extend(other_agent_tids)
+                if not primary_url and project_base and resolved_primary:
+                    primary_url = f"{project_base}/traces/{resolved_primary}"
         except Exception as exc:
             logger.debug("Failed to resolve session traces for %s: %s", session_id, exc)
         return resolved_primary, primary_url, memory_tids

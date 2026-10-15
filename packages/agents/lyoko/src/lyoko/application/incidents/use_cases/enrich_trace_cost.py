@@ -145,7 +145,7 @@ class EnrichTraceCostUseCase:
         trace_id: str,
         session_id: str | None = None,
         delay_seconds: float = 2.0,
-        max_attempts: int = 5,
+        max_attempts: int = 6,
         poll_interval: float = 1.5,
     ) -> None:
         """Background task to query Langfuse after ingestion and update Telegram message."""
@@ -163,7 +163,7 @@ class EnrichTraceCostUseCase:
                 if current_res.main_cost is not None:
                     res = current_res
                     # If memory review is expected and hasn't ingested yet, give it another attempt
-                    if session_id and current_res.memory_cost is None and attempt < 2:
+                    if session_id and current_res.memory_cost is None and attempt < 3:
                         await asyncio.sleep(poll_interval)
                         continue
                     break
