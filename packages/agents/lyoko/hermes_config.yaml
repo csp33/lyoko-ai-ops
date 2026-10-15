@@ -82,6 +82,7 @@ delegation:
   model: "${OPENAI_MODEL}"
 memory:
   model: "${OPENAI_MODEL}"
+  nudge_interval: 1
 compaction:
   model: "${OPENAI_MODEL}"
 auxiliary:
@@ -131,5 +132,4 @@ known_builtin_toolsets:
     - web
     - x_search
     - yuanbao
-memory:
-  nudge_interval: 1
+
