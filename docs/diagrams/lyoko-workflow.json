@@ -7,76 +7,63 @@
     "quality_profile": "showcase",
     "views": [
       {
-        "id": "e2e-incident",
-        "label": "End-to-End Remediation",
-        "focus": ["alerts", "router", "runbooks", "hermes", "gate", "mcp", "notify"],
-        "note": "Complete pipeline from alert trigger to automated resolution and verification."
-      },
-      {
-        "id": "fast-path",
-        "label": "Deterministic Runbooks",
-        "focus": ["alerts", "router", "runbooks", "hermes"],
-        "note": "Zero-LLM fast path matching curated markdown operational procedures."
+        "id": "main-flow",
+        "label": "End-to-End Pipeline",
+        "focus": ["event_in", "router", "runbooks", "hermes", "toolgate", "mcp_gateway"],
+        "note": "Linear autonomous remediation pipeline from intake to execution."
       },
       {
         "id": "safety-hitl",
-        "label": "ToolGate & Human in the Loop",
-        "focus": ["hermes", "gate", "approval", "mcp"],
-        "note": "State-changing mutations paused for operator approval via Telegram inline buttons."
+        "label": "ToolGate & Human Approval",
+        "focus": ["hermes", "toolgate", "hitl_approval", "mcp_gateway", "notify"],
+        "note": "Fail-closed safety harness pausing mutations for operator approval."
       }
     ],
     "output": "docs/diagrams/lyoko-workflow.html"
   },
   "lanes": [
-    { "id": "signals", "label": "Signals & Ingress" },
-    { "id": "orchestration", "label": "Triage & Runbooks" },
-    { "id": "agent", "label": "Hermes Cognitive Loop" },
-    { "id": "safety", "label": "Safety Harness", "variant": "exception" },
-    { "id": "infra", "label": "Target Infrastructure" },
-    { "id": "comms", "label": "Operator & Telegram" }
+    { "id": "pipeline", "label": "Autonomous Operations Pipeline" },
+    { "id": "telegram_lane", "label": "Telegram HITL & Reporting", "variant": "exception" }
   ],
   "phases": [
-    { "id": "intake", "label": "Intake & classify", "fromCol": 0, "toCol": 1 },
-    { "id": "triage", "label": "Runbook lookup", "fromCol": 2, "toCol": 2, "variant": "emphasis" },
-    { "id": "cognition", "label": "Hermes reasoning", "fromCol": 3, "toCol": 3, "variant": "emphasis" },
-    { "id": "enforce", "label": "Policy gate", "fromCol": 4, "toCol": 4, "variant": "dashed" },
-    { "id": "action", "label": "Execute & report", "fromCol": 5, "toCol": 5, "variant": "dashed" }
+    { "id": "intake", "label": "Intake", "fromCol": 0, "toCol": 1 },
+    { "id": "triage", "label": "Triage", "fromCol": 2, "toCol": 2, "variant": "emphasis" },
+    { "id": "cognition", "label": "Reasoning", "fromCol": 3, "toCol": 3, "variant": "emphasis" },
+    { "id": "safety", "label": "Policy", "fromCol": 4, "toCol": 4, "variant": "dashed" },
+    { "id": "execution", "label": "Execution", "fromCol": 5, "toCol": 5, "variant": "dashed" }
   ],
   "groups": [
-    { "id": "triage_group", "label": "Deterministic triage", "lane": "orchestration", "fromCol": 1, "toCol": 2, "variant": "emphasis" },
-    { "id": "safety_group", "label": "Fail-closed harness", "lane": "safety", "fromCol": 4, "toCol": 4, "variant": "security" },
-    { "id": "execution_group", "label": "Execution & report", "lane": "infra", "fromCol": 5, "toCol": 5, "variant": "dashed" }
+    { "id": "triage_group", "label": "Deterministic Fast Path", "lane": "pipeline", "fromCol": 1, "toCol": 2, "variant": "emphasis" },
+    { "id": "safety_group", "label": "Fail-Closed Gate", "lane": "telegram_lane", "fromCol": 4, "toCol": 5, "variant": "security" }
   ],
-  "mainPath": ["alerts", "router", "runbooks", "hermes", "gate", "mcp", "notify"],
+  "mainPath": ["event_in", "router", "runbooks", "hermes", "toolgate", "mcp_gateway"],
   "nodes": [
-    { "id": "alerts", "lane": "signals", "col": 0, "type": "messagebus", "brand": "prometheus", "label": "Alertmanager", "sublabel": "K8s & IoT events", "width": 136 },
-    { "id": "chat_in", "lane": "comms", "col": 0, "type": "external", "brand": "telegram", "label": "Operator Turn", "sublabel": "chat or incident report", "width": 136 },
-    { "id": "router", "lane": "orchestration", "col": 1, "type": "backend", "label": "Event Router", "sublabel": "classify chat vs alert", "tag": "deterministic / LLM", "width": 136 },
-    { "id": "runbooks", "lane": "orchestration", "col": 2, "type": "database", "label": "Runbooks & Triage", "sublabel": "zero-LLM fast path", "tag": "markdown skills", "width": 136 },
-    { "id": "hermes", "lane": "agent", "col": 3, "type": "backend", "brand": "openai", "label": "Hermes Agent", "sublabel": "diagnose & remediate", "tag": "ReAct loop", "width": 136 },
-    { "id": "gate", "lane": "safety", "col": 4, "type": "security", "label": "ToolGate Harness", "sublabel": "inspects every call", "tag": "fail-closed", "width": 136 },
-    { "id": "approval", "lane": "comms", "col": 4, "type": "security", "brand": "telegram", "label": "HITL Approval", "sublabel": "Approve / Deny buttons", "tag": "operator consent", "width": 136 },
-    { "id": "mcp", "lane": "infra", "col": 5, "type": "cloud", "brand": "kubernetes", "label": "sector5-mcp", "sublabel": "K8s, UniFi, Home Assistant", "tag": "unified gateway", "width": 136 },
-    { "id": "notify", "lane": "comms", "col": 5, "type": "frontend", "brand": "telegram", "label": "Incident Report", "sublabel": "resolution & traces", "tag": "Langfuse trace", "width": 136 }
+    { "id": "event_in", "lane": "pipeline", "col": 0, "type": "messagebus", "brand": "prometheus", "label": "Ingress", "sublabel": "Alert / Chat", "width": 110 },
+    { "id": "router", "lane": "pipeline", "col": 1, "type": "backend", "label": "Router", "sublabel": "Chat vs Alert", "tag": "Classifier", "width": 110 },
+    { "id": "runbooks", "lane": "pipeline", "col": 2, "type": "database", "label": "Runbooks", "sublabel": "Zero-LLM", "tag": "Fast Path", "width": 110 },
+    { "id": "hermes", "lane": "pipeline", "col": 3, "type": "backend", "brand": "openai", "label": "Hermes", "sublabel": "Autonomous SRE", "tag": "ReAct Loop", "width": 110 },
+    { "id": "toolgate", "lane": "pipeline", "col": 4, "type": "security", "label": "ToolGate", "sublabel": "Policy Check", "tag": "Fail-Closed", "width": 110 },
+    { "id": "hitl_approval", "lane": "telegram_lane", "col": 4, "type": "security", "brand": "telegram", "label": "Approval", "sublabel": "Approve / Deny", "tag": "Operator", "width": 110 },
+    { "id": "mcp_gateway", "lane": "pipeline", "col": 5, "type": "cloud", "brand": "kubernetes", "label": "Gateway", "sublabel": "sector5-mcp", "tag": "K8s / IoT / UniFi", "width": 110 },
+    { "id": "notify", "lane": "telegram_lane", "col": 5, "type": "frontend", "brand": "telegram", "label": "Report", "sublabel": "Verified Status", "tag": "Langfuse", "width": 110 }
   ],
   "edges": [
-    { "id": "alert-route", "from": "alerts", "to": "router", "label": "incident alert", "variant": "emphasis" },
-    { "id": "chat-route", "from": "chat_in", "to": "router", "label": "inbound turn", "variant": "default" },
-    { "id": "route-runbooks", "from": "router", "to": "runbooks", "label": "triage incident", "variant": "emphasis" },
-    { "id": "route-chat", "from": "router", "to": "hermes", "label": "chat query", "variant": "dashed" },
-    { "id": "runbooks-hermes", "from": "runbooks", "to": "hermes", "label": "inject runbook", "variant": "emphasis" },
-    { "id": "hermes-gate", "from": "hermes", "to": "gate", "label": "tool call", "variant": "emphasis" },
-    { "id": "gate-approval", "from": "gate", "to": "approval", "label": "needs consent", "variant": "security" },
-    { "id": "approval-mcp", "from": "approval", "to": "mcp", "label": "approved", "variant": "emphasis" },
-    { "id": "gate-mcp-readonly", "from": "gate", "to": "mcp", "label": "read-only / auto", "variant": "default" },
-    { "id": "mcp-notify", "from": "mcp", "to": "notify", "label": "verified recovery", "variant": "emphasis" }
+    { "id": "e_ingress", "from": "event_in", "to": "router", "label": "event", "variant": "emphasis" },
+    { "id": "e_triage", "from": "router", "to": "runbooks", "label": "incident", "variant": "emphasis" },
+    { "id": "e_chat", "from": "router", "to": "hermes", "label": "chat", "variant": "dashed" },
+    { "id": "e_runbook", "from": "runbooks", "to": "hermes", "label": "runbook", "variant": "emphasis" },
+    { "id": "e_toolcall", "from": "hermes", "to": "toolgate", "label": "tool call", "variant": "emphasis" },
+    { "id": "e_readonly", "from": "toolgate", "to": "mcp_gateway", "label": "read-only", "variant": "default" },
+    { "id": "e_needs_approval", "from": "toolgate", "to": "hitl_approval", "label": "mutation", "variant": "security" },
+    { "id": "e_approved", "from": "hitl_approval", "to": "mcp_gateway", "label": "approved", "variant": "emphasis" },
+    { "id": "e_notify", "from": "mcp_gateway", "to": "notify", "label": "verified", "variant": "emphasis" }
   ],
   "cards": [
     {
       "dot": "cyan",
       "title": "Deterministic Triage",
       "items": [
-        "Alerts bypass LLM router straight to incident triage",
+        "Alerts bypass LLM router straight to triage",
         "Known alerts match curated Markdown runbooks before LLM reasoning"
       ]
     },
