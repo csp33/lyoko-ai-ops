@@ -53,11 +53,6 @@ def format_incident_report(state: dict[str, Any]) -> str:
             "**Tool Calls:** "
             + ", ".join(IncidentContextFormatter.describe_call(a) for a in actions)
         )
-    delegations = state.get("delegation_history") or []
-    if delegations:
-        domains = list(dict.fromkeys(d.get("domain") for d in delegations if d.get("domain")))
-        if domains:
-            lines.append(f"**Specialists Consulted:** {', '.join(f'`{dom}`' for dom in domains)}")
     if state.get("verification"):
         lines.append(f"**Verification:** {state['verification']}")
     return "\n".join(lines)

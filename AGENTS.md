@@ -21,18 +21,16 @@ The platform consists of two primary systems within a Python `uv` monorepo:
 
 2. **`LYOKO` (Autonomous Remediation Agent)**:
    - **L**ive **Y**aml **O**ptimization & **K**8s **O**rchestration.
-   - Built with **LangGraph** (StateGraph / Finite State Machine) and **FastAPI**.
+   - Built on **Hermes Agent** and **FastAPI** as an autonomous SRE operator.
    - Event-driven: awakened by Prometheus Alertmanager webhooks for any alert (Kubernetes, network, smart home, observability), and by Telegram messages from the operator.
-   - One LangGraph graph, two branches. Every event enters at **Route**: alerts always take the incident branch, and for a Telegram message an LLM decides between the two (unclear or failed ⇒ chat).
-     - **Chat**: a **Supervisor** answers the operator and carries out requests by delegating to domain specialists (`ask_kubernetes_specialist`, `ask_unifi_specialist`, `ask_homeassistant_specialist`, `ask_grafana_specialist`).
-     - **Incident**, a sequence of four nodes. Diagnose, remediate, and verify are each a supervisor run that delegates to the same specialists:
-       1. **Diagnose**: Read-only investigation via specialists; returns a root cause, whether it is fixable with the available tools, and a plan.
-       2. **Remediate**: Executes the plan via specialists.
-       3. **Verify**: Re-checks via specialists after a stabilization delay.
-       4. **Notify**: Builds a structured report from the tool calls the gate actually allowed. Alerts post it to Telegram. For a message, it is the reply.
-   - **Domain specialists** receive a scoped upstream toolset from `sector5-mcp`. Each specialist is locked to one domain. Its tool catalog with argument signatures is injected dynamically into its system prompt (`_format_catalog`), and the specialist is equipped with `gateway_call_tool` (guarded execution; a call rejected for its arguments returns the tool's schema inline to self-correct) and `gateway_get_tool_schema` (targeted re-read of one schema as fallback). Discovery via `gateway_get_domain_tools` is omitted to avoid redundant pagination loops. They never search outside their domain.
-   - Both branches share one `ToolGate` policy: read-only tools run, `AUTO_APPROVED_TOOLS` run unattended, and everything else waits for approval via Telegram inline buttons. Diagnose and Verify are strictly read-only. Without an approval channel, changes are refused.
-   - One event is one Langfuse trace. Agent runs must receive the run config of the graph node that starts them (`parent_config`), so they nest as named child spans instead of starting traces of their own.
+   - One unified execution pipeline (`Route` -> `Triage` -> `Resolve / Chat` -> `Notify`):
+     - **Route**: Alerts always take the incident branch; Telegram messages are classified by an LLM into chat or incident reporting.
+     - **Triage**: Deterministic fast-path handlers (e.g. Argo CD autosync) resolve known patterns instantly.
+     - **Chat**: Hermes interacts with the operator, answering questions and executing operational tasks under ToolGate.
+     - **Incident**: Hermes investigates autonomously via `sector5-mcp` tools, formulates a plan, applies necessary fixes under ToolGate, and verifies recovery.
+     - **Notify**: Formats a structured incident report (`RESOLVED` or `ESCALATED`) reflecting approved/denied actions and recovery verification, posting to Telegram.
+   - Safety does not rely on the agent's judgement. Every tool call goes through `ToolGate`: read-only tools run, `AUTO_APPROVED_TOOLS` run unattended, and state-changing actions wait for operator approval via Telegram inline buttons. Without an approval channel, mutations are refused.
+   - One event is one Langfuse trace. Execution steps and agent runs nest as named child spans.
 
 ---
 
@@ -70,7 +68,7 @@ lyoko-ai-ops/
 │   │               └── server.py       # Composition root
 │   │
 │   └── agents/                 # Autonomous Agent packages (Cognitive Loops)
-│       └── lyoko/              # LangGraph Auto-Remediation Agent
+│       └── lyoko/              # Autonomous Remediation Agent
 │           ├── pyproject.toml
 │           ├── Dockerfile
 │           └── src/
@@ -85,7 +83,7 @@ lyoko-ai-ops/
 │                   └── main.py         # Composition root
 │
 └── tests/                      # Automated test suite
-    ├── agents/lyoko/           # Tests for LYOKO agent (LangGraph, webhooks, models)
+    ├── agents/lyoko/           # Tests for LYOKO agent (workflows, webhooks, models)
     └── mcps/sector5_mcp/       # Tests for MCP gateway (routing, auth, guardrails)
 ```
 
@@ -99,10 +97,9 @@ Every package in `lyoko-ai-ops` strictly adheres to **Clean Architecture** (Port
    - Domain layers must only depend on standard Python libraries or shared domain primitives.
 
 2. **`application/` (Use Cases & Workflow Orchestration)**:
-   - Organized into clean, cohesive feature packages (`incidents/`, `chat/`, `workflow/`, `agents/`, `memory/`, `safety/`, `context/`, `prompts/`, `skills/`).
-   - Encapsulates discrete application workflows and operations into dedicated **`UseCase` classes** colocated within their bounded context (e.g. `incidents.use_cases.DiagnoseIncidentUseCase`, `incidents.use_cases.RemediateIncidentUseCase`, `incidents.use_cases.VerifyIncidentUseCase`, `incidents.use_cases.NotifyIncidentReportUseCase`, `incidents.use_cases.TriageIncidentUseCase`, `chat.use_cases.ProcessChatMessageUseCase`, `chat.use_cases.HandleChatTurnUseCase`, `workflow.routing.route_event.RouteEventUseCase`, `memory.use_cases.RetrieveMemoryLessonsUseCase`, `memory.use_cases.RecordFeedbackUseCase`).
-   - Workflow nodes, web controllers, and chat connectors act as thin callers/adapters that delegate execution to their corresponding `UseCase` instances.
-   - Contains cognitive agent definitions (`agents.SupervisorAgent`, `agents.DomainSpecialistAgent`), workflow graph definitions (`workflow.graph.create_lyoko_graph`), safety gates, and HITL managers (`safety.hitl.ApprovalManager`).
+   - Organized into clean, cohesive feature packages (`incidents/`, `chat/`, `workflow/`, `agents/`, `safety/`, `context/`, `prompts/`, `skills/`).
+   - Encapsulates discrete application workflows and operations into dedicated **`UseCase` classes** colocated within their bounded context (e.g. `incidents.use_cases.ResolveIncidentUseCase`, `incidents.use_cases.NotifyIncidentReportUseCase`, `incidents.use_cases.TriageIncidentUseCase`, `chat.use_cases.ProcessChatMessageUseCase`, `chat.use_cases.HandleChatTurnUseCase`, `workflow.routing.route_event.RouteEventUseCase`).
+   - Contains agent runners (`agents.runner.AgentRunner`), workflow execution engine (`workflow.graph.LyokoWorkflow`), safety gates, and HITL managers (`safety.hitl.ApprovalManager`).
    - Coordinates domain models and interacts with external capabilities **exclusively through domain interfaces / ports** (`LLMClientInterface`, `MCPClientInterface`, `ChatConnector`, `AuthVerifierInterface`).
    - **ZERO infrastructure imports allowed**: Strictly forbidden to import concrete infrastructure classes or vendor SDKs (e.g., `ChatOpenAI`, `OpenAILLMAdapter`, `FastMCPClient`, `TelegramConnector`, `AsyncConnectionPool`, `LangfuseTracer`). All external services must be injected into application constructors.
 
@@ -121,7 +118,7 @@ Every package in `lyoko-ai-ops` strictly adheres to **Clean Architecture** (Port
 6. **Single Responsibility & Anti-God-File Policy (Strict Rule)**:
    - All modules across `domain/` and `application/` must strictly maintain Single Responsibility and stay under **250-280 lines**.
    - Never bundle distinct concerns in a single service file (e.g., domain alias dictionaries, relevance scoring heuristics, catalog caching, and tool execution routing must be separated into `domain/models/aliases.py`, `application/scoring.py`, `application/registry.py`, and `application/service.py`).
-   - Graph workflows (`workflow.py`) must separate StateGraph wiring and topology from discrete node implementations (modularized under `application/nodes/*.py`).
+   - Workflows (`workflow/graph.py`) must separate execution pipeline wiring and topology from discrete stage implementations (modularized under `application/workflow/nodes/*.py`).
 
 Automated AST architectural tests (`tests/test_clean_architecture.py`) run in CI to permanently prevent layer leakage, enforce empty `__init__.py` files, forbid `__all__`, and enforce module size ceilings.
 

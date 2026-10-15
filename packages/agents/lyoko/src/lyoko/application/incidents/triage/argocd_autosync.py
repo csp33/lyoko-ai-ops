@@ -5,7 +5,7 @@ import logging
 from typing import Any
 
 from langchain_core.runnables import RunnableConfig
-from lyoko.application.agents.supervisor import status_callback
+from lyoko.application.agents.runner import status_callback
 from lyoko.application.incidents.triage.argocd_inspector import ArgoCDApplicationInspector
 from lyoko.application.incidents.triage.base import TriageResult
 from lyoko.application.safety.tool_gate import GateMode, make_gate

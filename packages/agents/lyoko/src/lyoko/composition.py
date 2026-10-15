@@ -8,11 +8,7 @@ import logging
 
 from fastapi import FastAPI
 
-from lyoko.application.agents.specialist_prompts import SpecialistPromptProvider
-from lyoko.application.agents.specialists import DomainSpecialistAgent
-from lyoko.application.agents.supervisor import SupervisorAgent
 from lyoko.application.chat.agent import InteractiveChatAgent
-from lyoko.application.chat.history import ChatHistoryTracker
 from lyoko.application.chat.sessions import ChatSessionTracker
 from lyoko.application.context.buffer import SmartOutputBufferService
 from lyoko.application.incidents.triage.argocd_autosync import ArgoCDAutosyncHandler
@@ -21,6 +17,7 @@ from lyoko.application.incidents.triage.base import TriageHandler
 from lyoko.application.incidents.triage.cloudflare_tunnel import CloudflareTunnelHandler
 from lyoko.application.incidents.triage.pod_crashloop import PodCrashLoopHandler
 from lyoko.application.incidents.use_cases.enrich_trace_cost import EnrichTraceCostUseCase
+from lyoko.application.safety.budget_guard import BudgetGuardService
 from lyoko.application.safety.hitl.manager import ApprovalManager
 from lyoko.application.skills.matcher import SkillMatcherService
 from lyoko.config import settings
@@ -31,9 +28,6 @@ from lyoko.domain.interfaces.mcp import MCPClientInterface
 from lyoko.domain.models.budget import BudgetConfig
 from lyoko.infrastructure.chat.manager import ChatManager
 from lyoko.infrastructure.chat.telegram import TelegramConnector
-from lyoko.infrastructure.db.memory_repository import PostgresMemoryRepository
-from lyoko.infrastructure.embeddings import EmbeddingsService
-from lyoko.infrastructure.llm.harness_runner import ReActHarnessRunner
 from lyoko.infrastructure.llm.hermes_runner import HermesHarnessRunner
 from lyoko.infrastructure.llm.openai import OpenAILLMAdapter
 from lyoko.infrastructure.observability.langfuse import LangfuseTracer
@@ -73,22 +67,19 @@ def build_llm_adapter(
     storage = ScratchpadFileStorage()
     buffer_service = SmartOutputBufferService(storage=storage)
 
-    if settings.lyoko_orchestrator.lower() == "hermes":
-        budget_config = BudgetConfig(
-            max_turns=max(
-                settings.max_turns_chat,
-                settings.max_turns_diagnose,
-                settings.max_turns_remediate,
-            ),
-            max_budget_usd=settings.max_budget_usd_per_event,
-            cycle_detection_window=settings.cycle_detection_window,
-        )
-        harness_runner = HermesHarnessRunner(
-            buffer_service=buffer_service,
-            budget_config=budget_config,
-        )
-    else:
-        harness_runner = ReActHarnessRunner(buffer_service=buffer_service)
+    budget_config = BudgetConfig(
+        max_turns=max(
+            settings.max_turns_chat,
+            settings.max_turns_diagnose,
+        ),
+        max_budget_usd=settings.max_budget_usd_per_event,
+        cycle_detection_window=settings.cycle_detection_window,
+    )
+    budget_guard = BudgetGuardService(config=budget_config)
+    harness_runner = HermesHarnessRunner(
+        buffer_service=buffer_service,
+        budget_guard=budget_guard,
+    )
 
     return OpenAILLMAdapter(
         api_key=_secret(settings.openai_api_key),
@@ -96,58 +87,6 @@ def build_llm_adapter(
         use_responses_api=use_responses_api,
         harness_runner=harness_runner,
     )
-
-
-def build_domain_specialists(
-    mcp_client: MCPClientInterface | None,
-    llm: LLMClientInterface | None,
-) -> dict[str, DomainSpecialistAgent]:
-    """Instantiate domain specialist subagents."""
-    return {
-        "kubernetes": DomainSpecialistAgent(
-            name="k8s_specialist",
-            domain="kubernetes",
-            system_prompt=SpecialistPromptProvider.get_prompt("kubernetes"),
-            llm=llm,
-            mcp_client=mcp_client,
-        ),
-        "unifi": DomainSpecialistAgent(
-            name="network_specialist",
-            domain="unifi",
-            system_prompt=SpecialistPromptProvider.get_prompt("unifi"),
-            llm=llm,
-            mcp_client=mcp_client,
-        ),
-        "homeassistant": DomainSpecialistAgent(
-            name="smarthome_specialist",
-            domain="homeassistant",
-            system_prompt=SpecialistPromptProvider.get_prompt("homeassistant"),
-            llm=llm,
-            mcp_client=mcp_client,
-        ),
-        "grafana": DomainSpecialistAgent(
-            name="observability_specialist",
-            domain="grafana",
-            system_prompt=SpecialistPromptProvider.get_prompt("grafana"),
-            llm=llm,
-            mcp_client=mcp_client,
-        ),
-        "langfuse": DomainSpecialistAgent(
-            name="langfuse_specialist",
-            domain="langfuse",
-            system_prompt=SpecialistPromptProvider.get_prompt("langfuse"),
-            llm=llm,
-            mcp_client=mcp_client,
-        ),
-    }
-
-
-def build_supervisor(
-    specialists: dict[str, DomainSpecialistAgent],
-    llm: LLMClientInterface | None,
-) -> SupervisorAgent:
-    """Instantiate central multi-agent supervisor."""
-    return SupervisorAgent(specialists=specialists, llm=llm)
 
 
 def build_triage_handlers(
@@ -187,8 +126,6 @@ def build_triage_handlers(
 
 def build_chat_manager(
     approval_manager: ApprovalManager,
-    memory_repo: PostgresMemoryRepository | None = None,
-    embeddings_service: EmbeddingsService | None = None,
     lock: DistributedLock | None = None,
 ) -> ChatManager:
     """Instantiate the chat connectors.
@@ -207,8 +144,6 @@ def build_chat_manager(
             allowed_chat_ids=settings.telegram_allowed_chat_ids,
             default_chat_id=settings.telegram_default_chat_id,
             discussion_group_id=settings.telegram_discussion_group_id,
-            memory_repository=memory_repo,
-            embeddings_service=embeddings_service,
             lock=lock,
         )
         telegram_connector.register_approval_handler(approval_manager.resolve_approval)
@@ -231,7 +166,6 @@ def build_tracer() -> LangfuseTracer:
 
 def wire_chat_agent(app: FastAPI, chat_manager: ChatManager) -> None:
     """Send incoming chat messages to the graph stored in ``app.state.workflow_engine``."""
-    history_tracker = ChatHistoryTracker()
     tracer = getattr(app.state, "tracer", None)
     mcp_client = getattr(app.state, "mcp_client", None)
     enrich_trace_cost = (
@@ -247,7 +181,6 @@ def wire_chat_agent(app: FastAPI, chat_manager: ChatManager) -> None:
         lambda: app.state.workflow_engine,
         tracer=tracer,
         session_tracker=chat_manager.session_tracker,
-        history_tracker=history_tracker,
         enrich_trace_cost=enrich_trace_cost,
         chat_manager=chat_manager,
     )

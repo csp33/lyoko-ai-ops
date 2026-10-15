@@ -3,12 +3,12 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from lyoko.application.workflow.graph import create_lyoko_graph
 from lyoko.domain.interfaces.mcp import ToolAuthorizer
 
 from tests.agents.lyoko.fakes import (
     FakeMCPClient,
     ScriptedLLM,
+    create_lyoko_graph,
 )
 from tests.agents.lyoko.routing_helpers import (
     _alert,
@@ -16,22 +16,17 @@ from tests.agents.lyoko.routing_helpers import (
 )
 
 
-@pytest.fixture(autouse=True)
-def configure_orchestrator(monkeypatch):
-    monkeypatch.setattr("lyoko.config.settings.lyoko_orchestrator", "langgraph")
-
-
 @pytest.mark.asyncio
 async def test_alert_goes_straight_to_the_incident_branch_without_asking_the_router():
     llm = ScriptedLLM(
-        diagnose="ROOT_CAUSE: x\nACTIONABLE: no\nPLAN: y",
+        incident="ROOT_CAUSE: x\nACTION_TAKEN: none\nVERIFICATION: y\nSTATUS: ESCALATED",
         route="CHAT",
     )
     graph = create_lyoko_graph(mcp_client=FakeMCPClient(), llm=llm)
 
     await graph.ainvoke(_alert())
 
-    assert llm.calls == ["diagnose"]
+    assert llm.calls == ["incident"]
 
 
 @pytest.mark.asyncio
@@ -39,12 +34,14 @@ async def test_alert_without_an_event_type_is_still_an_alert():
     """States written before the router existed carry no event_type."""
     state = _alert()
     del state["event_type"]
-    llm = ScriptedLLM(diagnose="ROOT_CAUSE: x\nACTIONABLE: no\nPLAN: y")
+    llm = ScriptedLLM(
+        incident="ROOT_CAUSE: x\nACTION_TAKEN: none\nVERIFICATION: y\nSTATUS: ESCALATED"
+    )
     graph = create_lyoko_graph(mcp_client=FakeMCPClient(), llm=llm)
 
     await graph.ainvoke(state)
 
-    assert llm.calls == ["diagnose"]
+    assert llm.calls == ["incident"]
 
 
 @pytest.mark.asyncio
@@ -64,15 +61,20 @@ async def test_message_the_router_calls_chat_is_answered_in_one_run():
 async def test_message_the_router_calls_an_incident_runs_the_incident_branch():
     llm = ScriptedLLM(
         route="INCIDENT",
-        diagnose="ROOT_CAUSE: The database credentials are invalid.\nACTIONABLE: no\nPLAN: rotate",
+        incident=(
+            "ROOT_CAUSE: The database credentials are invalid.\n"
+            "ACTION_TAKEN: Investigated. No modifications required.\n"
+            "VERIFICATION: None\n"
+            "STATUS: ESCALATED"
+        ),
     )
     chat = AsyncMock()
     graph = create_lyoko_graph(mcp_client=FakeMCPClient(), chat_manager=chat, llm=llm)
 
     result = await graph.ainvoke(_message("sonarr keeps crashing, fix it"))
 
-    assert llm.calls == ["route", "diagnose"]
-    assert "sonarr keeps crashing, fix it" in llm.prompts["diagnose"]
+    assert llm.calls == ["route", "incident"]
+    assert "sonarr keeps crashing, fix it" in llm.prompts["incident"]
     assert "Incident Report" in result["reply"]
     assert "database credentials" in result["reply"]
     # The Telegram handler replies with the report. Broadcasting it too would send it twice.

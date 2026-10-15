@@ -14,7 +14,7 @@ from lyoko.domain.exceptions.mcp import (
     MCPGatewayUnreachableError,
 )
 from lyoko.domain.interfaces.mcp import MCPClientInterface, ToolAuthorizer
-from lyoko.infrastructure.mcp.langchain_tools import build_domain_tools, build_gateway_tools
+from lyoko.infrastructure.mcp.langchain_tools import build_gateway_tools
 
 logger = logging.getLogger("lyoko.infrastructure.mcp.client")
 
@@ -283,19 +283,6 @@ class FastMCPClient(MCPClientInterface):
         hint = annotations.get("readOnlyHint", annotations.get("read_only_hint"))
         if isinstance(hint, bool):
             self._readonly_hints[data.get("name") or tool_name] = hint
-
-    async def get_domain_langchain_tools(
-        self,
-        domain: str,
-        authorizer: ToolAuthorizer | None = None,
-    ) -> list[Any]:
-        """Return domain-locked execution and schema tools for a specialist agent.
-
-        Every specialist executes through the single guarded ``gateway_call_tool`` with
-        ``gateway_get_tool_schema`` available as fallback. The domain tool catalog is
-        already injected into the prompt, so discovery is omitted to prevent looping.
-        """
-        return build_domain_tools(self, domain, authorizer)
 
     def get_langchain_tools(self, authorizer: ToolAuthorizer | None = None) -> list[Any]:
         """Return LangChain tools to discover and execute homelab tools across domains.

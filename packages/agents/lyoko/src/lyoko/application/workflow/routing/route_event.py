@@ -42,12 +42,9 @@ class RouteEventUseCase:
         if self.llm is None:
             return {"route": Route.CHAT.value}
 
-        history_context = state.get("history_context", "")
-        router_input = text if not history_context else f"{text}{history_context}"
-
         try:
             answer = await self.llm.chat(
-                prompt=router_input,
+                prompt=text,
                 system_prompt=ROUTER_SYSTEM_PROMPT,
                 trace_name="route-llm",
                 tags=["phase:route"],

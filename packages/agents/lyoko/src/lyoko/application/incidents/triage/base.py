@@ -20,7 +20,7 @@ class TriageResult:
     requires_escalation: bool = False
 
     def to_state_patch(self) -> dict[str, Any]:
-        """Convert triage outcome to LangGraph state patch."""
+        """Convert triage outcome to workflow state patch."""
         if not self.handled:
             return {"triage": "diagnose"}
         return {

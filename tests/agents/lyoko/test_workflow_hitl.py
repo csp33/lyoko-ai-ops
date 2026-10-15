@@ -4,18 +4,17 @@ from unittest.mock import AsyncMock
 
 import pytest
 from lyoko.application.safety.hitl.manager import ApprovalManager
-from lyoko.application.workflow.graph import create_lyoko_graph
 from lyoko.domain.interfaces.mcp import ToolAuthorizer
 
-from tests.agents.lyoko.fakes import DIAGNOSIS_ACTIONABLE, FakeMCPClient, Operator, ScriptedLLM
+from tests.agents.lyoko.fakes import FakeMCPClient, Operator, ScriptedLLM, create_lyoko_graph
 
 SCALE_ARGS = {"name": "radarr", "namespace": "media", "replicas": 2}
 
 
 @pytest.fixture(autouse=True)
 def _settings(monkeypatch):
-    monkeypatch.setattr("lyoko.application.workflow.graph.settings.verification_delay_seconds", 0)
-    monkeypatch.setattr("lyoko.application.workflow.graph.settings.auto_approved_tools", [])
+    monkeypatch.setattr("lyoko.config.settings.verification_delay_seconds", 0)
+    monkeypatch.setattr("lyoko.config.settings.auto_approved_tools", [])
 
 
 def _state() -> dict:
@@ -31,7 +30,19 @@ def _remediation(calls: list[dict | None]):
     async def remediate(authorize: ToolAuthorizer) -> str:
         refusal = await authorize("resources_scale", SCALE_ARGS)
         calls.append(refusal)
-        return "RESULT: Scaled radarr." if refusal is None else "RESULT: Stopped."
+        if refusal is None:
+            return (
+                "ROOT_CAUSE: The radarr pod was OOMKilled.\n"
+                "ACTION_TAKEN: Scaled radarr.\n"
+                "VERIFICATION: Pod is healthy.\n"
+                "STATUS: RESOLVED"
+            )
+        return (
+            "ROOT_CAUSE: The radarr pod was OOMKilled.\n"
+            "ACTION_TAKEN: Stopped due to refusal.\n"
+            "VERIFICATION: None\n"
+            "STATUS: ESCALATED"
+        )
 
     return remediate
 
@@ -43,11 +54,7 @@ async def test_approved_change_runs_and_is_verified():
     chat = AsyncMock()
     chat.broadcast_approval_request = operator.broadcast_approval_request
     outcomes: list = []
-    llm = ScriptedLLM(
-        diagnose=DIAGNOSIS_ACTIONABLE,
-        remediate=_remediation(outcomes),
-        verify="RESOLVED\nPod is healthy.",
-    )
+    llm = ScriptedLLM(incident=_remediation(outcomes))
     workflow = create_lyoko_graph(
         mcp_client=FakeMCPClient(), approval_manager=manager, chat_manager=chat, llm=llm
     )
@@ -67,7 +74,7 @@ async def test_approval_request_shows_the_exact_tool_and_arguments():
     operator = Operator(manager, approve=True)
     chat = AsyncMock()
     chat.broadcast_approval_request = operator.broadcast_approval_request
-    llm = ScriptedLLM(diagnose=DIAGNOSIS_ACTIONABLE, remediate=_remediation([]), verify="RESOLVED")
+    llm = ScriptedLLM(incident=_remediation([]))
     workflow = create_lyoko_graph(
         mcp_client=FakeMCPClient(), approval_manager=manager, chat_manager=chat, llm=llm
     )
@@ -76,7 +83,6 @@ async def test_approval_request_shows_the_exact_tool_and_arguments():
 
     (request,) = operator.requests
     assert "Action: Scale radarr to 2 replicas in namespace 'media'." in request.details
-    assert "Plan: 1. Call resources_scale for deployment radarr." in request.details
     assert "resources_scale" in request.details
     assert '"replicas": 2' in request.details
     assert "KubePodCrashLooping" in request.details
@@ -92,7 +98,7 @@ async def test_denied_change_does_not_run_and_escalates():
     chat = AsyncMock()
     chat.broadcast_approval_request = operator.broadcast_approval_request
     outcomes: list = []
-    llm = ScriptedLLM(diagnose=DIAGNOSIS_ACTIONABLE, remediate=_remediation(outcomes))
+    llm = ScriptedLLM(incident=_remediation(outcomes))
     workflow = create_lyoko_graph(
         mcp_client=FakeMCPClient(), approval_manager=manager, chat_manager=chat, llm=llm
     )
@@ -106,13 +112,12 @@ async def test_denied_change_does_not_run_and_escalates():
     assert "aborted" in final_state["action_taken"].lower()
     assert "Manual denial by operator" in final_state["action_taken"]
     assert [a["outcome"] for a in final_state["actions"]] == ["denied"]
-    assert "verify" not in llm.prompts
 
 
 @pytest.mark.asyncio
 async def test_without_an_approval_channel_changes_are_refused_not_auto_approved():
     outcomes: list = []
-    llm = ScriptedLLM(diagnose=DIAGNOSIS_ACTIONABLE, remediate=_remediation(outcomes))
+    llm = ScriptedLLM(incident=_remediation(outcomes))
     workflow = create_lyoko_graph(mcp_client=FakeMCPClient(), llm=llm)
 
     final_state = await workflow.ainvoke(_state())
@@ -133,9 +138,14 @@ async def test_each_change_gets_its_own_approval():
     async def two_changes(authorize: ToolAuthorizer) -> str:
         await authorize("resources_scale", SCALE_ARGS)
         await authorize("pods_delete", {"name": "radarr-1"})
-        return "RESULT: Scaled and restarted."
+        return (
+            "ROOT_CAUSE: OOMKilled.\n"
+            "ACTION_TAKEN: Scaled and restarted.\n"
+            "VERIFICATION: Pod healthy.\n"
+            "STATUS: RESOLVED"
+        )
 
-    llm = ScriptedLLM(diagnose=DIAGNOSIS_ACTIONABLE, remediate=two_changes, verify="RESOLVED")
+    llm = ScriptedLLM(incident=two_changes)
     workflow = create_lyoko_graph(
         mcp_client=FakeMCPClient(), approval_manager=manager, chat_manager=chat, llm=llm
     )

@@ -9,42 +9,41 @@ from lyoko.application.workflow.routing.edges import WorkflowRouteSelector
 choose_coordinator_next = WorkflowRouteSelector.choose_coordinator_next
 
 
-def create_coordinator_node(**kwargs):
-    return CoordinateWorkflowUseCase(**kwargs).execute
-
-
 @pytest.mark.asyncio
 async def test_coordinator_handles_message():
-    mock_llm = MagicMock()
-    mock_llm.chat = AsyncMock(return_value="Everything looks operational.")
+    mock_chat_uc = MagicMock()
+    mock_chat_uc.execute = AsyncMock(return_value={"reply": "Everything looks operational."})
+    mock_incident_uc = MagicMock()
 
-    mock_mcp = MagicMock()
-    mock_mcp.get_langchain_tools.return_value = []
-
-    node = create_coordinator_node(
-        mcp_client=mock_mcp,
-        llm=mock_llm,
+    coordinator = CoordinateWorkflowUseCase(
+        chat_use_case=mock_chat_uc,
+        incident_use_case=mock_incident_uc,
     )
     state = {
         "event_type": "message",
         "text": "How is the homelab?",
     }
 
-    result = await node(state, {})
+    result = await coordinator.execute(state, {})
     assert result["reply"] == "Everything looks operational."
 
 
 @pytest.mark.asyncio
-async def test_coordinator_handles_alert_diagnose():
-    mock_supervisor = MagicMock()
-    mock_supervisor.coordinate = AsyncMock(
-        return_value="ROOT_CAUSE: Pod OOM\nACTIONABLE: yes\nPLAN: Scale up"
+async def test_coordinator_handles_alert_incident():
+    mock_chat_uc = MagicMock()
+    mock_incident_uc = MagicMock()
+    mock_incident_uc.execute = AsyncMock(
+        return_value={
+            "root_cause": "Pod OOM",
+            "action_taken": "Scaled memory",
+            "verification": "Pod running",
+            "requires_escalation": False,
+            "status": "RESOLVED",
+        }
     )
-
-    node = create_coordinator_node(
-        mcp_client=None,
-        llm=MagicMock(),
-        supervisor=mock_supervisor,
+    coordinator = CoordinateWorkflowUseCase(
+        chat_use_case=mock_chat_uc,
+        incident_use_case=mock_incident_uc,
     )
     state = {
         "event_type": "alert",
@@ -53,37 +52,31 @@ async def test_coordinator_handles_alert_diagnose():
         "annotations": {},
     }
 
-    result = await node(state, {})
+    result = await coordinator.execute(state, {})
     assert "Pod OOM" in result["root_cause"]
     assert result["requires_escalation"] is False
 
 
 def test_choose_coordinator_next():
-    from lyoko.domain.models.incident import CoordinatorNext, SpecialistDomain
-
-    # If pending delegation exists for a known specialist
-    state_delegating = {
-        "pending_delegation": {"domain": "kubernetes"},
-    }
-    assert choose_coordinator_next(state_delegating) == CoordinatorNext.KUBERNETES
-    assert choose_coordinator_next(state_delegating) == SpecialistDomain.KUBERNETES
-    assert choose_coordinator_next(state_delegating) == "kubernetes"
+    from lyoko.domain.models.incident import CoordinatorNext
 
     # If message and finished
     state_chat_done = {
-        "pending_delegation": None,
         "event_type": "message",
         "route": "chat",
         "reply": "All good",
     }
     assert choose_coordinator_next(state_chat_done) == CoordinatorNext.CHAT_END
-    assert choose_coordinator_next(state_chat_done) == "chat_end"
 
-    # If alert and actionable or unfixable diagnosis, routes to remediate
+    # If alert
     state_alert = {
-        "pending_delegation": None,
         "event_type": "alert",
-        "requires_escalation": True,
     }
-    assert choose_coordinator_next(state_alert) == CoordinatorNext.REMEDIATE
-    assert choose_coordinator_next(state_alert) == "remediate"
+    assert choose_coordinator_next(state_alert) == CoordinatorNext.NOTIFY
+
+    # If autonomous single-pass coordinator set NOTIFY
+    state_notify = {
+        "event_type": "alert",
+        "coordinator_next": CoordinatorNext.NOTIFY,
+    }
+    assert choose_coordinator_next(state_notify) == CoordinatorNext.NOTIFY

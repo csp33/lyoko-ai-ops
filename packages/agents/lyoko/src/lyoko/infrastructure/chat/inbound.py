@@ -135,19 +135,9 @@ class TelegramInboundMixin:
                     action="typing",
                 )
 
-        # 3. Handle commands (no streaming placeholder for commands)
         text = str(msg.text).strip()
-        if text.startswith("/feedback") or text.startswith("/teach"):
-            await self._handle_feedback_command(msg, text)
-            return
-        if text.startswith("/forget"):
-            await self._handle_forget_command(msg, text)
-            return
-        if text.startswith("/memories"):
-            await self._handle_memories_command(msg, text)
-            return
 
-        # 4. Stream the answer into a real placeholder message, threaded to the incoming message
+        # 3. Stream the answer into a real placeholder message, threaded to the incoming message
         bot_instance = (
             getattr(context, "bot", None)
             if context and getattr(context, "bot", None)

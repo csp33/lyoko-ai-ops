@@ -1,7 +1,7 @@
 [project]
 name = "lyoko-ai-ops"
 version = "0.1.0"
-description = "Autonomous LYOKO AIOps platform with FastMCP Gateway and LangGraph Auto-remediation Agent (LYOKO)"
+description = "Autonomous LYOKO AIOps platform with FastMCP Gateway and Autonomous Remediation Agent (LYOKO)"
 readme = "README.md"
 requires-python = ">=3.13"
 license = { text = "MIT" }

@@ -3,10 +3,11 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from lyoko.application.agents.runner import AgentRunner
 from lyoko.application.chat.use_cases.handle_turn import HandleChatTurnUseCase
 from lyoko.application.context.formatter import IncidentContextFormatter
-from lyoko.application.incidents.use_cases.diagnose import DiagnoseIncidentUseCase
 from lyoko.application.incidents.use_cases.notify import format_incident_report
+from lyoko.application.incidents.use_cases.resolve import ResolveIncidentUseCase
 from lyoko.application.workflow.routing.canary import (
     CANARY_ACKNOWLEDGEMENT,
     CanaryNotificationDetector,
@@ -30,7 +31,11 @@ is_canary_notification = CanaryNotificationDetector.is_canary_notification
 
 
 def create_chat_node(**kwargs):
-    return HandleChatTurnUseCase(**kwargs).execute
+    runner = kwargs.pop("runner", None) or AgentRunner(
+        mcp_client=kwargs.pop("mcp_client", None),
+        llm=kwargs.pop("llm", None),
+    )
+    return HandleChatTurnUseCase(runner=runner, **kwargs).execute
 
 
 def create_route_node(**kwargs):
@@ -90,18 +95,16 @@ def test_format_incident_report():
 
     from lyoko.domain.models.incident import IncidentStatus
 
-    escalated_with_delegation_state = {
+    escalated_state = {
         "event_type": "alert",
         "is_resolved": False,
         "status": IncidentStatus.ESCALATED,
-        "delegation_history": [{"domain": "kubernetes", "task": "Investigate pod"}],
         "alert_name": "OutOfSync",
         "root_cause": "Investigating with tools",
-        "action_taken": "Delegated to kubernetes specialist",
+        "action_taken": "Investigating with tools",
     }
-    escalated_report = format_incident_report(escalated_with_delegation_state)
+    escalated_report = format_incident_report(escalated_state)
     assert "**Status:** 🚨 ESCALATED / REQUIRES ACTION" in escalated_report
-    assert "**Specialists Consulted:** `kubernetes`" in escalated_report
 
 
 @pytest.mark.asyncio
@@ -127,7 +130,7 @@ async def test_route_node_and_choose_branch():
 
 
 def test_status_callback_reads_only_config_configurable():
-    from lyoko.application.agents.supervisor import status_callback
+    from lyoko.application.agents.runner import status_callback
 
     sentinel = object()
     assert status_callback({"configurable": {"on_status": sentinel}}) is sentinel
@@ -137,17 +140,19 @@ def test_status_callback_reads_only_config_configurable():
 
 
 @pytest.mark.asyncio
-async def test_diagnose_node_forwards_streaming_status_callback():
+async def test_resolve_node_forwards_streaming_status_callback():
     """The incident branch must forward on_status so the placeholder shows steps, not 'Thinking…'."""
     captured: dict[str, object] = {}
 
-    async def fake_run_supervised(*args, **kwargs):  # noqa: ANN002, ANN003
+    async def fake_run(*args, **kwargs):  # noqa: ANN002, ANN003
         captured.update(kwargs)
-        return "ROOT_CAUSE: drift\nACTIONABLE: no\nPLAN: check"
+        return "ROOT_CAUSE: drift\nACTION_TAKEN: check\nVERIFICATION: ok\nSTATUS: RESOLVED"
 
-    node = DiagnoseIncidentUseCase(
-        mcp_client=object(), llm=object(), runner=fake_run_supervised
-    ).execute
+    mock_runner = MagicMock(spec=AgentRunner)
+    mock_runner.llm = object()
+    mock_runner.mcp_client = object()
+    mock_runner.run = fake_run
+    node = ResolveIncidentUseCase(runner=mock_runner).execute
     sentinel = object()
     state = {"event_type": "message", "text": "hi", "event_id": "evt-1", "session_id": "s1"}
     await node(state, {"configurable": {"on_status": sentinel}})
@@ -182,10 +187,8 @@ async def test_route_node_sends_recovery_to_chat_without_llm():
 
 
 @pytest.mark.asyncio
-async def test_chat_node_acknowledges_recovery_without_supervisor():
-    supervisor = MagicMock()
-    supervisor.coordinate = AsyncMock()
-    node = create_chat_node(mcp_client=object(), llm=object(), supervisor=supervisor)
+async def test_chat_node_acknowledges_recovery():
+    node = create_chat_node(mcp_client=object(), llm=object())
 
     res = await node(
         {"event_type": "message", "text": "An alert has been resolved: passing successfully"},
@@ -193,7 +196,6 @@ async def test_chat_node_acknowledges_recovery_without_supervisor():
     )
 
     assert res["reply"] == RECOVERY_ACKNOWLEDGEMENT
-    supervisor.coordinate.assert_not_called()
 
 
 def test_is_canary_notification():
@@ -237,10 +239,8 @@ async def test_route_node_sends_canary_to_chat_without_llm():
 
 
 @pytest.mark.asyncio
-async def test_chat_node_acknowledges_canary_without_supervisor():
-    supervisor = MagicMock()
-    supervisor.coordinate = AsyncMock()
-    node = create_chat_node(mcp_client=object(), llm=object(), supervisor=supervisor)
+async def test_chat_node_acknowledges_canary():
+    node = create_chat_node(mcp_client=object(), llm=object())
 
     res = await node(
         {
@@ -251,4 +251,3 @@ async def test_chat_node_acknowledges_canary_without_supervisor():
     )
 
     assert res["reply"] == CANARY_ACKNOWLEDGEMENT
-    supervisor.coordinate.assert_not_called()

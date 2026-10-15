@@ -2,289 +2,265 @@
   "schema_version": 2,
   "diagram_type": "workflow",
   "meta": {
-    "title": "LYOKO LangGraph StateGraph Architecture",
+    "title": "LYOKO Autonomous AIOps Workflow",
+    "animation": "trace",
     "quality_profile": "showcase",
     "views": [
       {
-        "id": "event-routing",
-        "label": "Ingress & Routing",
+        "id": "e2e-pipeline",
+        "label": "End-to-End Remediation",
         "focus": [
           "event_in",
-          "route_node",
-          "supervisor",
-          "diagnose"
-        ],
-        "note": "Alertmanager webhooks take the incident path; Telegram messages are classified by an LLM."
-      },
-      {
-        "id": "specialist-chat",
-        "label": "Interactive Chat & Specialists",
-        "focus": [
-          "route_node",
-          "supervisor",
-          "specialists",
-          "toolgate",
-          "mcp_gateway"
-        ],
-        "note": "Supervisor coordinates 4 domain specialists through the scoped tool gateway."
-      },
-      {
-        "id": "incident-remediation",
-        "label": "Autonomous Remediation & HITL Gate",
-        "focus": [
-          "diagnose",
-          "remediate",
+          "router",
+          "runbooks",
+          "hermes",
           "toolgate",
           "mcp_gateway",
-          "verify",
-          "notify"
+          "report"
         ],
-        "note": "4-stage SRE remediation loop with zero-trust ToolGate safety."
+        "note": "Autonomous operational pipeline from event intake to verified resolution."
+      },
+      {
+        "id": "safety-harness",
+        "label": "ToolGate & Human Approval",
+        "focus": [
+          "hermes",
+          "toolgate",
+          "approval",
+          "mcp_gateway",
+          "report"
+        ],
+        "note": "Fail-closed safety harness pausing state-changing mutations for operator consent."
       }
-    ]
+    ],
+    "output": "docs/diagrams/lyoko-workflow.html"
   },
   "lanes": [
     {
-      "id": "chat_lane",
-      "label": "Chat branch"
+      "id": "pipeline",
+      "label": "Autonomous Operations Pipeline"
     },
     {
-      "id": "main_lane",
-      "label": "Route and incident branch"
-    },
-    {
-      "id": "gate_lane",
-      "label": "Shared ToolGate and gateway"
+      "id": "telegram",
+      "label": "Telegram HITL & Incident Reporting",
+      "variant": "exception"
     }
   ],
   "phases": [
     {
-      "id": "p1",
-      "label": "Intake",
+      "id": "intake",
+      "label": "Intake & Routing",
       "fromCol": 0,
       "toCol": 1
     },
     {
-      "id": "p2",
-      "label": "Investigate and act",
+      "id": "triage",
+      "label": "Runbook Lookup",
       "fromCol": 2,
+      "toCol": 2,
+      "variant": "emphasis"
+    },
+    {
+      "id": "cognition",
+      "label": "Hermes Reasoning",
+      "fromCol": 3,
       "toCol": 3,
       "variant": "emphasis"
     },
     {
-      "id": "p3",
-      "label": "Verify and report",
+      "id": "safety",
+      "label": "Policy & Approval",
       "fromCol": 4,
+      "toCol": 4,
+      "variant": "dashed"
+    },
+    {
+      "id": "execution",
+      "label": "Execution & Report",
+      "fromCol": 5,
       "toCol": 5,
       "variant": "dashed"
     }
   ],
-  "groups": [
-    {
-      "id": "chat_group",
-      "label": "Supervisor orchestration",
-      "lane": "chat_lane",
-      "fromCol": 2,
-      "toCol": 3,
-      "variant": "emphasis"
-    },
-    {
-      "id": "gate_group",
-      "label": "Zero-trust harness",
-      "lane": "gate_lane",
-      "fromCol": 3,
-      "toCol": 4,
-      "variant": "security"
-    }
-  ],
+  "groups": [],
   "mainPath": [
     "event_in",
-    "route_node",
-    "diagnose",
-    "remediate",
+    "router",
+    "runbooks",
+    "hermes",
     "toolgate",
     "mcp_gateway",
-    "verify",
-    "notify"
+    "report"
   ],
   "nodes": [
     {
       "id": "event_in",
-      "lane": "main_lane",
+      "lane": "pipeline",
       "col": 0,
-      "type": "external",
-      "label": "Event Ingress",
-      "sublabel": "Alert or Telegram",
-      "width": 140
+      "type": "messagebus",
+      "brand": "prometheus",
+      "label": "Ingress",
+      "sublabel": "Alerts & Telegram",
+      "width": 116
     },
     {
-      "id": "route_node",
-      "lane": "main_lane",
+      "id": "router",
+      "lane": "pipeline",
       "col": 1,
       "type": "backend",
-      "label": "Route Classifier",
-      "sublabel": "LLM Intent Routing",
-      "width": 140
+      "label": "Classifier",
+      "sublabel": "Chat vs Incident",
+      "tag": "Deterministic / LLM",
+      "width": 116
     },
     {
-      "id": "supervisor",
-      "lane": "chat_lane",
+      "id": "runbooks",
+      "lane": "pipeline",
       "col": 2,
+      "type": "database",
+      "label": "Runbooks",
+      "sublabel": "Fast-path lookup",
+      "tag": "Zero-LLM",
+      "width": 116
+    },
+    {
+      "id": "hermes",
+      "lane": "pipeline",
+      "col": 3,
       "type": "backend",
-      "label": "Supervisor Agent",
-      "sublabel": "Plan & Delegate",
       "brand": "openai",
-      "width": 150
-    },
-    {
-      "id": "specialists",
-      "lane": "chat_lane",
-      "col": 3,
-      "type": "backend",
-      "label": "Domain Specialists",
-      "sublabel": "K8s \u00b7 Net \u00b7 IoT \u00b7 Obs",
-      "width": 160
-    },
-    {
-      "id": "diagnose",
-      "lane": "main_lane",
-      "col": 2,
-      "type": "backend",
-      "label": "1. Diagnose",
-      "sublabel": "Read-only inspection",
-      "width": 140
-    },
-    {
-      "id": "remediate",
-      "lane": "main_lane",
-      "col": 3,
-      "type": "backend",
-      "label": "2. Remediate",
-      "sublabel": "Execute fix plan",
-      "width": 140
-    },
-    {
-      "id": "verify",
-      "lane": "main_lane",
-      "col": 4,
-      "type": "cloud",
-      "label": "3. Verify",
-      "sublabel": "Post-fix health check",
-      "width": 140
-    },
-    {
-      "id": "notify",
-      "lane": "main_lane",
-      "col": 5,
-      "type": "frontend",
-      "label": "4. Notify",
-      "sublabel": "Structured SRE report",
-      "brand": "telegram",
-      "width": 140
+      "label": "Hermes",
+      "sublabel": "ReAct reasoning loop",
+      "tag": "Autonomous SRE",
+      "width": 116
     },
     {
       "id": "toolgate",
-      "lane": "gate_lane",
-      "col": 3,
+      "lane": "pipeline",
+      "col": 4,
       "type": "security",
-      "label": "ToolGate Policy",
-      "sublabel": "All tool calls, both branches",
-      "width": 140
+      "label": "ToolGate",
+      "sublabel": "Inspects every tool",
+      "tag": "Fail-closed",
+      "width": 116
     },
     {
       "id": "mcp_gateway",
-      "lane": "gate_lane",
+      "lane": "pipeline",
+      "col": 5,
+      "type": "cloud",
+      "brand": "kubernetes",
+      "label": "sector5-mcp",
+      "sublabel": "K8s / IoT / UniFi",
+      "tag": "Unified gateway",
+      "width": 116
+    },
+    {
+      "id": "approval",
+      "lane": "telegram",
       "col": 4,
       "type": "security",
-      "label": "sector5-mcp Gateway",
-      "sublabel": "FastMCP Tool Exec",
-      "width": 140
+      "brand": "telegram",
+      "label": "Approval",
+      "sublabel": "Approve / Deny",
+      "width": 116
+    },
+    {
+      "id": "report",
+      "lane": "telegram",
+      "col": 5,
+      "type": "frontend",
+      "brand": "telegram",
+      "label": "Report",
+      "sublabel": "Verified recovery",
+      "width": 116
     }
   ],
   "edges": [
     {
-      "id": "e1",
+      "id": "e_ingress",
       "from": "event_in",
-      "to": "route_node"
+      "to": "router",
+      "label": "incoming event",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
     },
     {
-      "id": "e2",
-      "from": "route_node",
-      "to": "supervisor",
-      "label": "chat",
-      "variant": "emphasis"
+      "id": "e_triage",
+      "from": "router",
+      "to": "runbooks",
+      "label": "incident alert",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
     },
     {
-      "id": "e3",
-      "from": "route_node",
-      "to": "diagnose",
-      "label": "incident",
-      "variant": "security"
+      "id": "e_runbook",
+      "from": "runbooks",
+      "to": "hermes",
+      "label": "injected runbook",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
     },
     {
-      "id": "e4",
-      "from": "supervisor",
-      "to": "specialists",
-      "variant": "emphasis"
-    },
-    {
-      "id": "e5",
-      "from": "diagnose",
-      "to": "remediate",
-      "variant": "emphasis"
-    },
-    {
-      "id": "e6",
-      "from": "remediate",
+      "id": "e_toolcall",
+      "from": "hermes",
       "to": "toolgate",
-      "label": "mutation",
-      "variant": "security"
+      "label": "tool call",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
     },
     {
-      "id": "e7",
+      "id": "e_readonly",
       "from": "toolgate",
       "to": "mcp_gateway",
-      "label": "approved",
-      "variant": "security"
+      "label": "read-only / auto",
+      "variant": "default"
     },
     {
-      "id": "e8",
-      "from": "mcp_gateway",
-      "to": "verify",
+      "id": "e_needs_approval",
+      "from": "toolgate",
+      "to": "approval",
+      "variant": "security",
+      "route": "straight",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e_approved",
+      "from": "approval",
+      "to": "mcp_gateway",
+      "label": "approved",
       "variant": "emphasis"
     },
     {
-      "id": "e9",
-      "from": "verify",
-      "to": "notify"
+      "id": "e_report",
+      "from": "mcp_gateway",
+      "to": "report",
+      "variant": "emphasis",
+      "route": "straight",
+      "fromSide": "bottom",
+      "toSide": "top"
     }
   ],
   "cards": [
     {
       "dot": "cyan",
-      "title": "One Graph, Dual Branches",
+      "title": "Deterministic Triage",
       "items": [
-        "Interactive Chat Branch: Multi-agent supervisor coordinates domain specialists",
-        "Autonomous Incident Branch: 4-stage deterministic SRE remediation lifecycle",
-        "LangGraph StateGraph guarantees typed transitions and checkpointed state"
+        "Alerts bypass LLM router straight to triage",
+        "Known alerts match curated Markdown runbooks before LLM reasoning"
       ]
     },
     {
-      "dot": "emerald",
-      "title": "Strict ToolGate Safety",
+      "dot": "rose",
+      "title": "Fail-Closed Safety",
       "items": [
-        "Read-only tools always execute immediately without interruption",
-        "State-changing tools require Telegram HITL operator approval buttons",
-        "Guarantees the model cannot apply unapproved mutations during diagnosis"
-      ]
-    },
-    {
-      "dot": "violet",
-      "title": "Comprehensive Observability",
-      "items": [
-        "Every event generates a single hierarchical Langfuse trace tree",
-        "Child spans record exact tool parameters, outputs, and token usage",
-        "Memory feedback allows operators to teach rules on the fly"
+        "Every tool call passes through ToolGate before reaching upstream",
+        "State-changing mutations require Telegram HITL operator approval"
       ]
     }
   ]

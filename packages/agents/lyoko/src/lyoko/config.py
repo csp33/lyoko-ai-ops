@@ -30,7 +30,7 @@ class AgentSettings(BaseSettings):
     openai_diagnose_model: str = Field(
         default="gpt-4.1",
         description=(
-            "OpenAI model for the diagnose phase, which synthesizes the specialists' evidence and "
+            "OpenAI model for the diagnose phase, which investigates incident evidence and "
             "decides whether the incident is actionable. A stronger model here pays off because "
             "mis-synthesis is the main failure mode. Empty falls back to openai_model."
         ),
@@ -93,9 +93,6 @@ class AgentSettings(BaseSettings):
     )
 
     # Guardrails
-    max_remediation_retries: int = Field(
-        default=2, description="Maximum automated remediation retry loops"
-    )
     verification_delay_seconds: int = Field(
         default=10, description="Seconds to wait before verifying pod health"
     )
@@ -123,17 +120,7 @@ class AgentSettings(BaseSettings):
         ge=1,
         description="Maximum tool-use iterations of each incident investigation or remediation",
     )
-    max_supervisor_steps: int = Field(
-        default=8,
-        ge=1,
-        description="Maximum supervisor delegation iterations per phase",
-    )
-    # Agent Orchestrator & Budget Controls
-    lyoko_orchestrator: str = Field(
-        default="hermes",
-        validation_alias=AliasChoices("lyoko_orchestrator", "orchestrator"),
-        description="Execution orchestrator for LLM tool use ('hermes' or 'langgraph')",
-    )
+    # Hermes Agent & Budget Controls
     hermes_venv_path: str = Field(
         default=".venv-hermes",
         validation_alias=AliasChoices("hermes_venv_path", "hermes_path"),
@@ -169,12 +156,7 @@ class AgentSettings(BaseSettings):
     max_turns_diagnose: int = Field(
         default=15,
         ge=1,
-        description="Maximum LLM turns for incident diagnosis",
-    )
-    max_turns_remediate: int = Field(
-        default=10,
-        ge=1,
-        description="Maximum LLM turns for incident remediation",
+        description="Maximum LLM turns for incident resolution",
     )
     max_turns_chat: int = Field(
         default=15,
@@ -237,25 +219,7 @@ class AgentSettings(BaseSettings):
     max_concurrent_incidents: int = Field(
         default=2,
         ge=1,
-        description="Maximum concurrent LangGraph incident investigation workflows allowed",
-    )
-    memory_similarity_threshold: float = Field(
-        default=0.2,
-        ge=0.0,
-        le=1.0,
-        description="Minimum cosine similarity required to inject memories into agent context",
-    )
-    chat_memory_similarity_threshold: float = Field(
-        default=0.35,
-        ge=0.0,
-        le=1.0,
-        description=(
-            "Similarity floor for injecting memories into interactive chat. Chat prompts are "
-            "short and generic, so a very low threshold surfaces loosely related rules that can "
-            "hijack the operator's actual request. It must still stay below the similarity of a "
-            "genuinely relevant short operator rule (empirically ~0.45), or real memories are "
-            "silently dropped."
-        ),
+        description="Maximum concurrent incident investigation workflows allowed",
     )
 
     # General Environment
@@ -289,7 +253,7 @@ class AgentSettings(BaseSettings):
         ),
     )
 
-    # PostgreSQL Checkpointer (Persistent LangGraph state)
+    # PostgreSQL Database (Episodic Memory & Advisory Locks)
     postgres_uri: str | None = Field(
         default=None,
         description="Full PostgreSQL connection URI (e.g., postgresql://user:pass@host:5432/dbname)",

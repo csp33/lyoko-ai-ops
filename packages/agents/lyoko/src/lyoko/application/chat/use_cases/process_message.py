@@ -5,11 +5,7 @@ import uuid
 from collections.abc import Callable
 from typing import Any
 
-from lyoko.application.chat.history import ChatHistoryTracker
-from lyoko.application.chat.sessions import (
-    DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS,
-    ChatSessionTracker,
-)
+from lyoko.application.chat.sessions import ChatSessionTracker
 from lyoko.application.incidents.use_cases.enrich_trace_cost import EnrichTraceCostUseCase
 from lyoko.application.workflow.routing.canary import CanaryNotificationDetector
 from lyoko.application.workflow.routing.recovery import RecoveryNotificationDetector
@@ -35,17 +31,14 @@ class ProcessChatMessageUseCase:
     def __init__(
         self,
         graph_provider: Callable[[], Any],
+        session_tracker: ChatSessionTracker,
         tracer: TracerInterface | None = None,
-        session_idle_timeout_seconds: float = DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS,
-        session_tracker: ChatSessionTracker | None = None,
-        history_tracker: ChatHistoryTracker | None = None,
         enrich_trace_cost: EnrichTraceCostUseCase | None = None,
         chat_manager: Any = None,
     ) -> None:
         self._graph_provider = graph_provider
+        self.session_tracker = session_tracker
         self.tracer = tracer
-        self.session_tracker = session_tracker or ChatSessionTracker(session_idle_timeout_seconds)
-        self.history_tracker = history_tracker or ChatHistoryTracker()
         self.enrich_trace_cost = enrich_trace_cost
         self.chat_manager = chat_manager
 
@@ -80,7 +73,6 @@ class ProcessChatMessageUseCase:
             session_id = self.session_tracker.start_new(
                 message.chat_id, thread_id=message.message_thread_id
             )
-            self.history_tracker.clear(message.chat_id, message.message_thread_id)
             logger.info(
                 "Started new session %s for chat %s thread %s",
                 session_id,
@@ -97,9 +89,6 @@ class ProcessChatMessageUseCase:
         self.session_tracker.link_message(message.chat_id, message.message_id, session_id)
         if message.bot_message_id:
             self.session_tracker.link_message(message.chat_id, message.bot_message_id, session_id)
-        history_context = self.history_tracker.get_history_context(
-            message.chat_id, message.message_thread_id
-        )
         event_id = f"chat-{uuid.uuid4().hex[:8]}"
         trace_id = uuid.uuid4().hex
 
@@ -111,7 +100,6 @@ class ProcessChatMessageUseCase:
             "chat_id": message.chat_id,
             "message_thread_id": message.message_thread_id,
             "text": message.text,
-            "history_context": history_context,
             "labels": {},
             "annotations": {},
         }
@@ -123,9 +111,6 @@ class ProcessChatMessageUseCase:
         try:
             result = await self._graph_provider().ainvoke(state, config=config)
             raw_reply = str(result.get("reply") or "")
-            self.history_tracker.record_turn(
-                message.chat_id, message.text, raw_reply, message.message_thread_id
-            )
             reply = raw_reply
             is_llm = not (
                 RecoveryNotificationDetector.is_recovery_notification(message.text)
@@ -156,8 +141,5 @@ class ProcessChatMessageUseCase:
                     )
         except Exception as exc:
             logger.error("Failed to process chat message: %s", exc, exc_info=True)
-            self.history_tracker.record_turn(
-                message.chat_id, message.text, f"Error: {exc}", message.message_thread_id
-            )
             return f"⚠️ Error processing your question: {exc}"
         return reply

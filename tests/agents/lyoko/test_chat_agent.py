@@ -6,10 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from lyoko.application.chat.agent import InteractiveChatAgent
 from lyoko.application.chat.sessions import ChatSessionTracker
-from lyoko.application.workflow.graph import create_lyoko_graph
 from lyoko.domain.models.chat import ChatUser, IncomingMessage
 
-from tests.agents.lyoko.fakes import FakeMCPClient, ScriptedLLM
+from tests.agents.lyoko.fakes import FakeMCPClient, ScriptedLLM, create_lyoko_graph
 
 
 def _msg(
@@ -32,7 +31,8 @@ def _msg(
 
 def _agent(llm, *, tracer=None, tracker=None) -> InteractiveChatAgent:
     graph = create_lyoko_graph(mcp_client=FakeMCPClient(), llm=llm)
-    return InteractiveChatAgent(lambda: graph, tracer=tracer, session_tracker=tracker)
+    session_tracker = tracker or ChatSessionTracker()
+    return InteractiveChatAgent(lambda: graph, session_tracker=session_tracker, tracer=tracer)
 
 
 @pytest.mark.asyncio
@@ -241,13 +241,9 @@ async def test_on_status_is_in_config_not_in_state():
 
 @pytest.mark.asyncio
 async def test_chat_with_checkpointer_and_on_status_serialization():
-    """Full workflow execution with checkpointer and on_status does not fail with msgpack TypeError."""
-    from langgraph.checkpoint.memory import MemorySaver
-    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
-
-    saver = MemorySaver(serde=JsonPlusSerializer())
+    """Full workflow execution with on_status callback."""
     llm = ScriptedLLM(route="CHAT", chat="Pong")
-    graph = create_lyoko_graph(mcp_client=FakeMCPClient(), checkpointer=saver, llm=llm)
+    graph = create_lyoko_graph(mcp_client=FakeMCPClient(), llm=llm)
     agent = InteractiveChatAgent(lambda: graph)
 
     async def status_collector(_text: str) -> None:

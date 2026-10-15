@@ -252,19 +252,6 @@ async def test_domain_discovery_tool_is_never_gated():
 
 
 @pytest.mark.asyncio
-async def test_domain_tools_are_scoped_execution_and_schema():
-    """Specialists receive call and schema tools; discovery is in the prompt so it is omitted."""
-    client = FastMCPClient(server_url="http://x/mcp", token="")
-
-    tools = {t.name: t for t in await client.get_domain_langchain_tools("grafana")}
-
-    assert set(tools) == {
-        "gateway_get_tool_schema",
-        "gateway_call_tool",
-    }
-
-
-@pytest.mark.asyncio
 async def test_get_domain_catalog_follows_pagination():
     client = FastMCPClient(server_url="http://x/mcp", token="")
     client.get_domain_tools_page = AsyncMock(
@@ -512,44 +499,6 @@ async def test_call_tool_resolves_single_nested_key_matching_tool_name():
 
     await tools["gateway_call_tool"].ainvoke({"ha_get_logs": {"source": "core", "limit": 10}})
     client.call_tool.assert_awaited_once_with("ha_get_logs", {"source": "core", "limit": 10})
-
-
-@pytest.mark.asyncio
-async def test_call_tool_infers_tool_name_from_domain_catalog():
-    """When tool_name is omitted, infer it if passed arguments uniquely match a domain tool."""
-    client = FastMCPClient(server_url="http://x/mcp", token="")
-    client.call_tool = AsyncMock(return_value={"ok": True})
-    client.get_domain_catalog = AsyncMock(
-        return_value=[
-            {
-                "name": "ha_get_logs",
-                "parameters": {
-                    "properties": {
-                        "source": {"type": "string"},
-                        "level": {"type": "string"},
-                        "structured": {"type": "boolean"},
-                    }
-                },
-            },
-            {
-                "name": "ha_get_state",
-                "parameters": {
-                    "properties": {
-                        "entity_id": {"type": "string"},
-                    }
-                },
-            },
-        ]
-    )
-    tools = {t.name: t for t in await client.get_domain_langchain_tools("homeassistant")}
-
-    output = await tools["gateway_call_tool"].ainvoke(
-        {"source": "error_log", "level": "error", "structured": True}
-    )
-    assert output == "{'ok': True}"
-    client.call_tool.assert_awaited_once_with(
-        "ha_get_logs", {"source": "error_log", "level": "error", "structured": True}
-    )
 
 
 @pytest.mark.asyncio

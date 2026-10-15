@@ -3,14 +3,7 @@
 from lyoko.domain.models.incident import (
     CoordinatorNext,
     Incident,
-    IncidentState,
     IncidentStatus,
-    SpecialistDomain,
-)
-from lyoko.domain.models.memory import (
-    FeedbackRequest,
-    MemoryEntry,
-    MemoryQueryResult,
 )
 
 
@@ -33,67 +26,14 @@ def test_lyoko_incident_model():
     assert len(incident_with_correlated.correlated_alerts) == 1
 
 
-def test_lyoko_incident_state():
-    incident = Incident(
-        alert_name="KubePodCrashLooping",
-        namespace="media",
-        pod_name="radarr-79dfb8bf7-x82k",
-        deployment_name="radarr",
-    )
-    state = IncidentState(
-        incident=incident,
-        status=IncidentStatus.DIAGNOSING,
-        diagnostics={"logs": "Out of memory"},
-        action_taken="Bumped limit to 1Gi",
-        verification_success=True,
-    )
-    assert state.incident.deployment_name == "radarr"
-    assert state.status == IncidentStatus.DIAGNOSING
-    assert state.diagnostics["logs"] == "Out of memory"
-    assert state.verification_success is True
+def test_incident_status_badges():
+    assert "RESOLVED" in IncidentStatus.RESOLVED.badge
+    assert "ESCALATED" in IncidentStatus.ESCALATED.badge
+    assert "FAILED" in IncidentStatus.FAILED.badge
+    assert "PENDING" in IncidentStatus.PENDING.badge
 
 
-def test_lyoko_memory_domain_models():
-    entry = MemoryEntry(
-        id=10,
-        namespace="monitoring",
-        service_name="prometheus",
-        alert_name="TargetDown",
-        incident_pattern="Connection refused",
-        operator_feedback="Check DNS before restart",
-        action_rule="Verify endpoint",
-    )
-    assert entry.id == 10
-    assert entry.service_name == "prometheus"
-    assert entry.operator_feedback == "Check DNS before restart"
-
-    req = FeedbackRequest(
-        namespace="monitoring",
-        service_name="prometheus",
-        incident_pattern="TargetDown Connection refused",
-        operator_feedback="Check DNS before restart",
-    )
-    assert req.service_name == "prometheus"
-    assert req.incident_pattern == "TargetDown Connection refused"
-
-    result = MemoryQueryResult(memory=entry, similarity=0.92)
-    assert result.similarity == 0.92
-    assert result.memory.id == 10
-
-
-def test_coordinator_next_and_specialist_domain_enums():
-    assert SpecialistDomain.KUBERNETES == "kubernetes"
-    assert SpecialistDomain.UNIFI == "unifi"
-    assert SpecialistDomain.HOMEASSISTANT == "homeassistant"
-    assert SpecialistDomain.GRAFANA == "grafana"
-    assert SpecialistDomain.LANGFUSE == "langfuse"
-    assert isinstance(SpecialistDomain.KUBERNETES, str)
-
-    assert CoordinatorNext.KUBERNETES == "kubernetes"
-    assert CoordinatorNext.UNIFI == "unifi"
-    assert CoordinatorNext.HOMEASSISTANT == "homeassistant"
-    assert CoordinatorNext.GRAFANA == "grafana"
-    assert CoordinatorNext.LANGFUSE == "langfuse"
-    assert CoordinatorNext.REMEDIATE == "remediate"
+def test_coordinator_next_enums():
+    assert CoordinatorNext.NOTIFY == "notify"
     assert CoordinatorNext.CHAT_END == "chat_end"
     assert isinstance(CoordinatorNext.CHAT_END, str)

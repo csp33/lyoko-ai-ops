@@ -8,7 +8,7 @@ from typing import Any
 class TracerInterface(ABC):
     @abstractmethod
     def get_callback_handler(self) -> Any | None:
-        """Return callback handler for LangGraph / LangChain tracing."""
+        """Return callback handler for LangChain tracing."""
 
     async def traced(self, name: str, run: Callable[[], Awaitable[Any]]) -> Any:
         """Run an infrastructure call as a named step in the current trace.
@@ -37,7 +37,7 @@ class TracerInterface(ABC):
         tags: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Build a LangChain / LangGraph RunnableConfig dict with tracing, session, and metadata."""
+        """Build a RunnableConfig dict with tracing, session, and metadata."""
         config: dict[str, Any] = {}
         handler = self.get_callback_handler()
         if handler:

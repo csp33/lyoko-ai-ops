@@ -71,6 +71,7 @@ def test_application_layer_clean_architecture_isolation():
         "psycopg",
         "psycopg_pool",
         "langfuse",
+        "langgraph",
     )
 
     app_dirs = list(WORKSPACE_ROOT.glob("packages/**/application"))

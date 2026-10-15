@@ -3,17 +3,6 @@
 from lyoko.application.chat.status_formatter import ToolStatusFormatter
 
 
-def test_formats_specialist_consultation():
-    formatter = ToolStatusFormatter()
-    res = formatter.format_tool_status(
-        {"name": "ask_kubernetes_specialist", "args": {}},
-        turns_used=0,
-        max_turns=5,
-        cost_usd=0.002,
-    )
-    assert res == "🧩 Consulting the kubernetes specialist (Step 1/5 • $0.002)"
-
-
 def test_formats_gateway_tool_call():
     formatter = ToolStatusFormatter()
     res = formatter.format_tool_status(

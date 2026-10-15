@@ -4,11 +4,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-from lyoko.application.chat.history import ChatHistoryTracker
-from lyoko.application.chat.sessions import (
-    DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS,
-    ChatSessionTracker,
-)
+from lyoko.application.chat.sessions import ChatSessionTracker
 from lyoko.application.chat.use_cases.process_message import (
     ProcessChatMessageUseCase,
 )
@@ -32,19 +28,15 @@ class InteractiveChatAgent:
     def __init__(
         self,
         graph_provider: Callable[[], Any],
-        tracer: TracerInterface | None = None,
-        session_idle_timeout_seconds: float = DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS,
         session_tracker: ChatSessionTracker | None = None,
-        history_tracker: ChatHistoryTracker | None = None,
+        tracer: TracerInterface | None = None,
         enrich_trace_cost: EnrichTraceCostUseCase | None = None,
         chat_manager: Any = None,
     ) -> None:
         self._use_case = ProcessChatMessageUseCase(
             graph_provider=graph_provider,
+            session_tracker=session_tracker or ChatSessionTracker(),
             tracer=tracer,
-            session_idle_timeout_seconds=session_idle_timeout_seconds,
-            session_tracker=session_tracker,
-            history_tracker=history_tracker,
             enrich_trace_cost=enrich_trace_cost,
             chat_manager=chat_manager,
         )
@@ -56,10 +48,6 @@ class InteractiveChatAgent:
     @property
     def session_tracker(self) -> ChatSessionTracker:
         return self._use_case.session_tracker
-
-    @property
-    def history_tracker(self) -> ChatHistoryTracker:
-        return self._use_case.history_tracker
 
     @property
     def enrich_trace_cost(self) -> EnrichTraceCostUseCase | None:

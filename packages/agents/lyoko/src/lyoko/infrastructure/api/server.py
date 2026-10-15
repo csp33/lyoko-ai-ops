@@ -5,20 +5,23 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from lyoko.application.incidents.recovery import OrphanRecoveryService
+from lyoko.application.agents.runner import AgentRunner
+from lyoko.application.chat.use_cases.handle_turn import HandleChatTurnUseCase
+from lyoko.application.incidents.use_cases.enrich_trace_cost import EnrichTraceCostUseCase
+from lyoko.application.incidents.use_cases.notify import NotifyIncidentReportUseCase
 from lyoko.application.incidents.use_cases.resolve import ResolveIncidentUseCase
+from lyoko.application.incidents.use_cases.triage import TriageIncidentUseCase
 from lyoko.application.safety.alert_guard import AlertStormProtector
 from lyoko.application.safety.gated_run_context import get_gated_run_context
 from lyoko.application.safety.hitl.manager import ApprovalManager
 from lyoko.application.safety.task_tracker import TaskTracker
-from lyoko.application.workflow.graph import create_lyoko_graph
+from lyoko.application.workflow.coordinator import CoordinateWorkflowUseCase
+from lyoko.application.workflow.graph import LyokoWorkflow
+from lyoko.application.workflow.routing.route_event import RouteEventUseCase
 from lyoko.composition import (
     build_chat_manager,
-    build_domain_specialists,
     build_llm_adapter,
     build_skill_matcher,
-    build_supervisor,
     build_tracer,
     build_triage_handlers,
     verify_mcp_gateway,
@@ -26,10 +29,8 @@ from lyoko.composition import (
 )
 from lyoko.config import settings
 from lyoko.domain.exceptions.mcp import MCPGatewayError
-from lyoko.infrastructure.api.controller import create_feedback_router, create_webhook_router
+from lyoko.infrastructure.api.controller import create_webhook_router
 from lyoko.infrastructure.db.lock import PostgresAdvisoryLock
-from lyoko.infrastructure.db.memory_repository import PostgresMemoryRepository
-from lyoko.infrastructure.embeddings import EmbeddingsService
 from lyoko.infrastructure.mcp.client import FastMCPClient
 from lyoko.infrastructure.mcp.gated_proxy import GATED_MCP_MOUNT_PATH, build_gated_mcp_app
 from psycopg_pool import AsyncConnectionPool
@@ -39,18 +40,15 @@ logger = logging.getLogger("lyoko.web.server")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage lifecycle of database pools, checkpointers, and chat listeners."""
+    """Manage lifecycle of database pools, chat listeners, and Hermes agent."""
     logger.info("Initializing LYOKO Auto-Remediation Agent...")
     db_uri = settings.get_postgres_uri()
     pool = None
-    checkpointer = None
-    memory_repo = None
-    embeddings_service = EmbeddingsService()
 
     if db_uri:
         try:
             logger.info(
-                f"Connecting to PostgreSQL checkpointer at {settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}..."
+                f"Connecting to PostgreSQL at {settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}..."
             )
             pool = AsyncConnectionPool(
                 conninfo=db_uri,
@@ -62,26 +60,14 @@ async def lifespan(app: FastAPI):
                 timeout=5.0,
             )
             await asyncio.wait_for(pool.open(), timeout=5.0)
-
-            # Setup LangGraph checkpointer
-            checkpointer = AsyncPostgresSaver(pool)
-            await asyncio.wait_for(checkpointer.setup(), timeout=5.0)
-            logger.info("PostgreSQL checkpointer initialized and tables ready.")
-
-            # Setup Memory repository
-            memory_repo = PostgresMemoryRepository(pool)
-            logger.info("PostgreSQL memory repository initialized.")
+            logger.info("PostgreSQL connection pool initialized for distributed locks.")
         except Exception as exc:
             logger.error(f"Failed to initialize PostgreSQL components: {exc}", exc_info=True)
             if pool:
                 await pool.close()
                 pool = None
-            checkpointer = None
-            memory_repo = None
     else:
-        logger.warning(
-            "No PostgreSQL credentials configured. LYOKO running without persistent memory & checkpointer."
-        )
+        logger.info("No PostgreSQL credentials configured. Running without multi-pod leader lock.")
 
     llm = getattr(app.state, "llm", None) or build_llm_adapter()
     diagnose_llm = getattr(app.state, "diagnose_llm", None) or build_llm_adapter(
@@ -98,20 +84,10 @@ async def lifespan(app: FastAPI):
     lock = PostgresAdvisoryLock(pool=pool) if pool else None
     chat_manager = build_chat_manager(
         approval_manager,
-        memory_repo=memory_repo,
-        embeddings_service=embeddings_service,
         lock=lock,
     )
     app.state.chat_manager = chat_manager
     wire_chat_agent(app, chat_manager)
-
-    specialists = getattr(app.state, "specialists", None) or build_domain_specialists(
-        mcp_client, llm
-    )
-    supervisor = getattr(app.state, "supervisor", None) or build_supervisor(specialists, llm)
-    diagnose_supervisor = getattr(app.state, "diagnose_supervisor", None) or build_supervisor(
-        specialists, diagnose_llm
-    )
 
     task_tracker = getattr(app.state, "task_tracker", None) or TaskTracker()
     app.state.task_tracker = task_tracker
@@ -128,61 +104,60 @@ async def lifespan(app: FastAPI):
     )
 
     skill_matcher = getattr(app.state, "skill_matcher", None) or build_skill_matcher()
+    tracer = getattr(app.state, "tracer", None)
 
-    is_autonomous = settings.lyoko_orchestrator.lower() == "hermes"
-    graph_supervisor = None if is_autonomous else supervisor
-    graph_diagnose_supervisor = None if is_autonomous else diagnose_supervisor
-    incident_use_case = None
-    if is_autonomous:
-        incident_use_case = ResolveIncidentUseCase(
-            mcp_client=mcp_client,
-            llm=diagnose_llm or llm,
-            supervisor=None,
-            approval_manager=approval_manager,
-            chat_manager=chat_manager,
-            memory_repository=None,
-            embeddings_service=None,
-            skill_matcher_service=skill_matcher,
-            default_chat_id=settings.telegram_default_chat_id or "",
-        )
+    route_use_case = RouteEventUseCase(llm=llm)
+    triage_use_case = TriageIncidentUseCase(handlers=triage_handlers)
 
-    # Rebuilt now that the checkpointer exists. Everything reads the graph from app.state.
-    workflow_engine = create_lyoko_graph(
-        mcp_client,
+    chat_runner = AgentRunner(mcp_client=mcp_client, llm=llm)
+    chat_use_case = HandleChatTurnUseCase(
+        runner=chat_runner,
         approval_manager=approval_manager,
         chat_manager=chat_manager,
-        checkpointer=checkpointer,
-        llm=llm,
-        supervisor=graph_supervisor,
-        specialists=specialists,
-        memory_repository=memory_repo,
-        embeddings_service=embeddings_service,
-        diagnose_llm=diagnose_llm,
-        diagnose_supervisor=graph_diagnose_supervisor,
-        tracer=getattr(app.state, "tracer", None),
-        triage_handlers=triage_handlers,
+    )
+
+    incident_runner = AgentRunner(mcp_client=mcp_client, llm=diagnose_llm or llm)
+    incident_use_case = ResolveIncidentUseCase(
+        runner=incident_runner,
+        approval_manager=approval_manager,
+        chat_manager=chat_manager,
         skill_matcher_service=skill_matcher,
+        default_chat_id=settings.telegram_default_chat_id or "",
+    )
+
+    coordinator_use_case = CoordinateWorkflowUseCase(
+        chat_use_case=chat_use_case,
         incident_use_case=incident_use_case,
+    )
+
+    enrich_trace_cost = (
+        EnrichTraceCostUseCase(
+            mcp_client=mcp_client,
+            tracer=tracer,
+            enabled=settings.telegram_show_trace_cost,
+        )
+        if mcp_client is not None
+        else None
+    )
+
+    notify_use_case = NotifyIncidentReportUseCase(
+        chat_manager=chat_manager,
+        enrich_trace_cost=enrich_trace_cost,
+    )
+
+    workflow_engine = LyokoWorkflow(
+        route_use_case=route_use_case,
+        triage_use_case=triage_use_case,
+        coordinator_use_case=coordinator_use_case,
+        notify_use_case=notify_use_case,
     )
 
     app.state.triage_handlers = triage_handlers
     app.state.skill_matcher = skill_matcher
     app.state.llm = llm
     app.state.diagnose_llm = diagnose_llm
-    app.state.specialists = specialists
-    app.state.supervisor = supervisor
-    app.state.diagnose_supervisor = diagnose_supervisor
     app.state.workflow_engine = workflow_engine
     app.state.db_pool = pool
-    app.state.checkpointer = checkpointer
-    app.state.memory_repository = memory_repo
-    app.state.embeddings_service = embeddings_service
-
-    if checkpointer is not None:
-        recovery_svc = OrphanRecoveryService(
-            workflow_engine=workflow_engine, checkpointer=checkpointer
-        )
-        task_tracker.track(asyncio.create_task(recovery_svc.recover_orphaned_incidents()))
 
     await chat_manager.start_all()
     gated_inner = getattr(app.state, "gated_mcp_inner", None)
@@ -207,9 +182,6 @@ def create_app() -> FastAPI:
     chat_manager = build_chat_manager(approval_manager)
     tracer = build_tracer()
     task_tracker = TaskTracker()
-    specialists = build_domain_specialists(mcp_client, llm)
-    supervisor = build_supervisor(specialists, llm)
-    diagnose_supervisor = build_supervisor(specialists, diagnose_llm)
     alert_guard = AlertStormProtector(chat_manager=chat_manager, task_tracker=task_tracker)
     chat_manager.register_approval_handler(alert_guard.handle_force_approval)
 
@@ -218,26 +190,19 @@ def create_app() -> FastAPI:
     app.state.llm = llm
     app.state.diagnose_llm = diagnose_llm
     app.state.mcp_client = mcp_client
-    app.state.specialists = specialists
-    app.state.supervisor = supervisor
-    app.state.diagnose_supervisor = diagnose_supervisor
     app.state.approval_manager = approval_manager
     app.state.chat_manager = chat_manager
     app.state.alert_guard = alert_guard
     app.state.task_tracker = task_tracker
     app.state.workflow_engine = None
     app.state.tracer = tracer
-    app.state.checkpointer = None
     app.state.db_pool = None
-    app.state.memory_repository = None
-    app.state.embeddings_service = None
 
     wire_chat_agent(app, chat_manager)
 
     app.include_router(
         create_webhook_router(tracer=tracer, alert_guard=alert_guard, task_tracker=task_tracker)
     )
-    app.include_router(create_feedback_router())
 
     app.state.gated_mcp_inner = None
     if settings.gated_mcp_token:
@@ -250,13 +215,11 @@ def create_app() -> FastAPI:
     @app.get("/healthz")
     @app.get("/health")
     async def health_check():
-        has_db = getattr(app.state, "checkpointer", None) is not None
-        has_memory = getattr(app.state, "memory_repository", None) is not None
+        has_db = getattr(app.state, "db_pool", None) is not None
         return {
             "status": "healthy",
             "service": "lyoko-agent",
-            "postgres_checkpointer": has_db,
-            "agent_memory": has_memory,
+            "database": has_db,
         }
 
     return app

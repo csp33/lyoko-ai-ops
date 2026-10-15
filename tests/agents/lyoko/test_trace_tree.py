@@ -1,4 +1,4 @@
-"""One event, one readable trace: real LangGraph + ReAct agent, recorded like a tracing backend."""
+"""One event, one readable trace: real LYOKO workflow + tool-using agent, recorded like a tracing backend."""
 
 from typing import Any
 from unittest.mock import AsyncMock
@@ -7,9 +7,10 @@ import pytest
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
-from lyoko.application.workflow.graph import create_lyoko_graph
 from lyoko.infrastructure.llm.openai import OpenAILLMAdapter
 from lyoko.infrastructure.mcp.client import FastMCPClient
+
+from tests.agents.lyoko.fakes import create_lyoko_graph
 
 
 class _ToolCallingFakeModel(GenericFakeChatModel):
@@ -17,11 +18,6 @@ class _ToolCallingFakeModel(GenericFakeChatModel):
 
     def bind_tools(self, tools: Any, **kwargs: Any) -> "_ToolCallingFakeModel":
         return self
-
-
-@pytest.fixture(autouse=True)
-def configure_orchestrator(monkeypatch):
-    monkeypatch.setattr("lyoko.config.settings.lyoko_orchestrator", "langgraph")
 
 
 class _Tree(BaseCallbackHandler):
@@ -129,7 +125,9 @@ async def test_alert_incident_phases_are_children_of_the_one_trace():
         messages=iter(
             [
                 _tool_call("pods_get", {"name": "radarr"}),
-                AIMessage(content="ROOT_CAUSE: OOM.\nACTIONABLE: no\nPLAN: raise memory"),
+                AIMessage(
+                    content="ROOT_CAUSE: OOM.\nACTION_TAKEN: none\nVERIFICATION: ok\nSTATUS: ESCALATED"
+                ),
             ]
         )
     )
@@ -153,6 +151,6 @@ async def test_alert_incident_phases_are_children_of_the_one_trace():
     )
 
     assert tree.roots() == ["lyoko-KubePodCrashLooping-1"]
-    assert tree.ancestors("diagnose-agent")[:2] == ["coordinator", "lyoko-KubePodCrashLooping-1"]
+    assert tree.ancestors("incident-agent")[:2] == ["coordinator", "lyoko-KubePodCrashLooping-1"]
     assert "mcp:pods_get" in tree.names.values()
     assert "route-llm" not in tree.names.values()

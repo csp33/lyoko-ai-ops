@@ -5,7 +5,7 @@ Prevents trace spam and token cost explosions during cascading infrastructure fa
 2. Deduplicating in-flight investigations and suppressing flapping alerts via cooldown TTL.
 3. Providing an emergency Circuit Breaker when alert velocity exceeds storm thresholds.
 4. Enabling manual operator override ("Procesar de todas formas") via interactive Telegram buttons.
-5. Throttling concurrent LangGraph runs using an asyncio Semaphore.
+5. Throttling concurrent incident workflow runs using an asyncio Semaphore.
 """
 
 import asyncio

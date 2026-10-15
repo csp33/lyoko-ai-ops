@@ -4,7 +4,7 @@
   "meta": {
     "title": "LYOKO AIOps Platform Architecture",
     "quality_profile": "showcase",
-    "viewBox": [1270, 600],
+    "viewBox": [1160, 520],
     "views": [
       {
         "id": "ingress-flow",
@@ -14,63 +14,51 @@
       },
       {
         "id": "agent-coordination",
-        "label": "Supervisor & Specialists",
-        "focus": ["lyoko_sup", "k8s_spec", "net_spec", "ha_spec", "obs_spec", "postgres"],
-        "note": "Supervisor coordinates domain specialists and queries episodic vector memory."
+        "label": "Hermes Autonomous Engine",
+        "focus": ["lyoko_agent", "postgres", "mcp_gw"],
+        "note": "Single autonomous Hermes SRE agent operates under ToolGate and PostgreSQL leader locking."
       },
       {
         "id": "gateway-upstream",
         "label": "Gateway & Infrastructure Execution",
         "focus": ["mcp_gw", "k8s_cluster", "unifi_net", "ha_iot", "graf_prom", "github_gitops"],
-        "note": "Unified FastMCP gateway validates auth, discovers tools per domain, and enforces safety guardrails."
+        "note": "Unified FastMCP gateway validates auth, discovers tools across domains, and enforces safety guardrails."
       }
     ]
   },
   "components": [
     { "id": "alertmanager", "type": "external", "label": "Alertmanager", "sublabel": "Prometheus Alerts", "pos": [30, 60], "size": [150, 54], "brand": "prometheus" },
     { "id": "operator_tg", "type": "external", "label": "Telegram Admin", "sublabel": "HITL Approvals", "pos": [30, 180], "size": [150, 54], "brand": "telegram" },
-    { "id": "dev_ide", "type": "external", "label": "Developer IDEs", "sublabel": "Claude / Cursor", "pos": [30, 430], "size": [150, 54] },
+    { "id": "dev_ide", "type": "external", "label": "Developer IDEs", "sublabel": "Claude / Cursor", "pos": [30, 380], "size": [150, 54] },
 
-    { "id": "lyoko_webhook", "type": "backend", "label": "Webhook Receiver", "sublabel": "FastAPI :9000", "pos": [225, 60], "size": [155, 54], "brand": "fastapi" },
-    { "id": "lyoko_chat", "type": "backend", "label": "Chat Handler", "sublabel": "Async Telegram", "pos": [225, 180], "size": [155, 54], "brand": "python" },
-    { "id": "postgres", "type": "database", "label": "PostgreSQL", "sublabel": "pgvector Memory", "pos": [225, 300], "size": [155, 54], "brand": "postgresql" },
+    { "id": "lyoko_webhook", "type": "backend", "label": "Webhook Receiver", "sublabel": "FastAPI :9000", "pos": [230, 60], "size": [160, 54], "brand": "fastapi" },
+    { "id": "lyoko_chat", "type": "backend", "label": "Chat Handler", "sublabel": "Async Telegram", "pos": [230, 180], "size": [160, 54], "brand": "python" },
+    { "id": "postgres", "type": "database", "label": "PostgreSQL", "sublabel": "Leader Lock", "pos": [230, 300], "size": [160, 54], "brand": "postgresql" },
 
-    { "id": "lyoko_sup", "type": "backend", "label": "Supervisor Agent", "sublabel": "LangGraph Engine", "pos": [430, 150], "size": [165, 60], "brand": "openai" },
+    { "id": "lyoko_agent", "type": "backend", "label": "LYOKO Agent", "sublabel": "Hermes Autonomous Engine", "pos": [455, 170], "size": [185, 68] },
 
-    { "id": "k8s_spec", "type": "backend", "label": "K8s SRE Spec", "sublabel": "Pods & Restarts", "pos": [645, 45], "size": [160, 52], "brand": "kubernetes" },
-    { "id": "net_spec", "type": "backend", "label": "Network Spec", "sublabel": "UniFi Clients", "pos": [645, 120], "size": [160, 52] },
-    { "id": "ha_spec", "type": "backend", "label": "SmartHome Spec", "sublabel": "HASS Entities", "pos": [645, 195], "size": [160, 52] },
-    { "id": "obs_spec", "type": "backend", "label": "Metrics Spec", "sublabel": "PromQL & Panels", "pos": [645, 270], "size": [160, 52], "brand": "grafana" },
+    { "id": "mcp_gw", "type": "security", "label": "sector5-mcp Gateway", "sublabel": "Auth · Guardrails · Tools", "pos": [705, 170], "size": [180, 68] },
 
-    { "id": "mcp_gw", "type": "security", "label": "sector5-mcp Gateway", "sublabel": "Auth · Guardrails", "pos": [855, 180], "size": [165, 66] },
-
-    { "id": "k8s_cluster", "type": "cloud", "label": "Kubernetes Cluster", "sublabel": "k8s Workloads", "pos": [1070, 45], "size": [160, 52], "brand": "kubernetes" },
-    { "id": "unifi_net", "type": "cloud", "label": "UniFi Network", "sublabel": "UDM-Pro & Switches", "pos": [1070, 120], "size": [160, 52] },
-    { "id": "ha_iot", "type": "cloud", "label": "Home Assistant", "sublabel": "IoT Entities & States", "pos": [1070, 195], "size": [160, 52] },
-    { "id": "graf_prom", "type": "cloud", "label": "Grafana / Metrics", "sublabel": "Dashboards & PromQL", "pos": [1070, 270], "size": [160, 52], "brand": "grafana" },
-    { "id": "github_gitops", "type": "cloud", "label": "GitHub GitOps", "sublabel": "Declarative PRs", "pos": [1070, 345], "size": [160, 52], "brand": "github" }
+    { "id": "k8s_cluster", "type": "cloud", "label": "Kubernetes Cluster", "sublabel": "k8s Workloads", "pos": [955, 45], "size": [165, 52], "brand": "kubernetes" },
+    { "id": "unifi_net", "type": "cloud", "label": "UniFi Network", "sublabel": "UDM-Pro & Switches", "pos": [955, 120], "size": [165, 52] },
+    { "id": "ha_iot", "type": "cloud", "label": "Home Assistant", "sublabel": "IoT Entities & States", "pos": [955, 195], "size": [165, 52] },
+    { "id": "graf_prom", "type": "cloud", "label": "Grafana / Metrics", "sublabel": "Dashboards & PromQL", "pos": [955, 270], "size": [165, 52], "brand": "grafana" },
+    { "id": "github_gitops", "type": "cloud", "label": "GitHub GitOps", "sublabel": "Declarative PRs", "pos": [955, 345], "size": [165, 52], "brand": "github" }
   ],
   "boundaries": [
     { "kind": "region", "label": "Ingress & Triggers", "wraps": ["alertmanager", "operator_tg", "dev_ide"], "pad": 12 },
-    { "kind": "region", "label": "LYOKO Multi-Agent Platform (LangGraph)", "wraps": ["lyoko_webhook", "lyoko_chat", "postgres", "lyoko_sup", "k8s_spec", "net_spec", "ha_spec", "obs_spec"], "pad": 14 },
+    { "kind": "region", "label": "LYOKO Autonomous Platform (Hermes)", "wraps": ["lyoko_webhook", "lyoko_chat", "postgres", "lyoko_agent"], "pad": 14 },
+    { "kind": "region", "label": "Tool Gateway", "wraps": ["mcp_gw"], "pad": 14 },
     { "kind": "region", "label": "Homelab Infrastructure & Upstream Services", "wraps": ["k8s_cluster", "unifi_net", "ha_iot", "graf_prom", "github_gitops"], "pad": 12 }
   ],
   "connections": [
     { "from": "alertmanager", "to": "lyoko_webhook", "variant": "emphasis" },
     { "from": "operator_tg", "to": "lyoko_chat", "variant": "emphasis" },
-    { "from": "lyoko_webhook", "to": "lyoko_sup" },
-    { "from": "lyoko_chat", "to": "lyoko_sup" },
-    { "from": "lyoko_sup", "to": "postgres", "variant": "dashed" },
+    { "from": "lyoko_webhook", "to": "lyoko_agent" },
+    { "from": "lyoko_chat", "to": "lyoko_agent" },
+    { "from": "lyoko_agent", "to": "postgres", "variant": "dashed" },
 
-    { "from": "lyoko_sup", "to": "k8s_spec", "variant": "emphasis" },
-    { "from": "lyoko_sup", "to": "net_spec", "variant": "emphasis" },
-    { "from": "lyoko_sup", "to": "ha_spec", "variant": "emphasis" },
-    { "from": "lyoko_sup", "to": "obs_spec", "variant": "emphasis" },
-
-    { "from": "k8s_spec", "to": "mcp_gw" },
-    { "from": "net_spec", "to": "mcp_gw" },
-    { "from": "ha_spec", "to": "mcp_gw" },
-    { "from": "obs_spec", "to": "mcp_gw" },
+    { "from": "lyoko_agent", "to": "mcp_gw", "variant": "emphasis" },
     { "from": "dev_ide", "to": "mcp_gw", "variant": "dashed" },
 
     { "from": "mcp_gw", "to": "k8s_cluster", "variant": "security" },
@@ -80,7 +68,7 @@
     { "from": "mcp_gw", "to": "github_gitops", "variant": "security" }
   ],
   "cards": [
-    { "dot": "cyan", "title": "Multi-Agent Orchestration", "items": ["LangGraph StateGraph coordinates supervisor and 4 domain specialists", "Per-domain tool discovery with paginated catalogs and lazy schema lookup", "Continuous episodic learning from operator feedback via pgvector"] },
+    { "dot": "cyan", "title": "Autonomous Hermes Engine", "items": ["Single autonomous SRE operator without rigid multi-agent hierarchy", "Cross-domain tool discovery with paginated catalogs and lazy schema lookup", "ToolGate safety harness with Telegram approvals for state mutations"] },
     { "dot": "emerald", "title": "Zero-Trust Safety Gateway", "items": ["Unified FastMCP endpoint aggregates all upstream capabilities", "ToolGate enforces read-only investigation and human approval for changes", "GuardrailEngine blocks namespace violations and destructive commands"] },
     { "dot": "violet", "title": "Comprehensive Observability", "items": ["End-to-end Langfuse trace tree for every alert and Telegram message", "Deterministic token tracking and cost accounting across all agent steps", "Single source of truth across Kubernetes, UniFi, and Home Assistant"] }
   ]

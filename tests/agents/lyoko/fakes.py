@@ -1,24 +1,38 @@
 """Test doubles for the incident agent: a scripted LLM and a gateway client that expose the gate."""
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from lyoko.application.agents.runner import AgentRunner
+from lyoko.application.chat.use_cases.handle_turn import HandleChatTurnUseCase
+from lyoko.application.incidents.triage.base import TriageHandler
+from lyoko.application.incidents.use_cases.enrich_trace_cost import EnrichTraceCostUseCase
+from lyoko.application.incidents.use_cases.notify import NotifyIncidentReportUseCase
+from lyoko.application.incidents.use_cases.resolve import ResolveIncidentUseCase
+from lyoko.application.incidents.use_cases.triage import TriageIncidentUseCase
 from lyoko.application.safety.hitl.manager import ApprovalManager
+from lyoko.application.skills.matcher import SkillMatcherService
+from lyoko.application.workflow.coordinator import CoordinateWorkflowUseCase
+from lyoko.application.workflow.graph import LyokoWorkflow
+from lyoko.application.workflow.routing.route_event import RouteEventUseCase
 from lyoko.domain.interfaces.llm import LLMClientInterface
-from lyoko.domain.interfaces.mcp import ToolAuthorizer
+from lyoko.domain.interfaces.mcp import MCPClientInterface, ToolAuthorizer
 from lyoko.domain.models.chat import ApprovalResponse
+from lyoko.infrastructure.chat.manager import ChatManager
 
-DIAGNOSIS_ACTIONABLE = (
+RESOLUTION_RESOLVED = (
     "ROOT_CAUSE: The radarr pod was OOMKilled because its memory limit is too low.\n"
-    "ACTIONABLE: yes\n"
-    "PLAN: 1. Call resources_scale for deployment radarr."
+    "ACTION_TAKEN: Scaled radarr.\n"
+    "VERIFICATION: The pod is Running with 0 restarts.\n"
+    "STATUS: RESOLVED"
 )
-DIAGNOSIS_NOT_ACTIONABLE = (
+RESOLUTION_ESCALATED = (
     "ROOT_CAUSE: The database credentials are invalid.\n"
-    "ACTIONABLE: no\n"
-    "PLAN: A human should rotate the credentials."
+    "ACTION_TAKEN: Investigated. No modifications required.\n"
+    "VERIFICATION: None\n"
+    "STATUS: ESCALATED"
 )
 
 
@@ -35,19 +49,12 @@ class FakeMCPClient:
     def get_langchain_tools(self, authorizer: ToolAuthorizer | None = None) -> list[Any]:
         return [GateHandle(authorizer)]
 
-    async def get_domain_langchain_tools(
-        self,
-        domain: str,
-        authorizer: ToolAuthorizer | None = None,
-    ) -> list[Any]:
-        return [GateHandle(authorizer)]
-
 
 Behavior = Callable[[ToolAuthorizer], Awaitable[str]]
 
 
 class ScriptedLLM(LLMClientInterface):
-    """LLM double with one scripted behavior per phase (route, chat, diagnose, remediate, verify).
+    """LLM double with one scripted behavior per phase (route, chat, incident).
 
     A behavior receives the real gate authorizer, so it can attempt tool calls exactly like a
     ReAct agent would and the test observes the gate's real decisions.
@@ -74,12 +81,18 @@ class ScriptedLLM(LLMClientInterface):
         parent_config: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> str:
-        phase = next(t.split(":", 1)[1] for t in (tags or []) if t.startswith("phase:"))
+        phase = next(
+            (t.split(":", 1)[1] for t in (tags or []) if t.startswith("phase:")), "incident"
+        )
         self.calls.append(phase)
         self.prompts[phase] = prompt
         self.parent_configs[phase] = parent_config
         self.max_steps.append(max_steps)
-        behavior = self._behaviors[phase]
+        behavior = self._behaviors.get(phase)
+        if behavior is None and phase == "incident":
+            behavior = self._behaviors.get("diagnose")
+        if behavior is None:
+            raise KeyError(f"No scripted behavior for phase '{phase}'")
         if isinstance(behavior, str):
             return behavior
         assert tools, "the workflow must give the agent tools"
@@ -112,3 +125,64 @@ class Operator:
                 )
             ),
         )
+
+
+def create_test_workflow(
+    mcp_client: MCPClientInterface,
+    approval_manager: ApprovalManager | None = None,
+    chat_manager: ChatManager | None = None,
+    llm: LLMClientInterface | None = None,
+    diagnose_llm: LLMClientInterface | None = None,
+    tracer: object = None,
+    triage_handlers: Sequence[TriageHandler] | None = None,
+    skill_matcher_service: SkillMatcherService | None = None,
+) -> LyokoWorkflow:
+    """Wire a LyokoWorkflow instance for tests with test doubles or mocks."""
+    route_use_case = RouteEventUseCase(llm=llm)
+    triage_use_case = TriageIncidentUseCase(handlers=list(triage_handlers or []))
+
+    chat_runner = AgentRunner(mcp_client=mcp_client, llm=llm)
+    chat_use_case = HandleChatTurnUseCase(
+        runner=chat_runner,
+        approval_manager=approval_manager,
+        chat_manager=chat_manager,
+    )
+
+    incident_runner = AgentRunner(mcp_client=mcp_client, llm=diagnose_llm or llm)
+    incident_use_case = ResolveIncidentUseCase(
+        runner=incident_runner,
+        approval_manager=approval_manager,
+        chat_manager=chat_manager,
+        skill_matcher_service=skill_matcher_service,
+        default_chat_id="",
+    )
+
+    coordinator_use_case = CoordinateWorkflowUseCase(
+        chat_use_case=chat_use_case,
+        incident_use_case=incident_use_case,
+    )
+
+    enrich_trace_cost = (
+        EnrichTraceCostUseCase(
+            mcp_client=mcp_client,
+            tracer=tracer,
+            enabled=False,
+        )
+        if mcp_client is not None
+        else None
+    )
+
+    notify_use_case = NotifyIncidentReportUseCase(
+        chat_manager=chat_manager,
+        enrich_trace_cost=enrich_trace_cost,
+    )
+
+    return LyokoWorkflow(
+        route_use_case=route_use_case,
+        triage_use_case=triage_use_case,
+        coordinator_use_case=coordinator_use_case,
+        notify_use_case=notify_use_case,
+    )
+
+
+create_lyoko_graph = create_test_workflow

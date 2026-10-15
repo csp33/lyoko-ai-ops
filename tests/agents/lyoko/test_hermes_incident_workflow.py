@@ -3,21 +3,18 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from lyoko.application.incidents.use_cases.resolve import ResolveIncidentUseCase
 from lyoko.application.safety.hitl.manager import ApprovalManager
-from lyoko.application.workflow.graph import create_lyoko_graph
 from lyoko.domain.interfaces.mcp import ToolAuthorizer
 
-from tests.agents.lyoko.fakes import FakeMCPClient, Operator, ScriptedLLM
+from tests.agents.lyoko.fakes import FakeMCPClient, Operator, ScriptedLLM, create_lyoko_graph
 
 SCALE_ARGS = {"name": "radarr", "namespace": "media", "replicas": 0}
 
 
 @pytest.fixture(autouse=True)
 def configure_hermes(monkeypatch):
-    monkeypatch.setattr("lyoko.config.settings.lyoko_orchestrator", "hermes")
-    monkeypatch.setattr("lyoko.application.workflow.graph.settings.verification_delay_seconds", 0)
-    monkeypatch.setattr("lyoko.application.workflow.graph.settings.auto_approved_tools", [])
+    monkeypatch.setattr("lyoko.config.settings.verification_delay_seconds", 0)
+    monkeypatch.setattr("lyoko.config.settings.auto_approved_tools", [])
 
 
 def _state(labels: dict[str, str] | None = None) -> dict:
@@ -38,26 +35,17 @@ def _build_workflow(
     chat_manager: AsyncMock | None = None,
 ):
     client = mcp_client or FakeMCPClient()
-    incident_use_case = ResolveIncidentUseCase(
-        mcp_client=client,
-        llm=llm,
-        approval_manager=approval_manager,
-        chat_manager=chat_manager,
-    )
     return create_lyoko_graph(
         mcp_client=client,
         approval_manager=approval_manager,
         chat_manager=chat_manager,
         llm=llm,
-        incident_use_case=incident_use_case,
     )
 
 
 @pytest.mark.asyncio
 async def test_hermes_resolves_incident_in_single_turn_with_auto_approved_tool(monkeypatch):
-    monkeypatch.setattr(
-        "lyoko.application.workflow.graph.settings.auto_approved_tools", ["resources_scale"]
-    )
+    monkeypatch.setattr("lyoko.config.settings.auto_approved_tools", ["resources_scale"])
 
     async def hermes_agent_behavior(authorize: ToolAuthorizer) -> str:
         # Diagnostic read

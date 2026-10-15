@@ -54,21 +54,14 @@ def test_alert_storm_settings_defaults():
     assert settings.max_concurrent_incidents == 2
 
 
-def test_tool_budget_and_memory_threshold_defaults():
+def test_tool_budget_defaults():
     settings = AgentSettings(postgres_password="")
     assert settings.max_tool_calls_per_run == 25
-    assert settings.memory_similarity_threshold == 0.2
-    assert settings.chat_memory_similarity_threshold == 0.35
 
 
-def test_lyoko_orchestrator_setting():
+def test_hermes_budget_settings_defaults():
     default_settings = AgentSettings(postgres_password="")
-    assert default_settings.lyoko_orchestrator == "hermes"
     assert default_settings.max_turns_diagnose == 15
-    assert default_settings.max_turns_remediate == 10
     assert default_settings.max_turns_chat == 15
     assert default_settings.max_budget_usd_per_event == 0.10
-
-    # Overridden via orchestrator alias
-    alias_settings = AgentSettings(postgres_password="", orchestrator="langgraph")
-    assert alias_settings.lyoko_orchestrator == "langgraph"
+    assert default_settings.cycle_detection_window == 2
