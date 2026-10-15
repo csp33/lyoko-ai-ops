@@ -34,11 +34,18 @@ class GuardrailPolicy:
         default_factory=lambda: [
             "*_get",
             "*_get_*",
+            "*.get_*",
+            "*.get",
             "*_list",
             "*_list_*",
+            "*.list_*",
+            "*.list",
             "*_log",
             "*_logs",
+            "*.log",
+            "*.logs",
             "*_top",
+            "*.top",
             "*_stats_summary",
             "configuration_view",
         ]

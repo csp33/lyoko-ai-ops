@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
+from lyoko.domain.models.incident import IncidentStatus
+
 EVENT_ALERT = "alert"
 EVENT_MESSAGE = "message"
 
@@ -34,6 +36,8 @@ class LyokoState(TypedDict, total=False):
     """The text to send back to the operator, set by ``chat`` and, for messages, by ``notify``."""
 
     # Incident branch
+    status: IncidentStatus | str
+    delegated_to: str | None
     root_cause: str
     plan: str
     action_taken: str

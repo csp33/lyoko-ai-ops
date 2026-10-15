@@ -3,6 +3,7 @@
 from typing import Any
 
 from lyoko.application.context.formatter import IncidentContextFormatter
+from lyoko.domain.models.incident import IncidentStatus
 from lyoko.domain.models.state import is_message
 
 
@@ -65,4 +66,50 @@ class IncidentStatusFormatter:
         lines.append(f"• *Root Cause:* {root_cause}")
         lines.append(f"• *Action Taken:* {action_taken}")
         lines.extend(["", "🔬 *Phase: Verify* — _Verifying cluster stabilization..._"])
+        return "\n".join(lines)
+
+    @staticmethod
+    def format_delegating_status(
+        state: dict[str, Any],
+        domain: str,
+        task: str,
+    ) -> str:
+        """Build a live progress update when delegating an investigation/task to a specialist."""
+        lines = ["⏳ *[LYOKO Incident in Progress]*", ""]
+        if is_message(state):
+            lines.append(f"• *Report:* {IncidentContextFormatter.truncate(state.get('text', ''))}")
+        else:
+            alert_name = state.get("alert_name") or "Incident"
+            lines.append(f"• *Alert:* `{alert_name}`")
+
+        lines.extend(
+            [
+                f"• *Status:* {IncidentStatus.DELEGATED.badge} — Consulting `{domain}` specialist",
+                f"• *Delegated Task:* {IncidentContextFormatter.truncate(task)}",
+                "",
+                f"🧩 *Phase: Specialist Execution* — _Running `{domain}` domain investigation..._",
+            ]
+        )
+        return "\n".join(lines)
+
+    @staticmethod
+    def format_delegation_completed_status(
+        state: dict[str, Any],
+        domain: str,
+        summary: str = "",
+    ) -> str:
+        """Build a live progress update after specialist completes task execution."""
+        lines = ["⏳ *[LYOKO Incident in Progress]*", ""]
+        if is_message(state):
+            lines.append(f"• *Report:* {IncidentContextFormatter.truncate(state.get('text', ''))}")
+        else:
+            alert_name = state.get("alert_name") or "Incident"
+            lines.append(f"• *Alert:* `{alert_name}`")
+
+        lines.append(
+            f"• *Status:* {IncidentStatus.DELEGATED.badge} — `{domain}` specialist completed execution"
+        )
+        if summary:
+            lines.append(f"• *Specialist Response:* {IncidentContextFormatter.truncate(summary)}")
+        lines.extend(["", "🧠 *Phase: Coordinator* — _Synthesizing findings..._"])
         return "\n".join(lines)

@@ -172,6 +172,8 @@ async def test_execute_specialist_task_use_case():
         {},
     )
     assert res_match["pending_delegation"] is None
+    assert res_match["status"] == "delegated"
+    assert res_match["delegated_to"] == "kubernetes"
     assert len(res_match["delegation_history"]) == 1
     assert res_match["delegation_history"][0]["response"] == "K8s pod restarted"
 

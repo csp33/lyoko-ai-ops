@@ -1,5 +1,6 @@
 """Multi-Agent Supervisor and Cross-Domain Orchestrator for LYOKO."""
 
+import inspect
 import logging
 from typing import Any
 
@@ -18,22 +19,11 @@ logger = logging.getLogger("lyoko.supervisor")
 SUPERVISOR_SYSTEM_PROMPT = f"{load_prompt('supervisor.md')}\n\n{build_agent_context('supervisor')}"
 
 _DOMAIN_DESCRIPTIONS = {
-    "kubernetes": (
-        "Kubernetes SRE: pods, deployments, events, logs, generic resources including Argo CD "
-        "Application CRDs, scaling, and rollouts."
-    ),
-    "unifi": (
-        "UniFi network: clients, access points, switches, VLANs, bandwidth, DPI, and Wi-Fi health."
-    ),
-    "homeassistant": (
-        "Smart home: Home Assistant entities, devices, automations, climate, lights, and integrations."
-    ),
-    "grafana": (
-        "Observability: Grafana dashboards, Prometheus metrics, alert history, and datasources."
-    ),
-    "langfuse": (
-        "LLM Observability: Langfuse traces, token metrics, model cost accounting, and execution latency."
-    ),
+    "kubernetes": "Kubernetes SRE: pods, deployments, events, logs, generic resources including Argo CD Application CRDs, scaling, and rollouts.",
+    "unifi": "UniFi network: clients, access points, switches, VLANs, bandwidth, DPI, and Wi-Fi health.",
+    "homeassistant": "Smart home: Home Assistant entities, devices, automations, climate, lights, and integrations.",
+    "grafana": "Observability: Grafana dashboards, Prometheus metrics, alert history, and datasources.",
+    "langfuse": "LLM Observability: Langfuse traces, token metrics, model cost accounting, and execution latency.",
 }
 
 
@@ -69,7 +59,11 @@ class SupervisorAgent(SupervisorInterface):
         if specialist is None:
             return f"Supervisor: No specialist registered for domain '{domain}'."
         logger.info("Supervisor delegating to %s specialist: %s", domain, prompt)
-        return await specialist.run(
+        if on_status is not None:
+            r = on_status(f"🔄 Delegating to {domain} specialist")
+            if inspect.isawaitable(r):
+                await r
+        result = await specialist.run(
             prompt=prompt,
             session_id=session_id,
             user_id=user_id,
@@ -79,6 +73,11 @@ class SupervisorAgent(SupervisorInterface):
             parent_config=parent_config,
             on_status=on_status,
         )
+        if on_status is not None:
+            r = on_status(f"✅ {domain.capitalize()} specialist finished")
+            if inspect.isawaitable(r):
+                await r
+        return result
 
     def get_delegation_tools(
         self,

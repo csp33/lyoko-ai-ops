@@ -88,6 +88,21 @@ def test_format_incident_report():
     assert "**Report:**" not in message_report
     assert "autosync arr-stack please" not in message_report
 
+    from lyoko.domain.models.incident import IncidentStatus
+
+    delegated_state = {
+        "event_type": "alert",
+        "is_resolved": False,
+        "status": IncidentStatus.DELEGATED,
+        "pending_delegation": {"domain": "kubernetes"},
+        "alert_name": "OutOfSync",
+        "root_cause": "Investigating with tools",
+        "action_taken": "Delegated to kubernetes specialist",
+    }
+    delegated_report = format_incident_report(delegated_state)
+    assert "**Status:** 🔄 DELEGATED (kubernetes)" in delegated_report
+    assert "ESCALATED" not in delegated_report
+
 
 @pytest.mark.asyncio
 async def test_route_node_and_choose_branch():

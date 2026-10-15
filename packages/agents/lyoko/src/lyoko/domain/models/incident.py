@@ -23,11 +23,27 @@ def compute_incident_key(incident: "Incident") -> str:
 class IncidentStatus(StrEnum):
     PENDING = "pending"
     DIAGNOSING = "diagnosing"
+    DELEGATED = "delegated"
     REMEDIATING = "remediating"
     VERIFYING = "verifying"
     RESOLVED = "resolved"
     ESCALATED = "escalated"
     FAILED = "failed"
+
+    @property
+    def badge(self) -> str:
+        """Formatted Markdown status badge for live messages and reports."""
+        badges = {
+            IncidentStatus.RESOLVED: "✅ RESOLVED",
+            IncidentStatus.DELEGATED: "🔄 DELEGATED",
+            IncidentStatus.ESCALATED: "🚨 ESCALATED / REQUIRES ACTION",
+            IncidentStatus.DIAGNOSING: "🔍 DIAGNOSING",
+            IncidentStatus.REMEDIATING: "🛠️ REMEDIATING",
+            IncidentStatus.VERIFYING: "🔬 VERIFYING",
+            IncidentStatus.FAILED: "❌ FAILED",
+            IncidentStatus.PENDING: "⏳ PENDING",
+        }
+        return badges.get(self, f"ℹ️ {self.value.upper()}")
 
 
 class SpecialistDomain(StrEnum):

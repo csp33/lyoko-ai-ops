@@ -54,6 +54,9 @@ def _gate(mode: GateMode = GateMode.READ_ONLY, **kwargs) -> ToolGate:
         "list_commits",
         "grafana_query_prometheus",
         "query_loki_logs",
+        "kubernetes.get_resource",
+        "kubernetes.list_resources",
+        "kubernetes.get_pod_logs",
     ],
 )
 def test_default_read_only_patterns_cover_inspection_tools(tool):
