@@ -252,8 +252,11 @@ def _authorized_call(
                 raise ToolException(refusal)
         result = await client.call_tool(tool_name, arguments)
         if isinstance(result, dict):
-            if result.get("status") == "failed":
-                raise ToolException(str(result.get("error", "unknown MCP gateway error")))
+            if result.get("status") in ("failed", "error") or result.get("is_error"):
+                err_msg = (
+                    result.get("error") or result.get("content") or "unknown MCP gateway error"
+                )
+                raise ToolException(str(err_msg))
             if result.get("status") == "success" and not result.get("content"):
                 result = {**result, "content": "No resources found or empty result."}
         elif not result:

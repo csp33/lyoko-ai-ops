@@ -237,3 +237,42 @@ async def test_kubernetes_upstream_client_error_handling():
         res = await client.call_tool("k8s_kubectl", {"command": "get pod test"})
         assert res.is_error is True
         assert res.content == err_content
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        "get pods -A | grep error",
+        "get pods --no-headers | awk '{print $1}' | sort | uniq -c",
+        "get pods; rm -rf /",
+        "get pods && get nodes",
+        "get pods > /tmp/pods.txt",
+    ],
+)
+async def test_kubernetes_upstream_rejects_shell_operators(cmd):
+    client = KubernetesUpstreamClient(
+        command="kubectl",
+        upstream_type=UpstreamType.KUBERNETES,
+        prefix="k8s_",
+    )
+    with patch.object(client, "_exec_kubectl", new_callable=AsyncMock) as mock_exec:
+        res = await client.call_tool("k8s_kubectl", {"command": cmd})
+        mock_exec.assert_not_called()
+        assert res.is_error is True
+        assert res.status == "failed"
+        assert "Shell pipelines ('|'), chaining (';', '&&'), and redirection" in res.content
+
+
+@pytest.mark.asyncio
+async def test_kubernetes_upstream_list_tools_description_mentions_no_shell():
+    client = KubernetesUpstreamClient(
+        command="kubectl",
+        upstream_type=UpstreamType.KUBERNETES,
+        prefix="k8s_",
+    )
+    tools = await client.list_tools()
+    assert len(tools) == 1
+    assert tools[0].name == "k8s_kubectl"
+    assert "pipes ('|')" in tools[0].description
+    assert "without a shell" in tools[0].description

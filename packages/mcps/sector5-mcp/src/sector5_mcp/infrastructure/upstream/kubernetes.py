@@ -21,6 +21,17 @@ _NOISY_METADATA_FIELDS = (
     "uid",
 )
 _LAST_APPLIED_CONFIG_ANNOTATION = "kubectl.kubernetes.io/last-applied-configuration"
+_SHELL_OPERATORS = ("|", "||", ";", "&&", ">", ">>", "<")
+
+
+def _has_shell_operators(cmd: str | list[str], args: list[str]) -> bool:
+    """Detect shell piping, redirection, or chaining in kubectl arguments."""
+    return any(
+        arg in _SHELL_OPERATORS or arg.startswith(("|", "||", ";", "&&")) for arg in args
+    ) or (
+        isinstance(cmd, str)
+        and any(op in cmd for op in (" |", "| ", " ;", "; ", " &&", "&& ", " >", " >"))
+    )
 
 
 def prune_k8s_manifest(data: Any) -> Any:
@@ -87,6 +98,8 @@ class KubernetesUpstreamClient(UpstreamMCPInterface):
                 name="k8s_kubectl",
                 description=(
                     "Execute a kubectl command against the Kubernetes cluster. "
+                    "Executes kubectl directly as a binary without a shell: pipes ('|'), grep/awk, "
+                    "redirection, and chaining are NOT supported. "
                     "Supports inspection ('get', 'describe', 'logs', 'top') and mutations "
                     "('apply', 'patch', 'scale', 'rollout', 'delete'). "
                     "Examples: 'get pods -A', 'get pods -n argocd', 'describe app bentopdf -n argocd', "
@@ -97,7 +110,10 @@ class KubernetesUpstreamClient(UpstreamMCPInterface):
                     "properties": {
                         "command": {
                             "type": "string",
-                            "description": "The kubectl subcommand and arguments, e.g. 'get pods -A'",
+                            "description": (
+                                "The kubectl subcommand and arguments, e.g. 'get pods -A' or "
+                                "'get pods -n argocd'. Do not use shell pipes ('|') or redirects."
+                            ),
                         }
                     },
                     "required": ["command"],
@@ -161,6 +177,17 @@ class KubernetesUpstreamClient(UpstreamMCPInterface):
             if not args:
                 return ToolResult(
                     status="failed", content="Missing or empty kubectl command.", is_error=True
+                )
+            if _has_shell_operators(cmd, args):
+                return ToolResult(
+                    status="failed",
+                    content=(
+                        "Shell pipelines ('|'), chaining (';', '&&'), and redirection ('>', '<') "
+                        "are not supported because 'k8s_kubectl' executes the kubectl binary directly without a shell. "
+                        "Use native kubectl options such as '-o jsonpath=...', '-o custom-columns=...', "
+                        "-l <label-selector>, or query specific namespaces with '-n <namespace>'."
+                    ),
+                    is_error=True,
                 )
             return await self._exec_kubectl(args)
 
