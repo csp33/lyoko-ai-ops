@@ -163,10 +163,7 @@ async def test_kubernetes_upstream_client_tools_list_and_pruning():
 
     tools = await client.list_tools()
     tool_names = [t.name for t in tools]
-    assert "k8s_kubectl" in tool_names
-    assert "k8s_pods_get" in tool_names
-    assert "k8s_resources_get" in tool_names
-    assert "k8s_resources_create_or_update" in tool_names
+    assert tool_names == ["k8s_kubectl"]
 
     fake_result = ToolResult(
         status="success",

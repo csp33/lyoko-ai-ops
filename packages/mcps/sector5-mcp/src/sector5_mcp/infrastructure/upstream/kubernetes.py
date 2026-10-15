@@ -81,7 +81,7 @@ class KubernetesUpstreamClient(UpstreamMCPInterface):
         self.prefix = prefix
 
     async def list_tools(self) -> list[ToolDefinition]:
-        """Expose k8s_kubectl as primary tool alongside backwards-compatible helpers."""
+        """Expose k8s_kubectl as the sole tool of the kubernetes domain."""
         return [
             ToolDefinition(
                 name="k8s_kubectl",
@@ -89,7 +89,7 @@ class KubernetesUpstreamClient(UpstreamMCPInterface):
                     "Execute a kubectl command against the Kubernetes cluster. "
                     "Supports inspection ('get', 'describe', 'logs', 'top') and mutations "
                     "('apply', 'patch', 'scale', 'rollout', 'delete'). "
-                    "Examples: 'get pods -n argocd', 'describe app bentopdf -n argocd', "
+                    "Examples: 'get pods -A', 'get pods -n argocd', 'describe app bentopdf -n argocd', "
                     "'logs deploy/bentopdf -n bentopdf --tail=50', 'get events -n default'."
                 ),
                 parameters={
@@ -97,172 +97,11 @@ class KubernetesUpstreamClient(UpstreamMCPInterface):
                     "properties": {
                         "command": {
                             "type": "string",
-                            "description": "The kubectl subcommand and arguments, e.g. 'get pods -n argocd'",
+                            "description": "The kubectl subcommand and arguments, e.g. 'get pods -A'",
                         }
                     },
                     "required": ["command"],
                 },
-                upstream_type=self.upstream_type,
-            ),
-            ToolDefinition(
-                name="k8s_pods_get",
-                description="Get a Pod resource by name and namespace.",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string", "description": "Name of the pod"},
-                        "namespace": {
-                            "type": "string",
-                            "description": "Namespace",
-                            "default": "default",
-                        },
-                    },
-                    "required": ["name"],
-                },
-                upstream_type=self.upstream_type,
-            ),
-            ToolDefinition(
-                name="k8s_pods_list",
-                description="List Pods in a namespace.",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "namespace": {
-                            "type": "string",
-                            "description": "Namespace to list pods from",
-                        },
-                    },
-                },
-                upstream_type=self.upstream_type,
-            ),
-            ToolDefinition(
-                name="k8s_pods_log",
-                description="Get logs from a Pod.",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string", "description": "Name of the pod"},
-                        "namespace": {
-                            "type": "string",
-                            "description": "Namespace",
-                            "default": "default",
-                        },
-                        "container": {"type": "string", "description": "Optional container name"},
-                        "tail": {"type": "integer", "description": "Recent log lines to view"},
-                    },
-                    "required": ["name"],
-                },
-                upstream_type=self.upstream_type,
-            ),
-            ToolDefinition(
-                name="k8s_resources_get",
-                description="Get any Kubernetes resource or CRD by kind and name.",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "kind": {
-                            "type": "string",
-                            "description": "Resource kind (e.g. Application, Deployment)",
-                        },
-                        "name": {"type": "string", "description": "Resource name"},
-                        "namespace": {
-                            "type": "string",
-                            "description": "Namespace",
-                            "default": "default",
-                        },
-                        "apiVersion": {"type": "string", "description": "Optional apiVersion"},
-                    },
-                    "required": ["kind", "name"],
-                },
-                upstream_type=self.upstream_type,
-            ),
-            ToolDefinition(
-                name="k8s_resources_list",
-                description="List Kubernetes resources of a given kind.",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "kind": {"type": "string", "description": "Resource kind"},
-                        "namespace": {"type": "string", "description": "Namespace"},
-                        "labelSelector": {
-                            "type": "string",
-                            "description": "Optional label selector",
-                        },
-                    },
-                    "required": ["kind"],
-                },
-                upstream_type=self.upstream_type,
-            ),
-            ToolDefinition(
-                name="k8s_resources_create_or_update",
-                description="Create or update a Kubernetes resource using manifest YAML/JSON.",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "resource": {
-                            "type": "string",
-                            "description": "Complete YAML or JSON manifest",
-                        },
-                    },
-                    "required": ["resource"],
-                },
-                upstream_type=self.upstream_type,
-            ),
-            ToolDefinition(
-                name="k8s_resources_delete",
-                description="Delete a Kubernetes resource by kind and name.",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "kind": {"type": "string", "description": "Resource kind"},
-                        "name": {"type": "string", "description": "Resource name"},
-                        "namespace": {
-                            "type": "string",
-                            "description": "Namespace",
-                            "default": "default",
-                        },
-                    },
-                    "required": ["kind", "name"],
-                },
-                upstream_type=self.upstream_type,
-            ),
-            ToolDefinition(
-                name="k8s_resources_scale",
-                description="Scale a Kubernetes workload.",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "kind": {
-                            "type": "string",
-                            "description": "Resource kind (Deployment, StatefulSet)",
-                        },
-                        "name": {"type": "string", "description": "Resource name"},
-                        "scale": {"type": "integer", "description": "Desired replica count"},
-                        "namespace": {
-                            "type": "string",
-                            "description": "Namespace",
-                            "default": "default",
-                        },
-                    },
-                    "required": ["kind", "name", "scale"],
-                },
-                upstream_type=self.upstream_type,
-            ),
-            ToolDefinition(
-                name="k8s_events_list",
-                description="List Kubernetes events in a namespace.",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "namespace": {"type": "string", "description": "Namespace"},
-                    },
-                },
-                upstream_type=self.upstream_type,
-            ),
-            ToolDefinition(
-                name="k8s_namespaces_list",
-                description="List all namespaces in the cluster.",
-                parameters={"type": "object", "properties": {}},
                 upstream_type=self.upstream_type,
             ),
         ]
