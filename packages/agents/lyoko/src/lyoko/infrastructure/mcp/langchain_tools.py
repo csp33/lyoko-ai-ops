@@ -39,6 +39,32 @@ class _CallToolArgs(BaseModel):
     )
 
 
+_COMMON_ALIASES: dict[str, str] = {
+    "grafana_query": "grafana_query_prometheus",
+    "grafana_data_query": "grafana_query_prometheus",
+    "grafana_query_data": "grafana_query_prometheus",
+    "grafana_prometheus_query": "grafana_query_prometheus",
+    "grafana_promql": "grafana_query_prometheus",
+    "grafana_get_datasources": "grafana_list_datasources",
+}
+
+
+def _normalize_args(tool: str, args: dict[str, Any]) -> None:
+    if tool == "grafana_query_prometheus":
+        if "expr" not in args and "query" in args:
+            args["expr"] = args.pop("query")
+        args.setdefault("datasourceUid", "prometheus")
+        args.setdefault("endTime", "now")
+        args.setdefault("queryType", "range" if "startTime" in args else "instant")
+    elif tool == "grafana_api_request":
+        if "endpoint" not in args:
+            for k in ("url", "path"):
+                if k in args:
+                    args["endpoint"] = args.pop(k)
+                    break
+        args.setdefault("method", "GET")
+
+
 async def _resolve_tool_name(
     client: MCPClientInterface,
     tool_name: str | None,
@@ -47,7 +73,10 @@ async def _resolve_tool_name(
 ) -> tuple[str | None, dict[str, Any]]:
     # 1. Direct tool_name provided
     if tool_name:
-        return tool_name, merged
+        norm = tool_name.replace(".", "_").replace(":", "_")
+        resolved = _COMMON_ALIASES.get(norm, norm)
+        _normalize_args(resolved, merged)
+        return resolved, merged
 
     # 2. Common aliases for tool name
     for alias in ("tool", "name", "target_tool", "function"):

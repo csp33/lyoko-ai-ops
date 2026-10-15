@@ -121,15 +121,30 @@ class ToolGate:
         self._readonly_lookup = readonly_lookup
         self._approval_count = 0
 
+    @staticmethod
+    def _is_http_read_only(tool_name: str, arguments: dict[str, Any]) -> bool:
+        norm = tool_name.replace(".", "_").replace(":", "_")
+        if norm == "api_request" or norm.endswith("_api_request"):
+            method = str(arguments.get("method") or "GET").upper()
+            return method in ("GET", "HEAD", "OPTIONS")
+        return False
+
     async def authorize(self, tool_name: str, arguments: dict[str, Any]) -> str | None:
         """Return ``None`` to allow the call, or a refusal message for the agent."""
+        if self._is_http_read_only(tool_name, arguments):
+            return None
+
         declared = self._readonly_lookup(tool_name) if self._readonly_lookup is not None else None
         if declared is True:
             return None
 
         # An explicit "not read-only" from the upstream beats the name heuristic; only when the
         # upstream said nothing (None) do the patterns get to decide.
-        if declared is None and matches_any(tool_name, self._read_only_patterns):
+        normalized = tool_name.replace(".", "_").replace(":", "_")
+        if declared is None and (
+            matches_any(tool_name, self._read_only_patterns)
+            or matches_any(normalized, self._read_only_patterns)
+        ):
             return None
 
         if self.mode is GateMode.READ_ONLY:

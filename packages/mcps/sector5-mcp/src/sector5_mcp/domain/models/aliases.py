@@ -73,6 +73,17 @@ TOOL_ALIASES: dict[str, str] = {
     # Home Assistant
     "ha_list_entities": "ha_get_states",
     "ha_get_entities": "ha_get_states",
+    # Grafana / Prometheus
+    "grafana_query": "grafana_query_prometheus",
+    "grafana_data_query": "grafana_query_prometheus",
+    "grafana_query_data": "grafana_query_prometheus",
+    "grafana_prometheus_query": "grafana_query_prometheus",
+    "grafana_promql": "grafana_query_prometheus",
+    "grafana_query_promql": "grafana_query_prometheus",
+    "grafana_get_datasources": "grafana_list_datasources",
+    "grafana_get_datasource_list": "grafana_list_datasources",
+    "grafana_get_alerts": "grafana_alerting_rules_read",
+    "grafana_list_alerts": "grafana_alerting_rules_read",
 }
 
 

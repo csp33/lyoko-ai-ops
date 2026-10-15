@@ -41,6 +41,8 @@ class ExecuteToolUseCase:
             resolved_name = name
             upstream_name, upstream_client = route
 
+        arguments = self._normalize_arguments(resolved_name, arguments)
+
         # Enforce all active security guardrails (namespace, command exec whitelist/blacklist, tool rules)
         self.guardrail.validate_tool_call(resolved_name, arguments, upstream_name=upstream_name)
 
@@ -48,3 +50,38 @@ class ExecuteToolUseCase:
             f"Routing tool '{resolved_name}' (requested as '{name}') to upstream '{upstream_name}'..."
         )
         return await upstream_client.call_tool(resolved_name, arguments)
+
+    @staticmethod
+    def _normalize_arguments(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        """Normalize commonly confused parameters for upstream tools."""
+        normalized = dict(args)
+        if tool_name == "grafana_query_prometheus":
+            if "expr" not in normalized and "query" in normalized:
+                normalized["expr"] = normalized.pop("query")
+            normalized.setdefault("datasourceUid", "prometheus")
+            normalized.setdefault("endTime", "now")
+            if "queryType" not in normalized:
+                normalized["queryType"] = "range" if "startTime" in normalized else "instant"
+            if "stepSeconds" not in normalized and "step" in normalized:
+                raw_step = normalized.pop("step")
+                try:
+                    if isinstance(raw_step, str):
+                        clean = raw_step.strip().lower()
+                        if clean.endswith("s"):
+                            normalized["stepSeconds"] = int(clean[:-1])
+                        elif clean.endswith("m"):
+                            normalized["stepSeconds"] = int(clean[:-1]) * 60
+                        else:
+                            normalized["stepSeconds"] = int(clean)
+                    else:
+                        normalized["stepSeconds"] = int(raw_step)
+                except (ValueError, TypeError):
+                    pass
+        elif tool_name == "grafana_api_request":
+            if "endpoint" not in normalized:
+                if "url" in normalized:
+                    normalized["endpoint"] = normalized.pop("url")
+                elif "path" in normalized:
+                    normalized["endpoint"] = normalized.pop("path")
+            normalized.setdefault("method", "GET")
+        return normalized

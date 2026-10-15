@@ -54,6 +54,9 @@ def _gate(mode: GateMode = GateMode.READ_ONLY, **kwargs) -> ToolGate:
         "list_commits",
         "grafana_query_prometheus",
         "query_loki_logs",
+        "grafana.query",
+        "grafana.data.query",
+        "query",
         "kubernetes.get_resource",
         "kubernetes.list_resources",
         "kubernetes.get_pod_logs",
@@ -135,6 +138,42 @@ async def test_unknown_hint_falls_back_to_the_name_patterns():
     gate = _gate(GateMode.READ_ONLY, readonly_lookup=lambda name: None)
 
     assert await gate.authorize("pods_get", {}) is None
+    assert await gate.authorize("grafana.query", {"query": "up"}) is None
+    assert await gate.authorize("grafana.data.query", {"query": "up"}) is None
+
+
+@pytest.mark.asyncio
+async def test_http_api_request_with_get_is_read_only_even_with_false_hint():
+    """grafana_api_request defaults to GET and is purely read-only even if declared False upstream."""
+    gate = _gate(
+        GateMode.READ_ONLY,
+        readonly_lookup=lambda name: False if name == "grafana_api_request" else None,
+    )
+
+    # 1. Explicit GET
+    assert (
+        await gate.authorize(
+            "grafana_api_request", {"method": "GET", "endpoint": "/api/datasources"}
+        )
+        is None
+    )
+    # 2. Default method (omitted) defaults to GET
+    assert await gate.authorize("grafana_api_request", {"endpoint": "/api/datasources"}) is None
+    assert gate.records == []
+
+
+@pytest.mark.asyncio
+async def test_http_api_request_with_post_requires_approval():
+    gate = _gate(
+        GateMode.READ_ONLY,
+        readonly_lookup=lambda name: False if name == "grafana_api_request" else None,
+    )
+
+    refusal = await gate.authorize(
+        "grafana_api_request", {"method": "POST", "endpoint": "/api/dashboards"}
+    )
+    assert refusal is not None
+    assert refusal.startswith("Refused:")
 
 
 @pytest.mark.asyncio
