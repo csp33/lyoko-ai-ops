@@ -44,6 +44,18 @@ def test_rotates_session_after_idle_timeout():
     assert second == "telegram-42-20261002-201600"
 
 
+def test_zero_idle_timeout_starts_new_session_per_conversation():
+    now = _start()
+    tracker = _tracker(now, idle_timeout_seconds=0)
+
+    first = tracker.get_session_id("42")
+    now[0] += timedelta(seconds=1)
+    second = tracker.get_session_id("42")
+
+    assert first != second
+    assert second == "telegram-42-20261002-200001"
+
+
 def test_isolates_chats():
     tracker = ChatSessionTracker()
     assert tracker.get_session_id("1") != tracker.get_session_id("2")

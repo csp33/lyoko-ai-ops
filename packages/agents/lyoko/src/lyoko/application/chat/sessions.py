@@ -67,7 +67,11 @@ class ChatSessionTracker:
                 return linked
 
         current = self._sessions.get(key)
-        if current is None or now - current[1] > self._idle_timeout:
+        if (
+            current is None
+            or self._idle_timeout.total_seconds() <= 0
+            or now - current[1] > self._idle_timeout
+        ):
             session_id = self._new_session_id(key, now)
         else:
             session_id = current[0]
