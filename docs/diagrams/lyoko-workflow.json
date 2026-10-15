@@ -12,7 +12,7 @@
           "event_in",
           "route_node",
           "chat_node",
-          "diagnose"
+          "triage"
         ],
         "note": "Alertmanager webhooks take the incident path; Telegram messages are classified by an LLM."
       },
@@ -31,14 +31,13 @@
         "id": "incident-remediation",
         "label": "Autonomous Remediation & HITL Gate",
         "focus": [
-          "diagnose",
-          "remediate",
+          "triage",
+          "resolve",
           "toolgate",
           "mcp_gateway",
-          "verify",
           "notify"
         ],
-        "note": "4-stage SRE remediation loop with zero-trust ToolGate safety."
+        "note": "Deterministic triage and autonomous Hermes SRE resolution under zero-trust ToolGate safety."
       }
     ]
   },
@@ -59,22 +58,22 @@
   "phases": [
     {
       "id": "p1",
-      "label": "Intake",
+      "label": "Intake & Routing",
       "fromCol": 0,
       "toCol": 1
     },
     {
       "id": "p2",
-      "label": "Investigate and act",
+      "label": "Triage & Resolve",
       "fromCol": 2,
       "toCol": 3,
       "variant": "emphasis"
     },
     {
       "id": "p3",
-      "label": "Verify and report",
+      "label": "Notify",
       "fromCol": 4,
-      "toCol": 5,
+      "toCol": 4,
       "variant": "dashed"
     }
   ],
@@ -83,8 +82,8 @@
       "id": "chat_group",
       "label": "Interactive assistant",
       "lane": "chat_lane",
-      "fromCol": 2,
-      "toCol": 2,
+      "fromCol": 3,
+      "toCol": 3,
       "variant": "emphasis"
     },
     {
@@ -99,11 +98,8 @@
   "mainPath": [
     "event_in",
     "route_node",
-    "diagnose",
-    "remediate",
-    "toolgate",
-    "mcp_gateway",
-    "verify",
+    "triage",
+    "resolve",
     "notify"
   ],
   "nodes": [
@@ -126,9 +122,18 @@
       "width": 140
     },
     {
+      "id": "triage",
+      "lane": "main_lane",
+      "col": 2,
+      "type": "backend",
+      "label": "1. Triage",
+      "sublabel": "Deterministic fast-path",
+      "width": 140
+    },
+    {
       "id": "chat_node",
       "lane": "chat_lane",
-      "col": 2,
+      "col": 3,
       "type": "backend",
       "label": "Interactive Chat",
       "sublabel": "Hermes Agent",
@@ -136,38 +141,20 @@
       "width": 150
     },
     {
-      "id": "diagnose",
-      "lane": "main_lane",
-      "col": 2,
-      "type": "backend",
-      "label": "1. Diagnose",
-      "sublabel": "Read-only inspection",
-      "width": 140
-    },
-    {
-      "id": "remediate",
+      "id": "resolve",
       "lane": "main_lane",
       "col": 3,
       "type": "backend",
-      "label": "2. Remediate",
-      "sublabel": "Execute fix plan",
-      "width": 140
-    },
-    {
-      "id": "verify",
-      "lane": "main_lane",
-      "col": 4,
-      "type": "cloud",
-      "label": "3. Verify",
-      "sublabel": "Post-fix health check",
+      "label": "2. Resolve",
+      "sublabel": "Hermes SRE Engine",
       "width": 140
     },
     {
       "id": "notify",
       "lane": "main_lane",
-      "col": 5,
+      "col": 4,
       "type": "frontend",
-      "label": "4. Notify",
+      "label": "3. Notify",
       "sublabel": "Structured SRE report",
       "brand": "telegram",
       "width": 140
@@ -207,28 +194,29 @@
     {
       "id": "e3",
       "from": "route_node",
-      "to": "diagnose",
+      "to": "triage",
       "label": "incident",
       "variant": "security"
     },
     {
       "id": "e4",
+      "from": "triage",
+      "to": "resolve",
+      "label": "unhandled",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e5",
       "from": "chat_node",
       "to": "toolgate",
       "label": "tools",
       "variant": "emphasis"
     },
     {
-      "id": "e5",
-      "from": "diagnose",
-      "to": "remediate",
-      "variant": "emphasis"
-    },
-    {
       "id": "e6",
-      "from": "remediate",
+      "from": "resolve",
       "to": "toolgate",
-      "label": "mutation",
+      "label": "actions",
       "variant": "security"
     },
     {
@@ -240,13 +228,7 @@
     },
     {
       "id": "e8",
-      "from": "mcp_gateway",
-      "to": "verify",
-      "variant": "emphasis"
-    },
-    {
-      "id": "e9",
-      "from": "verify",
+      "from": "resolve",
       "to": "notify"
     }
   ],
@@ -255,8 +237,8 @@
       "dot": "cyan",
       "title": "One Workflow, Dual Branches",
       "items": [
-        "Interactive Chat Branch: Hermes agent assists the operator and runs diagnostic tools",
-        "Autonomous Incident Branch: 4-stage deterministic SRE remediation lifecycle",
+        "Interactive Chat Branch: Hermes agent assists the operator and runs operational tools",
+        "Autonomous Incident Branch: Fast-path triage followed by autonomous Hermes resolution",
         "Unified Hermes engine drives tool calling, domain investigation, and structured reporting"
       ]
     },
@@ -266,7 +248,7 @@
       "items": [
         "Read-only tools always execute immediately without interruption",
         "State-changing tools require Telegram HITL operator approval buttons",
-        "Guarantees the model cannot apply unapproved mutations during diagnosis"
+        "Guarantees the model cannot apply unapproved mutations without confirmation"
       ]
     },
     {
@@ -275,7 +257,7 @@
       "items": [
         "Every event generates a single hierarchical Langfuse trace tree",
         "Child spans record exact tool parameters, outputs, and token usage",
-        "Memory feedback allows operators to teach rules on the fly"
+        "Clean operational execution without heavy graph checkpoints or state bloat"
       ]
     }
   ]

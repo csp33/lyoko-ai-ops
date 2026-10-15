@@ -21,7 +21,7 @@
 ---
 
 **LYOKO** acts through the `sector5-mcp` gateway across Kubernetes, UniFi, Home Assistant, Grafana, and GitHub in two core operating roles:
-1. **Autonomous incident remediation**: receives an alert (Prometheus Alertmanager webhook), diagnoses the root cause, proposes a fix, asks a human for approval unless the action is trusted, applies it, and verifies recovery.
+1. **Autonomous incident remediation**: receives an alert (Prometheus Alertmanager webhook), fast-paths deterministic triage, and has Hermes autonomously investigate root causes, propose fixes, ask the human for approval unless trusted, apply them, and verify recovery.
 2. **Interactive chat assistant**: a Telegram interface through the same domain capabilities, to answer questions about the infrastructure and operate it, for example scale a workload, inspect a UniFi device, or change a Home Assistant entity.
 
 Both roles are unified in a clean, event-driven workflow engine powered by **Hermes Agent**, sharing the same domain capabilities, ToolGate approval policy, and Langfuse traces.
@@ -30,7 +30,7 @@ Both roles are unified in a clean, event-driven workflow engine powered by **Her
  
 Every event enters the workflow at `route` and takes one of two branches:
 - **Interactive Chat**: The **Hermes Agent** handles operator queries, plans multi-step actions, and operates infrastructure under ToolGate.
-- **Incident Remediation**: Autonomous SRE workflow (`triage` ➔ `diagnose` ➔ `remediate` ➔ `verify` ➔ `notify`) driven by Hermes Agent and ToolGate.
+- **Incident Remediation**: Autonomous SRE workflow (`triage` ➔ `resolve` ➔ `notify`) driven by Hermes Agent and ToolGate.
 
 <p align="center">
   <img src="../../../docs/assets/lyoko-workflow.png" alt="LYOKO Autonomous Workflow Architecture" width="100%" />
@@ -41,9 +41,7 @@ Every event enters the workflow at `route` and takes one of two branches:
 | `route` | Alerts always take the incident branch. For a Telegram message, an LLM classifier decides between `chat` (interactive queries/instructions) and the incident branch (reports of broken infrastructure). |
 | `triage` | Fast-path deterministic evaluation for known alerts (e.g. Argo CD autosync) before invoking heavy LLM reasoning. |
 | `Hermes Agent` | Operates across infrastructure domains under ToolGate, diagnoses root causes, executes remediation plans, and verifies health restoration. |
-| `diagnose` | Read-only investigation across infrastructure domains. Returns root cause, whether it is auto-fixable, and a remediation plan. |
-| `remediate` | Execution of the remediation plan. State-changing tool calls are gated by the `ToolGate` and need operator approval via Telegram inline buttons. |
-| `verify` | Read-only check after a stabilization window that the issue has cleared and pods/services are healthy. |
+| `resolve` | End-to-end incident investigation, safe remediation under ToolGate approval, and verification by Hermes Agent. |
 | `notify` | Builds a structured incident report (`RESOLVED` or `ESCALATED`) with approved/denied actions and recovery verification. |
 
 
@@ -53,7 +51,7 @@ Safety does not depend on the model behaving. Every upstream tool call goes thro
 
 1. **Read-only tools** (`READ_ONLY_TOOLS`) always run. The default patterns cover inspection tools such as `k8s_pods_get`, `k8s_pods_log`, `k8s_events_list`, and `ha_get_*`.
 2. **Auto-approved tools** (`AUTO_APPROVED_TOOLS`) run without asking and are recorded. The default is empty.
-3. **Everything else needs approval.** LYOKO sends Telegram buttons that show the exact tool and arguments, and waits up to five minutes for the operator. A timeout counts as a denial. During diagnosis and verification the call is refused instead, because those phases are read-only.
+3. **Everything else needs approval.** LYOKO sends Telegram buttons that show the exact tool and arguments, and waits up to five minutes for the operator. A timeout counts as a denial.
 
 If no approval channel is configured, changes are refused. They are never approved by default. The incident report is built from what the gate actually allowed, not from the model's own account of what it did. The gateway's own guardrails still apply to every call.
 
@@ -76,7 +74,7 @@ Each event produces **one Langfuse trace**, and everything it does is a named sp
 telegram-chat-interaction / lyoko-<alert>-<id>   one trace per event
 ├── route
 │   └── route-llm                                routing decision (messages only)
-└── chat | triage | diagnose | remediate | verify
+└── chat | triage | resolve
     └── hermes-agent                             Hermes autonomous SRE run
         ├── gateway_get_domain_tools             domain tool discovery
         ├── gateway_get_tool_schema              parameter schema inspection
@@ -96,9 +94,9 @@ Configure LYOKO using environment variables (in `.env` or Kubernetes ConfigMap/S
 | `ENVIRONMENT` | `local` | Operational environment tag (`local`, `homelab`, `production`). |
 | `LYOKO_HOST` | `0.0.0.0` | Webhook receiver bind host. |
 | `LYOKO_PORT` | `9000` | Webhook receiver bind port. |
-| `OPENAI_API_KEY` | `""` | OpenAI API key for LLM diagnosis, chat, and embeddings. |
-| `OPENAI_MODEL` | `gpt-4o-mini` | Cheaper LLM used for chat, remediation, and verification. |
-| `OPENAI_DIAGNOSE_MODEL` | `gpt-4.1` | Stronger LLM used for the diagnose phase (synthesis + go/no-go). Empty falls back to `OPENAI_MODEL`. |
+| `OPENAI_API_KEY` | `""` | OpenAI API key for LLM diagnosis and chat. |
+| `OPENAI_MODEL` | `gpt-4o-mini` | Cost-effective LLM used for chat and routing. |
+| `OPENAI_DIAGNOSE_MODEL` | `gpt-4.1` | Stronger LLM used for autonomous incident resolution. Empty falls back to `OPENAI_MODEL`. |
 | `OPENAI_USE_RESPONSES_API` | `true` | Use the OpenAI Responses API (`/v1/responses`) instead of Chat Completions. |
 | `MCP_SERVER_URL` | `http://localhost:8000/mcp` | URL of the `sector5-mcp` gateway endpoint. |
 | `SERVICE_TOKEN` | `""` | Bearer token for authenticating against `sector5-mcp`. Required when the gateway runs with `AUTH_ENABLED=true`. |
@@ -110,15 +108,12 @@ Configure LYOKO using environment variables (in `.env` or Kubernetes ConfigMap/S
 | `HERMES_HOME` | `.hermes` | Path to persistent `HERMES_HOME` directory for sessions, skills, and memory. |
 | `HERMES_MEMORY_ENABLED` | `true` | Enable native Hermes memory persistence (`MEMORY.md` / `USER.md`) across runs. |
 | `HERMES_SERVER_URL` | `""` | Optional HTTP endpoint for always-on Hermes daemon service. |
-| `MAX_TURNS_DIAGNOSE` | `15` | Maximum LLM turns for incident diagnosis. |
-| `MAX_TURNS_REMEDIATE` | `10` | Maximum LLM turns for incident remediation. |
+| `MAX_TURNS_DIAGNOSE` | `15` | Maximum LLM turns for incident resolution. |
 | `MAX_TURNS_CHAT` | `15` | Maximum LLM turns for chat turns. |
 | `MAX_BUDGET_USD_PER_EVENT` | `0.10` | Maximum spending ceiling in USD per incident or chat event. |
 | `CYCLE_DETECTION_WINDOW` | `2` | Number of identical consecutive tool calls triggering cycle detection. |
 | `MAX_TOOL_CALLS_PER_RUN` | `20` | Maximum tool calls one agent run may execute before it must summarize. Bounds fan-out across large resource lists. |
 | `MAX_TOOL_OUTPUT_CHARS` | `8000` | Maximum characters of a single tool result kept in the agent context; longer results are truncated. |
-| `MEMORY_SIMILARITY_THRESHOLD` | `0.2` | Similarity floor for injecting semantic memories into incident diagnosis. |
-| `CHAT_MEMORY_SIMILARITY_THRESHOLD` | `0.5` | Higher similarity floor for injecting memories into interactive chat, so loosely related notes cannot hijack the request. |
 | `TELEGRAM_ENABLED` | `false` | Enable Telegram assistant, channel posting, and HITL approvals. |
 | `TELEGRAM_BOT_TOKEN` | `""` | Telegram Bot Token from `@BotFather`. |
 | `TELEGRAM_ALLOWED_USER_IDS` | `[]` | List of authorized Telegram user IDs. |
@@ -129,7 +124,7 @@ Configure LYOKO using environment variables (in `.env` or Kubernetes ConfigMap/S
 | `LANGFUSE_SECRET_KEY` | `""` | Langfuse Project Secret API Key. |
 | `LANGFUSE_HOST` | `https://cloud.langfuse.com` | Langfuse instance host URL. |
 | `CHAT_SESSION_IDLE_TIMEOUT_SECONDS` | `900` | Idle seconds before chat session resets to a new trace context. |
-| `POSTGRES_HOST` | `postgresql-rw...` | PostgreSQL hostname for persistent state and episodic vector memory (`pgvector`). |
+| `POSTGRES_HOST` | `postgresql-rw...` | PostgreSQL hostname for distributed multi-pod leader locking. |
 | `POSTGRES_PORT` | `5432` | PostgreSQL database port. |
 | `POSTGRES_DB` | `lyoko` | PostgreSQL database name. |
 | `POSTGRES_USER` | `lyoko` | PostgreSQL database username. |

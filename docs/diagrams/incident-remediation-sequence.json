@@ -2,16 +2,16 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "Autonomous Incident Remediation & Episodic Memory",
+    "title": "Autonomous Incident Remediation & Safety Harness",
     "quality_profile": "showcase",
     "viewBox": [960, 920],
     "column_fit": "spread",
     "views": [
       {
-        "id": "alert-and-memory",
-        "label": "Alert & Memory Lookup",
-        "focus": ["alertmanager", "lyoko", "postgres"],
-        "note": "Alertmanager triggers LYOKO, which queries past operator rules via pgvector."
+        "id": "alert-and-skills",
+        "label": "Alert & Skill Matching",
+        "focus": ["alertmanager", "lyoko", "skills_repo"],
+        "note": "Alertmanager triggers LYOKO, which dynamically matches relevant operational runbooks."
       },
       {
         "id": "investigation-and-gating",
@@ -30,20 +30,20 @@
   "participants": [
     { "id": "alertmanager", "type": "external", "label": "Alertmanager", "sublabel": "Prometheus Alerts", "brand": "prometheus" },
     { "id": "lyoko", "type": "backend", "label": "LYOKO Agent", "sublabel": "Hermes Engine", "brand": "openai" },
-    { "id": "postgres", "type": "database", "label": "Vector Memory", "sublabel": "PostgreSQL pgvector", "brand": "postgresql" },
+    { "id": "skills_repo", "type": "backend", "label": "Runbooks", "sublabel": "Markdown Skills", "brand": "github" },
     { "id": "mcp_gw", "type": "security", "label": "sector5-mcp", "sublabel": "Tool Gate & Safety" },
     { "id": "operator_tg", "type": "frontend", "label": "Operator", "sublabel": "Telegram HITL", "brand": "telegram" },
     { "id": "k8s_cluster", "type": "cloud", "label": "Kubernetes", "sublabel": "Cluster Workloads", "brand": "kubernetes" }
   ],
   "segments": [
-    { "from": 160, "to": 300, "label": "Alert & Episodic Memory Retrieval" },
+    { "from": 160, "to": 300, "label": "Alert & Operational Skill Runbook Retrieval" },
     { "from": 310, "to": 550, "label": "Read-Only Diagnostics & Tool Gate" },
     { "from": 560, "to": 830, "label": "HITL Operator Approval & Verified Recovery" }
   ],
   "messages": [
     { "id": "alert-post", "from": "alertmanager", "to": "lyoko", "y": 190, "label": "POST /alertmanager (KubePodOOMKilled)", "variant": "emphasis" },
-    { "id": "memory-query", "from": "lyoko", "to": "postgres", "y": 235, "label": "dense vector search (cosine similarity)", "variant": "default" },
-    { "id": "memory-return", "from": "postgres", "to": "lyoko", "y": 275, "label": "prior lessons & taught service rules", "variant": "return" },
+    { "id": "skills-query", "from": "lyoko", "to": "skills_repo", "y": 235, "label": "match alert metadata to runbooks", "variant": "default" },
+    { "id": "skills-return", "from": "skills_repo", "to": "lyoko", "y": 275, "label": "operational procedures & recovery guide", "variant": "return" },
 
     { "id": "diag-read", "from": "lyoko", "to": "mcp_gw", "y": 330, "label": "pods_get, pods_log, events_list", "variant": "default" },
     { "id": "k8s-inspect", "from": "mcp_gw", "to": "k8s_cluster", "y": 370, "label": "read pod metadata & termination logs", "variant": "default" },
@@ -53,7 +53,7 @@
     { "id": "rem-request", "from": "lyoko", "to": "mcp_gw", "y": 495, "label": "resources_create_or_update (raise limit)", "variant": "emphasis" },
     { "id": "gate-hold", "from": "mcp_gw", "to": "lyoko", "y": 535, "label": "ToolGate: hold call for operator approval", "variant": "security" },
 
-    { "id": "hitl-prompt", "from": "lyoko", "to": "operator_tg", "y": 585, "label": "Telegram HITL buttons [Approve] [💡 Teach]", "variant": "emphasis" },
+    { "id": "hitl-prompt", "from": "lyoko", "to": "operator_tg", "y": 585, "label": "Telegram HITL buttons [Approve] [Deny]", "variant": "emphasis" },
     { "id": "hitl-approve", "from": "operator_tg", "to": "lyoko", "y": 630, "label": "Approve action", "variant": "return" },
 
     { "id": "rem-dispatch", "from": "lyoko", "to": "mcp_gw", "y": 675, "label": "dispatch approved mutation", "variant": "emphasis" },
@@ -63,7 +63,7 @@
   ],
   "activations": [
     { "participant": "lyoko", "from": 185, "to": 805, "type": "backend" },
-    { "participant": "postgres", "from": 230, "to": 280, "type": "database" },
+    { "participant": "skills_repo", "from": 230, "to": 280, "type": "backend" },
     { "participant": "mcp_gw", "from": 325, "to": 455, "type": "security" },
     { "participant": "mcp_gw", "from": 490, "to": 540, "type": "security" },
     { "participant": "mcp_gw", "from": 670, "to": 760, "type": "security" },
@@ -74,11 +74,11 @@
   "cards": [
     {
       "dot": "emerald",
-      "title": "Episodic Vector Memory",
+      "title": "Operational Skills & Runbooks",
       "items": [
-        "Alert queries PostgreSQL pgvector using dense embeddings",
-        "Historical incident fixes and taught operator rules guide the plan",
-        "Prevents repeating previous misconfigurations or flapping fixes"
+        "Alert metadata dynamically matches operational runbooks",
+        "Curated remediation procedures guide Hermes SRE investigation",
+        "Prevents unguided mutations and enforces homelab best practices"
       ]
     },
     {

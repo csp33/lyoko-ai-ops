@@ -16,7 +16,7 @@
         "id": "agent-coordination",
         "label": "Hermes Autonomous Engine",
         "focus": ["lyoko_agent", "postgres", "mcp_gw"],
-        "note": "Single autonomous Hermes SRE agent operates under ToolGate and episodic vector memory."
+        "note": "Single autonomous Hermes SRE agent operates under ToolGate and PostgreSQL leader locking."
       },
       {
         "id": "gateway-upstream",
@@ -33,7 +33,7 @@
 
     { "id": "lyoko_webhook", "type": "backend", "label": "Webhook Receiver", "sublabel": "FastAPI :9000", "pos": [230, 60], "size": [160, 54], "brand": "fastapi" },
     { "id": "lyoko_chat", "type": "backend", "label": "Chat Handler", "sublabel": "Async Telegram", "pos": [230, 180], "size": [160, 54], "brand": "python" },
-    { "id": "postgres", "type": "database", "label": "PostgreSQL", "sublabel": "pgvector Memory", "pos": [230, 300], "size": [160, 54], "brand": "postgresql" },
+    { "id": "postgres", "type": "database", "label": "PostgreSQL", "sublabel": "Leader Lock", "pos": [230, 300], "size": [160, 54], "brand": "postgresql" },
 
     { "id": "lyoko_agent", "type": "backend", "label": "LYOKO Agent", "sublabel": "Hermes Autonomous Engine", "pos": [455, 170], "size": [185, 68] },
 
@@ -68,7 +68,7 @@
     { "from": "mcp_gw", "to": "github_gitops", "variant": "security" }
   ],
   "cards": [
-    { "dot": "cyan", "title": "Autonomous Hermes Engine", "items": ["Single autonomous SRE operator without rigid multi-agent hierarchy", "Cross-domain tool discovery with paginated catalogs and lazy schema lookup", "Continuous episodic learning from operator feedback via pgvector"] },
+    { "dot": "cyan", "title": "Autonomous Hermes Engine", "items": ["Single autonomous SRE operator without rigid multi-agent hierarchy", "Cross-domain tool discovery with paginated catalogs and lazy schema lookup", "ToolGate safety harness with Telegram approvals for state mutations"] },
     { "dot": "emerald", "title": "Zero-Trust Safety Gateway", "items": ["Unified FastMCP endpoint aggregates all upstream capabilities", "ToolGate enforces read-only investigation and human approval for changes", "GuardrailEngine blocks namespace violations and destructive commands"] },
     { "dot": "violet", "title": "Comprehensive Observability", "items": ["End-to-end Langfuse trace tree for every alert and Telegram message", "Deterministic token tracking and cost accounting across all agent steps", "Single source of truth across Kubernetes, UniFi, and Home Assistant"] }
   ]

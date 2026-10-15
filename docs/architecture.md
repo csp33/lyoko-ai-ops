@@ -47,12 +47,12 @@ Every incident progresses through an autonomous event-driven pipeline:
 
 ---
 
-## Episodic Memory & Continuous Learning
+## Operational Skills & Continuous Learning
 
-LYOKO persists operational feedback and runbooks to improve resolution quality over time:
+LYOKO integrates operational runbooks and persistent session context to improve resolution quality:
 
 - **Hermes Native Memory**: Persistent memory and user preferences stored across sessions.
-- **Episodic Vector Memory (`pgvector`)**: Stores incident patterns and operator feedback embeddings in PostgreSQL for historical review and semantic retrieval.
+- **Operational Runbooks & Skills (`SkillMatcherService`)**: Dynamically matches alert metadata against curated operational procedures (Markdown runbooks in `application/skills/`).
 - **Dynamic Context Interpolation**: Injects matched runbook skills and operational guidelines dynamically into the agent prompt before investigation begins.
 
 ---
