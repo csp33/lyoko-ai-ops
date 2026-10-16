@@ -123,6 +123,14 @@ class AgentSettings(BaseSettings):
             "human approval (e.g. 'resources_scale'). Empty means every change needs approval."
         ),
     )
+    approval_timeout_seconds: int = Field(
+        default=300,
+        ge=10,
+        validation_alias=AliasChoices(
+            "approval_timeout_seconds", "APPROVAL_TIMEOUT_SECONDS", "hitl_timeout_seconds"
+        ),
+        description="Maximum seconds to wait for operator approval before timing out and escalating",
+    )
     max_agent_steps: int = Field(
         default=20,
         ge=1,

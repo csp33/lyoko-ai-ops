@@ -50,6 +50,11 @@ class ChatConnector(ABC):
     ) -> SentMessage | None:
         """Send an approval prompt and return a reference to it when available."""
 
+    async def expire_approval_request(  # noqa: B027
+        self, incident_id: str, reason: str = "Timed out"
+    ) -> None:
+        """Revoke interactive approval buttons when an approval times out."""
+
     @abstractmethod
     def register_message_handler(self, handler: MessageHandler) -> None:
         pass

@@ -132,3 +132,12 @@ class ChatManager(ChatServiceInterface):
                 self._link_sent_message(sent, request.session_id or request.incident_id)
             except Exception as e:
                 logger.error("Error broadcasting approval request via connector: %s", e)
+
+    async def expire_approval_request(self, incident_id: str, reason: str = "Timed out") -> None:
+        """Notify connectors to revoke the approval prompt and clear interactive buttons."""
+        for conn in self.connectors:
+            if hasattr(conn, "expire_approval_request"):
+                try:
+                    await conn.expire_approval_request(incident_id, reason=reason)
+                except Exception as exc:
+                    logger.debug("Failed to expire approval request on connector: %s", exc)

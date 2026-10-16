@@ -64,3 +64,21 @@ async def test_approval_manager_resolve_nonexistent_or_done():
         mgr.resolve_approval(ApprovalResponse(incident_id="inc-done", approved=True, user_id="u1"))
         is False
     )
+
+
+@pytest.mark.asyncio
+async def test_approval_manager_wait_timeout():
+    mgr = ApprovalManager(default_timeout_seconds=0.05)
+    res = await mgr.wait_for_approval("inc-timeout")
+    assert res.approved is False
+    assert res.action_id == "timeout"
+    assert res.user_id == "system"
+    assert "timed out" in res.reason.lower()
+
+    # After timeout, resolve returns False because it was already popped
+    assert (
+        mgr.resolve_approval(
+            ApprovalResponse(incident_id="inc-timeout", approved=True, user_id="u1")
+        )
+        is False
+    )

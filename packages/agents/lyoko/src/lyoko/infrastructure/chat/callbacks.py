@@ -64,14 +64,13 @@ class TelegramCallbackMixin:
             await query.answer("⛔ Unauthorized", show_alert=True)
             return
 
-        await query.answer()
-
         # Format: "<action_id>:<payload>" e.g. "approve:<incident_id>" or "stop:<message_id>"
         parts = query.data.split(":", 1)
         action_type = parts[0]
         payload = parts[1] if len(parts) > 1 else ""
 
         if action_type.lower() == "stop":
+            await query.answer()
             await self._handle_stop_callback(query, chat_id, payload)
             return
 
@@ -102,13 +101,52 @@ class TelegramCallbackMixin:
             reason=reason,
         )
 
+        handled = False
+        has_manager = False
         for handler in self._approval_handlers:
             try:
                 res = handler(response)
                 if inspect.isawaitable(res):
-                    await res
+                    res = await res
+                if res is True:
+                    handled = True
+                elif res is False:
+                    has_manager = True
+                elif res is None:
+                    handled = True
             except Exception as exc:
                 logger.error("Error executing approval handler: %s", exc)
+
+        if has_manager and not handled and not is_feedback:
+            await query.answer(
+                "⏱️ This approval request has expired or is no longer active.",
+                show_alert=True,
+            )
+            with contextlib.suppress(Exception):
+                await query.edit_message_reply_markup(reply_markup=None)
+            message_id = getattr(query.message, "message_id", None) if query.message else None
+            stored = None
+            if chat_id is not None and message_id is not None:
+                stored = self._approval_message_html.pop((str(chat_id), int(message_id)), None)
+            if stored is not None:
+                current_text, parse_mode = stored
+            else:
+                current_text, parse_mode = (
+                    (query.message.text or "" if query.message else ""),
+                    "HTML",
+                )
+            expired_text = "⏱️ <b>Expired / Inactive:</b> This approval request is no longer active."
+            if parse_mode is None:
+                current_text = _strip_tags(current_text)
+                result_text = _strip_tags(expired_text)
+            else:
+                result_text = f"<b>Result:</b> {expired_text}"
+            new_text = f"{current_text}\n\n{result_text}" if current_text else result_text
+            with contextlib.suppress(Exception):
+                await query.edit_message_text(new_text, parse_mode=parse_mode)
+            return
+
+        await query.answer()
 
         user_name = html.escape(update.effective_user.first_name or user_id)
         if approved:

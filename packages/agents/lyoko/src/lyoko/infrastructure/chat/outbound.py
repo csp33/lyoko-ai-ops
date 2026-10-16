@@ -5,6 +5,7 @@ These methods send, edit, and request approval; they rely on ``self._app`` and
 """
 
 import asyncio
+import contextlib
 import html
 import logging
 from collections.abc import Awaitable, Callable
@@ -51,6 +52,8 @@ class TelegramOutboundMixin:
 
     _app: Any
     default_chat_id: str | None
+    _approval_message_html: dict[tuple[str, int], tuple[str, str | None]]
+    _incident_to_approval_msg: dict[str, tuple[str, int]]
 
     async def send_message(
         self,
@@ -235,4 +238,31 @@ class TelegramOutboundMixin:
             parse_mode = "HTML"
         if sent is not None:
             self._approval_message_html[(str(target), int(sent.message_id))] = (text, parse_mode)
+            self._incident_to_approval_msg[request.incident_id] = (
+                str(target),
+                int(sent.message_id),
+            )
         return _to_sent_message(sent, str(target))
+
+    async def expire_approval_request(self, incident_id: str, reason: str = "Timed out") -> None:
+        """Proactively revoke pending approval buttons and mark the message as timed out."""
+        target_info = self._incident_to_approval_msg.pop(incident_id, None)
+        if not target_info or not self._app or not self._app.bot:
+            return
+        chat_id, msg_id = target_info
+        stored = self._approval_message_html.pop((chat_id, msg_id), None)
+        if stored is not None:
+            current_text, parse_mode = stored
+        else:
+            current_text, parse_mode = "", "HTML"
+        status_text = f"⏱️ <b>Timed out</b> ({reason})."
+        result_text = f"<b>Result:</b> {status_text}" if parse_mode else f"Result: {status_text}"
+        new_text = f"{current_text}\n\n{result_text}" if current_text else result_text
+        with contextlib.suppress(Exception):
+            await self._app.bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=msg_id,
+                text=new_text,
+                parse_mode=parse_mode,
+                reply_markup=None,
+            )

@@ -99,6 +99,7 @@ class TelegramConnector(
         # Approval prompts must be edited back with their original markup, because Telegram
         # returns an answered message's `text` unformatted, which would drop every bold label.
         self._approval_message_html: dict[tuple[str, int], tuple[str, str | None]] = {}
+        self._incident_to_approval_msg: dict[str, tuple[str, int]] = {}
         self._app: Application | None = None
 
     def is_user_authorized(self, user_id: str | int | None) -> bool:
