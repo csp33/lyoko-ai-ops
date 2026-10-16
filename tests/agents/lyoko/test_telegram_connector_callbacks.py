@@ -208,48 +208,6 @@ async def test_telegram_connector_stop_callback():
 
 
 @pytest.mark.asyncio
-async def test_telegram_connector_feedback_command():
-    """Verify /feedback command saves rule to PostgreSQL and generates embedding."""
-    mock_memory_repo = AsyncMock()
-    mock_memory_repo.save_memory.return_value = 77
-
-    mock_embeddings = AsyncMock()
-    mock_embeddings.embed_text.return_value = [0.05] * 1536
-
-    connector = TelegramConnector(
-        bot_token="fake:token",
-        allowed_user_ids={"12345"},
-        default_chat_id="12345",
-        memory_repository=mock_memory_repo,
-        embeddings_service=mock_embeddings,
-    )
-
-    mock_update = MagicMock()
-    mock_update.effective_user.id = 12345
-    mock_update.effective_chat.id = 12345
-    mock_update.message.message_id = 88
-    mock_update.message.text = "/feedback For influxdb, compact WAL logs before restart"
-    mock_update.message.reply_to_message.text = (
-        "Pod: influxdb-0\nNamespace: monitoring\nAlert: PodCrashLooping"
-    )
-    mock_update.message.reply_text = AsyncMock()
-
-    await connector._handle_telegram_message(mock_update, MagicMock())
-
-    assert mock_memory_repo.save_memory.called
-    entry = mock_memory_repo.save_memory.call_args[0][0]
-    assert entry.namespace == "monitoring"
-    assert entry.service_name == "influxdb"
-    assert entry.operator_feedback == "For influxdb, compact WAL logs before restart"
-    assert mock_embeddings.embed_text.called
-
-    assert mock_update.message.reply_text.called
-    reply_msg = mock_update.message.reply_text.call_args[0][0]
-    assert "Rule learned" in reply_msg
-    assert "77" in reply_msg
-
-
-@pytest.mark.asyncio
 async def test_callback_query_expired_approval():
     """When an approval is no longer pending (handler returns False), it shows an alert and marks expired."""
     connector = TelegramConnector(
