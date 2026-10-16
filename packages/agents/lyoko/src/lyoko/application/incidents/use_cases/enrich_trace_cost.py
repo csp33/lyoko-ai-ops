@@ -216,5 +216,28 @@ class EnrichTraceCostUseCase:
                     chat_id,
                     cost_str,
                 )
+
+            if is_ok and session_id and res.memory_cost is None:
+                for _ in range(4):
+                    await asyncio.sleep(3.0)
+                    mem_res = await self._query_trace_cost(trace_id, session_id=session_id)
+                    if mem_res.memory_cost is not None and mem_res.memory_cost > 0:
+                        full_cost = TraceCostService.format_cost_with_breakdown(
+                            res.main_cost, mem_res.memory_cost
+                        )
+                        if full_cost and full_cost != cost_str:
+                            updated_with_mem = updated.replace(
+                                f"💸 **Cost:** {cost_str}", f"💸 **Cost:** {full_cost}"
+                            )
+                            await chat_manager.edit_message(
+                                chat_id=chat_id, message_id=message_id, text=updated_with_mem
+                            )
+                            logger.info(
+                                "Updated memory cost breakdown for msg %s in chat %s to %s",
+                                message_id,
+                                chat_id,
+                                full_cost,
+                            )
+                        break
         except Exception as exc:
             logger.debug("Failed to asynchronously update trace cost in chat message: %s", exc)
