@@ -51,14 +51,21 @@ class EnrichTraceCostUseCase:
             return resolved_url
         if resolved_tid and self.tracer is not None:
             try:
-                return self.tracer.get_trace_url(resolved_tid)
+                url = self.tracer.get_trace_url(resolved_tid)
+                if url:
+                    return url
             except Exception:
                 pass
         if self.tracer is not None:
             try:
-                return self.tracer.get_trace_url(trace_id)
+                url = self.tracer.get_trace_url(trace_id)
+                if url:
+                    return url
             except Exception:
                 pass
+        target_tid = resolved_tid or trace_id
+        if target_tid and getattr(self._cost_service, "cached_project_base", None):
+            return f"{self._cost_service.cached_project_base}/traces/{target_tid}"
         return None
 
     async def execute(
@@ -144,9 +151,9 @@ class EnrichTraceCostUseCase:
         text_with_placeholder: str,
         trace_id: str,
         session_id: str | None = None,
-        delay_seconds: float = 4.0,
-        max_attempts: int = 4,
-        poll_interval: float = 2.5,
+        delay_seconds: float = 6.0,
+        max_attempts: int = 3,
+        poll_interval: float = 4.0,
     ) -> None:
         """Background task to query Langfuse after ingestion and update Telegram message."""
         if not self.enabled or not chat_manager or not text_with_placeholder or not trace_id:
@@ -218,8 +225,8 @@ class EnrichTraceCostUseCase:
                 )
 
             if is_ok and session_id and res.memory_cost is None:
-                for _ in range(4):
-                    await asyncio.sleep(3.0)
+                for _ in range(2):
+                    await asyncio.sleep(5.0)
                     mem_res = await self._query_trace_cost(trace_id, session_id=session_id)
                     if mem_res.memory_cost is not None and mem_res.memory_cost > 0:
                         full_cost = TraceCostService.format_cost_with_breakdown(

@@ -137,7 +137,7 @@ class ProcessChatMessageUseCase:
                             text_with_placeholder=reply,
                             trace_id=trace_id,
                             session_id=session_id,
-                            delay_seconds=2.5,
+                            delay_seconds=6.0,
                         )
                     )
         except Exception as exc:

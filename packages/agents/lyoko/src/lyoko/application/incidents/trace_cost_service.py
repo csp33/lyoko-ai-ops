@@ -1,5 +1,6 @@
 """Service for querying and resolving Langfuse trace metrics via MCP gateway."""
 
+import hashlib
 import json
 import logging
 from datetime import UTC, datetime, timedelta
@@ -19,8 +20,22 @@ class TraceCostResult(NamedTuple):
     resolved_url: str | None = None
 
 
+DEFAULT_PROJECT_BASE = "https://cloud.langfuse.com/project/cmuqzdw6v02ipad0czzb9yix5"
+
+
 class TraceCostService:
     """Queries and resolves trace costs and URLs from Langfuse via MCP client."""
+
+    _cached_project_base: str = DEFAULT_PROJECT_BASE
+
+    @property
+    def cached_project_base(self) -> str:
+        return self._cached_project_base
+
+    @classmethod
+    def set_cached_project_base(cls, base: str) -> None:
+        if base:
+            cls._cached_project_base = base
 
     @staticmethod
     def parse_cost_from_result(content: Any) -> float | None:
@@ -35,17 +50,15 @@ class TraceCostService:
                 return None
         if isinstance(data, dict) and "data" in data and isinstance(data["data"], (list, dict)):
             data = data["data"]
-        if isinstance(data, list) and data:
-            data = data[0]
-        if isinstance(data, dict):
-            raw_val = data.get("sum_totalCost") or data.get("totalCost")
-            if raw_val is not None:
-                try:
-                    val = float(raw_val)
-                    return val if val >= 0 else None
-                except (ValueError, TypeError):
-                    pass
-        return None
+        row = (
+            data[0] if isinstance(data, list) and data else (data if isinstance(data, dict) else {})
+        )
+        raw_val = row.get("sum_totalCost") or row.get("totalCost")
+        try:
+            val = float(raw_val) if raw_val is not None else None
+            return val if val is not None and val >= 0 else None
+        except (ValueError, TypeError):
+            return None
 
     @staticmethod
     def format_cost(cost: float | None) -> str | None:
@@ -62,10 +75,7 @@ class TraceCostService:
     def format_cost_with_breakdown(
         cls, main_cost: float | None, memory_cost: float | None = None
     ) -> str | None:
-        """Format primary execution cost with optional memory review breakdown."""
-        if main_cost is None:
-            return None
-        main_str = cls.format_cost(main_cost)
+        main_str = cls.format_cost(main_cost) if main_cost is not None else None
         if not main_str:
             return None
         if memory_cost is not None and memory_cost > 0:
@@ -78,8 +88,6 @@ class TraceCostService:
     def derive_trace_id(session_id: str) -> str:
         """Derive a deterministic 32-character hex trace ID from a session ID matching Hermes."""
         seed = f"{session_id}::{session_id}"
-        import hashlib
-
         return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
 
     async def query_metrics_for_trace(
@@ -160,8 +168,9 @@ class TraceCostService:
                     if not tid:
                         continue
                     clean_url = (obs.get("url") or "").split("?")[0] or None
-                    if clean_url and "/traces/" in clean_url and not project_base:
+                    if clean_url and "/traces/" in clean_url:
                         project_base = clean_url.rsplit("/traces/", 1)[0]
+                        self.set_cached_project_base(project_base)
                     if tid == primary_tid:
                         has_primary_in_data = True
                         if clean_url and not primary_url:
@@ -183,10 +192,14 @@ class TraceCostService:
                     resolved_primary, primary_url = main_turn[0], main_turn[1] or primary_url
                     memory_tids.extend(tid for tid, _ in candidate_turns)
 
-                if not primary_url and project_base and resolved_primary:
-                    primary_url = f"{project_base}/traces/{resolved_primary}"
+                if not primary_url and resolved_primary:
+                    base = project_base or self._cached_project_base
+                    if base:
+                        primary_url = f"{base}/traces/{resolved_primary}"
         except Exception as exc:
             logger.debug("Failed to resolve session traces for %s: %s", session_id, exc)
+        if not primary_url and resolved_primary and self._cached_project_base:
+            primary_url = f"{self._cached_project_base}/traces/{resolved_primary}"
         return resolved_primary, primary_url, memory_tids
 
     async def resolve_trace_from_session(
@@ -243,33 +256,21 @@ class TraceCostService:
             if mem_costs:
                 memory_cost = sum(mem_costs)
 
-        if main_cost is not None:
-            return TraceCostResult(
-                main_cost=main_cost,
-                memory_cost=memory_cost,
-                resolved_trace_id=resolved_primary,
-                resolved_url=resolved_url,
-            )
-
-        if resolved_primary != trace_id:
+        if main_cost is None and resolved_primary != trace_id:
             try:
                 fallback_cost = await self.query_metrics_for_trace(mcp_client, trace_id)
                 if fallback_cost is not None and fallback_cost > 0.0001:
-                    return TraceCostResult(
-                        main_cost=fallback_cost,
-                        memory_cost=memory_cost,
-                        resolved_trace_id=trace_id,
-                        resolved_url=resolved_url,
-                    )
+                    main_cost = fallback_cost
+                    resolved_primary = trace_id
             except Exception as exc:
                 query_exc = exc
                 logger.debug("Fallback traceId cost query for %s failed: %s", trace_id, exc)
 
-        if query_exc is not None:
+        if main_cost is None and query_exc is not None:
             raise query_exc
 
         return TraceCostResult(
-            main_cost=None,
+            main_cost=main_cost,
             memory_cost=memory_cost,
             resolved_trace_id=resolved_primary,
             resolved_url=resolved_url,
