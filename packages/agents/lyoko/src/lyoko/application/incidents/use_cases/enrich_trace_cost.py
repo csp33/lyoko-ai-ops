@@ -1,11 +1,10 @@
 """Use case for enriching messages with Langfuse trace metrics and URL footer via sector5-mcp."""
 
 import asyncio
-import json
 import logging
-from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from lyoko.application.incidents.trace_cost_service import TraceCostResult, TraceCostService
 from lyoko.domain.interfaces.mcp import MCPClientInterface
 from lyoko.domain.interfaces.tracer import TracerInterface
 
@@ -20,79 +19,54 @@ class EnrichTraceCostUseCase:
         mcp_client: MCPClientInterface | None = None,
         tracer: TracerInterface | None = None,
         enabled: bool = True,
+        cost_service: TraceCostService | None = None,
     ) -> None:
         self.mcp_client = mcp_client
         self.tracer = tracer
         self.enabled = enabled
+        self._cost_service = cost_service or TraceCostService()
 
     @staticmethod
     def _parse_cost_from_result(content: Any) -> float | None:
-        if not content:
-            return None
-        data = content
-        if isinstance(content, str):
-            try:
-                data = json.loads(content)
-            except Exception:
-                return None
-        if isinstance(data, dict) and "data" in data and isinstance(data["data"], (list, dict)):
-            data = data["data"]
-        if isinstance(data, list) and data:
-            data = data[0]
-        if isinstance(data, dict):
-            raw_val = data.get("sum_totalCost") or data.get("totalCost")
-            if raw_val is not None:
-                try:
-                    val = float(raw_val)
-                    return val if val >= 0 else None
-                except (ValueError, TypeError):
-                    pass
-        return None
-
-    async def _query_trace_cost(self, trace_id: str) -> float | None:
-        if self.mcp_client is None:
-            return None
-        try:
-            now = datetime.now(UTC)
-            from_iso = (now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
-            to_iso = (now + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
-            resp = await self.mcp_client.call_tool(
-                name="langfuse_queryMetrics",
-                arguments={
-                    "view": "observations",
-                    "dimensions": [{"field": "traceId"}],
-                    "metrics": [{"measure": "totalCost", "aggregation": "sum"}],
-                    "filters": [
-                        {
-                            "column": "traceId",
-                            "operator": "=",
-                            "type": "string",
-                            "value": trace_id,
-                        }
-                    ],
-                    "orderBy": [{"field": "totalCost", "direction": "desc"}],
-                    "config": {"row_limit": 10},
-                    "fromTimestamp": from_iso,
-                    "toTimestamp": to_iso,
-                },
-            )
-            raw_content = (
-                resp.get("content") if isinstance(resp, dict) else getattr(resp, "content", resp)
-            )
-            return self._parse_cost_from_result(raw_content)
-        except Exception as exc:
-            logger.debug("Failed to query trace cost from MCP gateway: %s", exc)
-            raise
+        return TraceCostService.parse_cost_from_result(content)
 
     @staticmethod
     def _format_cost(cost: float | None) -> str | None:
-        if cost is None:
-            return None
-        if cost >= 0.0001:
-            return f"${cost:.4f}"
-        if cost > 0:
-            return "<$0.0001"
-        return "$0.0000"
+        return TraceCostService.format_cost(cost)
+
+    async def _query_trace_cost(
+        self, trace_id: str, session_id: str | None = None
+    ) -> TraceCostResult:
+        return await self._cost_service.query_trace_cost(
+            self.mcp_client, trace_id, session_id=session_id
+        )
+
+    def _resolve_trace_url(
+        self,
+        trace_id: str,
+        resolved_tid: str | None,
+        resolved_url: str | None,
+    ) -> str | None:
+        if resolved_url:
+            return resolved_url
+        if resolved_tid and self.tracer is not None:
+            try:
+                url = self.tracer.get_trace_url(resolved_tid)
+                if url:
+                    return url
+            except Exception:
+                pass
+        if self.tracer is not None:
+            try:
+                url = self.tracer.get_trace_url(trace_id)
+                if url:
+                    return url
+            except Exception:
+                pass
+        target_tid = resolved_tid or trace_id
+        if target_tid and getattr(self._cost_service, "cached_project_base", None):
+            return f"{self._cost_service.cached_project_base}/traces/{target_tid}"
+        return None
 
     async def execute(
         self,
@@ -108,16 +82,10 @@ class EnrichTraceCostUseCase:
         if "[View Trace]" in text or f"/traces/{trace_id}" in text:
             return text
 
-        trace_url: str | None = None
-        if self.tracer is not None:
-            try:
-                trace_url = self.tracer.get_trace_url(trace_id)
-            except Exception as exc:
-                logger.debug("Failed to get trace URL: %s", exc)
-
         if not is_llm_called:
-            cost_str = "$0.0000"
-            footer_parts = [f"💸 **Cost:** {cost_str}"]
+            target_tid = TraceCostService.derive_trace_id(session_id) if session_id else trace_id
+            trace_url = self._resolve_trace_url(trace_id, target_tid, None)
+            footer_parts = [f"💸 **Cost:** {self._format_cost(0.0)}"]
             if trace_url:
                 footer_parts.append(f"🔍 [View Trace]({trace_url})")
             return f"{text.rstrip()}\n\n{' · '.join(footer_parts)}"
@@ -128,17 +96,25 @@ class EnrichTraceCostUseCase:
             except Exception as exc:
                 logger.debug("Failed to flush tracer: %s", exc)
 
-        cost: float | None = None
+        res: TraceCostResult | None = None
         query_failed = False
         if self.mcp_client is not None:
             try:
-                cost = await self._query_trace_cost(trace_id)
+                res = await self._query_trace_cost(trace_id, session_id=session_id)
             except Exception:
                 query_failed = True
 
+        resolved_tid = (
+            res.resolved_trace_id
+            if res and res.resolved_trace_id
+            else (TraceCostService.derive_trace_id(session_id) if session_id else trace_id)
+        )
+        resolved_url = res.resolved_url if res else None
+        trace_url = self._resolve_trace_url(trace_id, resolved_tid, resolved_url)
+
         cost_str: str | None = None
-        if cost is not None:
-            cost_str = self._format_cost(cost)
+        if res and res.main_cost is not None:
+            cost_str = TraceCostService.format_cost_with_breakdown(res.main_cost, res.memory_cost)
         elif self.mcp_client is not None and not query_failed:
             cost_str = "calculating..."
 
@@ -154,6 +130,19 @@ class EnrichTraceCostUseCase:
         footer = " · ".join(footer_parts)
         return f"{text.rstrip()}\n\n{footer}"
 
+    def _apply_updated_trace_url(
+        self, text: str, trace_id: str, new_url: str, resolved_tid: str | None
+    ) -> str:
+        if self.tracer is not None:
+            old_url = self.tracer.get_trace_url(trace_id)
+            if old_url and old_url in text:
+                return text.replace(old_url, new_url)
+        if f"/traces/{trace_id}" in text and resolved_tid:
+            return text.replace(f"/traces/{trace_id}", f"/traces/{resolved_tid}")
+        if "[View Trace]" not in text:
+            return f"{text} · 🔍 [View Trace]({new_url})"
+        return text
+
     async def update_message_cost_async(
         self,
         chat_manager: Any,
@@ -162,9 +151,9 @@ class EnrichTraceCostUseCase:
         text_with_placeholder: str,
         trace_id: str,
         session_id: str | None = None,
-        delay_seconds: float = 2.0,
-        max_attempts: int = 5,
-        poll_interval: float = 1.5,
+        delay_seconds: float = 6.0,
+        max_attempts: int = 3,
+        poll_interval: float = 4.0,
     ) -> None:
         """Background task to query Langfuse after ingestion and update Telegram message."""
         if not self.enabled or not chat_manager or not text_with_placeholder or not trace_id:
@@ -174,42 +163,88 @@ class EnrichTraceCostUseCase:
 
         try:
             await asyncio.sleep(delay_seconds)
-            cost: float | None = None
+            res: TraceCostResult | None = None
+
             for attempt in range(max_attempts):
-                cost = await self._query_trace_cost(trace_id)
-                if cost is not None:
+                current_res = await self._query_trace_cost(trace_id, session_id=session_id)
+                if current_res.main_cost is not None:
+                    res = current_res
+                    # If memory review is expected and hasn't ingested yet, give it another attempt
+                    if session_id and current_res.memory_cost is None and attempt < 2:
+                        await asyncio.sleep(poll_interval)
+                        continue
                     break
                 if attempt < max_attempts - 1:
                     await asyncio.sleep(poll_interval)
 
-            if cost is None:
-                cost = 0.0
+            if res is None or res.main_cost is None:
+                target_tid = (
+                    TraceCostService.derive_trace_id(session_id) if session_id else trace_id
+                )
+                try:
+                    fallback = await self._cost_service.query_metrics_for_trace(
+                        self.mcp_client, target_tid
+                    )
+                    if fallback is not None and fallback > 0:
+                        res = TraceCostResult(
+                            main_cost=fallback,
+                            resolved_trace_id=target_tid,
+                        )
+                except Exception:
+                    pass
 
-            cost_str = self._format_cost(cost)
+            if res is None or res.main_cost is None:
+                logger.debug(
+                    "Trace cost for %s unavailable in Langfuse; keeping placeholder", trace_id
+                )
+                return
+
+            cost_str = TraceCostService.format_cost_with_breakdown(res.main_cost, res.memory_cost)
             if not cost_str:
                 return
 
-            updated_text = text_with_placeholder.replace(
+            updated = text_with_placeholder.replace(
                 "💸 **Cost:** calculating...", f"💸 **Cost:** {cost_str}"
             )
-            sent_results = await chat_manager.edit_message(
-                chat_id=chat_id,
-                message_id=message_id,
-                text=updated_text,
+            new_url = self._resolve_trace_url(trace_id, res.resolved_trace_id, res.resolved_url)
+            if new_url:
+                updated = self._apply_updated_trace_url(
+                    updated, trace_id, new_url, res.resolved_trace_id
+                )
+
+            sent = await chat_manager.edit_message(
+                chat_id=chat_id, message_id=message_id, text=updated
             )
-            is_success = any(sent_results) if isinstance(sent_results, list) else bool(sent_results)
-            if is_success:
+            is_ok = any(sent) if isinstance(sent, list) else bool(sent)
+            if is_ok:
                 logger.info(
                     "Updated trace cost placeholder for msg %s in chat %s to %s",
                     message_id,
                     chat_id,
                     cost_str,
                 )
-            else:
-                logger.warning(
-                    "Failed to edit trace cost placeholder for msg %s in chat %s",
-                    message_id,
-                    chat_id,
-                )
+
+            if is_ok and session_id and res.memory_cost is None:
+                for _ in range(2):
+                    await asyncio.sleep(5.0)
+                    mem_res = await self._query_trace_cost(trace_id, session_id=session_id)
+                    if mem_res.memory_cost is not None and mem_res.memory_cost > 0:
+                        full_cost = TraceCostService.format_cost_with_breakdown(
+                            res.main_cost, mem_res.memory_cost
+                        )
+                        if full_cost and full_cost != cost_str:
+                            updated_with_mem = updated.replace(
+                                f"💸 **Cost:** {cost_str}", f"💸 **Cost:** {full_cost}"
+                            )
+                            await chat_manager.edit_message(
+                                chat_id=chat_id, message_id=message_id, text=updated_with_mem
+                            )
+                            logger.info(
+                                "Updated memory cost breakdown for msg %s in chat %s to %s",
+                                message_id,
+                                chat_id,
+                                full_cost,
+                            )
+                        break
         except Exception as exc:
             logger.debug("Failed to asynchronously update trace cost in chat message: %s", exc)

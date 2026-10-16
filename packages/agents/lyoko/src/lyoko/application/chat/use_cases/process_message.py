@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 from lyoko.application.chat.sessions import ChatSessionTracker
+from lyoko.application.incidents.trace_cost_service import TraceCostService
 from lyoko.application.incidents.use_cases.enrich_trace_cost import EnrichTraceCostUseCase
 from lyoko.application.workflow.routing.canary import CanaryNotificationDetector
 from lyoko.application.workflow.routing.recovery import RecoveryNotificationDetector
@@ -90,7 +91,7 @@ class ProcessChatMessageUseCase:
         if message.bot_message_id:
             self.session_tracker.link_message(message.chat_id, message.bot_message_id, session_id)
         event_id = f"chat-{uuid.uuid4().hex[:8]}"
-        trace_id = uuid.uuid4().hex
+        trace_id = TraceCostService.derive_trace_id(session_id) if session_id else uuid.uuid4().hex
 
         state = {
             "event_type": EVENT_MESSAGE,
@@ -136,7 +137,7 @@ class ProcessChatMessageUseCase:
                             text_with_placeholder=reply,
                             trace_id=trace_id,
                             session_id=session_id,
-                            delay_seconds=2.5,
+                            delay_seconds=6.0,
                         )
                     )
         except Exception as exc:

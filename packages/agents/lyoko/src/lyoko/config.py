@@ -28,8 +28,6 @@ class AgentSettings(BaseSettings):
         validation_alias=AliasChoices(
             "openai_cheap_model",
             "OPENAI_CHEAP_MODEL",
-            "openai_model",
-            "OPENAI_MODEL",
         ),
         description="Cheaper OpenAI model for chat, remediation, verification, subagents, and domain specialists.",
     )
@@ -38,8 +36,6 @@ class AgentSettings(BaseSettings):
         validation_alias=AliasChoices(
             "openai_diagnose_model",
             "OPENAI_DIAGNOSE_MODEL",
-            "openai_smart_model",
-            "OPENAI_SMART_MODEL",
         ),
         description=(
             "OpenAI model for the diagnose phase, which investigates incident evidence and "
@@ -47,22 +43,6 @@ class AgentSettings(BaseSettings):
             "mis-synthesis is the main failure mode. Empty falls back to openai_cheap_model."
         ),
     )
-
-    @property
-    def openai_model(self) -> str:
-        return self.openai_cheap_model
-
-    @openai_model.setter
-    def openai_model(self, value: str) -> None:
-        self.openai_cheap_model = value
-
-    @property
-    def openai_smart_model(self) -> str:
-        return self.openai_diagnose_model
-
-    @openai_smart_model.setter
-    def openai_smart_model(self, value: str) -> None:
-        self.openai_diagnose_model = value
     openai_use_responses_api: bool = Field(
         default=True,
         description=(

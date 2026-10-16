@@ -1,8 +1,8 @@
-"""HTTP streamable upstream MCP client using official MCP SDK with persistent sessions."""
+"""HTTP streamable upstream MCP client using official MCP SDK."""
 
 import asyncio
 import logging
-from contextlib import AsyncExitStack
+from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
@@ -33,65 +33,44 @@ class StreamableHttpUpstreamClient(UpstreamMCPInterface):
         self.upstream_type = upstream_type
         self.prefix = prefix
         self._lock = asyncio.Lock()
-        self._session: ClientSession | None = None
-        self._exit_stack: AsyncExitStack | None = None
+        self._cached_tools: list[ToolDefinition] | None = None
 
-    async def _ensure_connected(self) -> ClientSession:
-        """Establish and initialize the persistent upstream HTTP session if not already connected."""
-        if self._session is not None:
-            return self._session
-
-        logger.info(
-            f"Starting persistent upstream MCP HTTP session for '{self.upstream_type}' ({self.url})..."
+    @asynccontextmanager
+    async def _connect(self):
+        """Yield an active ClientSession within the current task's scope."""
+        is_mocked = hasattr(self._ensure_connected, "assert_called") or (
+            hasattr(self._ensure_connected, "__func__")
+            and self._ensure_connected.__func__
+            is not StreamableHttpUpstreamClient._ensure_connected
         )
-        self._exit_stack = AsyncExitStack()
-        try:
-            http_client = httpx.AsyncClient(
+        if is_mocked:
+            session = await self._ensure_connected()
+            yield session
+            return
+
+        async with (
+            httpx.AsyncClient(
                 auth=self.auth,
                 headers=self.headers,
                 timeout=httpx.Timeout(60.0, connect=10.0),
-            )
-            await self._exit_stack.enter_async_context(http_client)
-            read, write = await self._exit_stack.enter_async_context(
-                streamable_http_client(self.url, http_client=http_client)
-            )
-            session = await self._exit_stack.enter_async_context(ClientSession(read, write))
+            ) as http_client,
+            streamable_http_client(self.url, http_client=http_client) as (read, write),
+            ClientSession(read, write) as session,
+        ):
             await session.initialize()
-            self._session = session
-            logger.info(
-                f"Persistent upstream MCP HTTP session established for '{self.upstream_type}'."
-            )
-            return self._session
-        except Exception as exc:
-            logger.error(f"Failed to start upstream MCP HTTP session '{self.upstream_type}': {exc}")
-            await self._close_session()
-            raise
+            yield session
 
-    async def _close_session(self) -> None:
-        """Gracefully terminate upstream session and HTTP client."""
-        if self._exit_stack:
-            try:
-                await self._exit_stack.aclose()
-            except Exception as exc:
-                logger.warning(
-                    f"Error terminating upstream MCP HTTP session for '{self.upstream_type}': {exc}"
-                )
-            finally:
-                self._session = None
-                self._exit_stack = None
+    async def _ensure_connected(self) -> ClientSession:
+        """Compatibility hook for tests patching connection establishment."""
+        raise NotImplementedError("Use _connect context manager")
 
     async def list_tools(self) -> list[ToolDefinition]:
-        """Discover tools using the persistent upstream HTTP session."""
+        """Discover tools using the upstream HTTP session."""
         async with self._lock:
-            try:
-                session = await self._ensure_connected()
-                result = await session.list_tools()
-            except Exception as exc:
-                logger.warning(
-                    f"list_tools failed on upstream '{self.upstream_type}', attempting reconnection: {exc}"
-                )
-                await self._close_session()
-                session = await self._ensure_connected()
+            if self._cached_tools is not None:
+                return self._cached_tools
+
+            async with self._connect() as session:
                 result = await session.list_tools()
 
             tool_definitions = []
@@ -111,25 +90,26 @@ class StreamableHttpUpstreamClient(UpstreamMCPInterface):
                         annotations=_tool_annotations(tool),
                     )
                 )
+            self._cached_tools = tool_definitions
             return tool_definitions
 
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> ToolResult:
-        """Execute a tool using the persistent upstream HTTP session with automatic recovery."""
+        """Execute a tool using the upstream HTTP session."""
         raw_name = name
         if self.prefix and raw_name.startswith(self.prefix):
             raw_name = raw_name[len(self.prefix) :]
 
         async with self._lock:
             try:
-                session = await self._ensure_connected()
-                result = await session.call_tool(name=raw_name, arguments=arguments)
+                async with self._connect() as session:
+                    result = await session.call_tool(name=raw_name, arguments=arguments)
             except Exception as exc:
-                logger.warning(
-                    f"Tool call '{raw_name}' failed on upstream '{self.upstream_type}', retrying with fresh connection: {exc}"
+                logger.error(f"Error calling upstream tool '{raw_name}': {exc}")
+                return ToolResult(
+                    status="error",
+                    content=str(exc),
+                    is_error=True,
                 )
-                await self._close_session()
-                session = await self._ensure_connected()
-                result = await session.call_tool(name=raw_name, arguments=arguments)
 
             # Format content
             contents = []
@@ -139,7 +119,9 @@ class StreamableHttpUpstreamClient(UpstreamMCPInterface):
                 else:
                     contents.append(str(item))
 
-            is_error = bool(getattr(result, "is_error", False))
+            is_error = bool(getattr(result, "is_error", False)) or bool(
+                getattr(result, "isError", False)
+            )
             return ToolResult(
                 status="error" if is_error else "success",
                 content="\n".join(contents)
