@@ -48,6 +48,61 @@ class TelegramCallbackMixin:
         with contextlib.suppress(Exception):
             await query.edit_message_reply_markup(reply_markup=None)
 
+    async def _append_callback_result(
+        self, query: Any, chat_id: str | None, status_text: str
+    ) -> None:
+        """Append a status line to the callback message and update Telegram."""
+        message_id = getattr(query.message, "message_id", None) if query.message else None
+        stored = None
+        if chat_id is not None and message_id is not None:
+            stored = self._approval_message_html.pop((str(chat_id), int(message_id)), None)
+
+        if stored is not None:
+            current_text, parse_mode = stored
+        else:
+            current_text = query.message.text or "" if query.message else ""
+            parse_mode = "HTML"
+
+        if parse_mode is None:
+            current_text = _strip_tags(current_text)
+            result_text = _strip_tags(status_text)
+        else:
+            result_text = f"<b>Result:</b> {status_text}"
+
+        new_text = f"{current_text}\n\n{result_text}" if current_text else result_text
+        with contextlib.suppress(Exception):
+            await query.edit_message_text(new_text, parse_mode=parse_mode)
+
+    async def _dispatch_approval(self, response: ApprovalResponse) -> bool | None:
+        """Dispatch approval response to registered handlers.
+
+        Returns:
+            True if handled by a handler (or legacy handler returning None).
+            False if all active handlers rejected it (e.g. pending future expired/missing).
+            None if no handlers are registered.
+        """
+        if not self._approval_handlers:
+            return None
+
+        any_handled = False
+        any_rejected = False
+
+        for handler in self._approval_handlers:
+            try:
+                res = handler(response)
+                if inspect.isawaitable(res):
+                    res = await res
+                if res is True or res is None:
+                    any_handled = True
+                elif res is False:
+                    any_rejected = True
+            except Exception as exc:
+                logger.error("Error executing approval handler: %s", exc)
+
+        if any_handled:
+            return True
+        return not any_rejected
+
     async def _handle_callback_query(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
@@ -64,14 +119,13 @@ class TelegramCallbackMixin:
             await query.answer("⛔ Unauthorized", show_alert=True)
             return
 
-        await query.answer()
-
         # Format: "<action_id>:<payload>" e.g. "approve:<incident_id>" or "stop:<message_id>"
         parts = query.data.split(":", 1)
         action_type = parts[0]
         payload = parts[1] if len(parts) > 1 else ""
 
         if action_type.lower() == "stop":
+            await query.answer()
             await self._handle_stop_callback(query, chat_id, payload)
             return
 
@@ -102,13 +156,22 @@ class TelegramCallbackMixin:
             reason=reason,
         )
 
-        for handler in self._approval_handlers:
-            try:
-                res = handler(response)
-                if inspect.isawaitable(res):
-                    await res
-            except Exception as exc:
-                logger.error("Error executing approval handler: %s", exc)
+        handled = await self._dispatch_approval(response)
+        if handled is False and not is_feedback:
+            await query.answer(
+                "⏱️ This approval request has expired or is no longer active.",
+                show_alert=True,
+            )
+            with contextlib.suppress(Exception):
+                await query.edit_message_reply_markup(reply_markup=None)
+            await self._append_callback_result(
+                query,
+                chat_id,
+                "⏱️ <b>Expired / Inactive:</b> This approval request is no longer active.",
+            )
+            return
+
+        await query.answer()
 
         user_name = html.escape(update.effective_user.first_name or user_id)
         if approved:
@@ -124,27 +187,7 @@ class TelegramCallbackMixin:
         else:
             status_text = f"❌ <b>Rejected</b> by admin ({user_name})."
 
-        # Telegram strips an answered message's formatting from `text`, so reuse the markup we
-        # originally sent (kept by the connector) to avoid losing every bold label on the edit.
-        message_id = getattr(query.message, "message_id", None) if query.message else None
-        stored = None
-        if chat_id is not None and message_id is not None:
-            stored = self._approval_message_html.pop((str(chat_id), int(message_id)), None)
-        if stored is not None:
-            current_text, parse_mode = stored
-        else:
-            current_text, parse_mode = (query.message.text or "" if query.message else ""), "HTML"
-
-        if parse_mode is None:
-            current_text = _strip_tags(current_text)
-            result_text = _strip_tags(status_text)
-        else:
-            result_text = f"<b>Result:</b> {status_text}"
-        new_text = f"{current_text}\n\n{result_text}" if current_text else result_text
-        try:
-            await query.edit_message_text(new_text, parse_mode=parse_mode)
-        except Exception as edit_err:
-            logger.debug("Could not edit message text after callback: %s", edit_err)
+        await self._append_callback_result(query, chat_id, status_text)
 
     def _record_channel_forward(self, msg: Any) -> None:
         """Record a channel-post -> discussion-message mapping from an automatic forward."""

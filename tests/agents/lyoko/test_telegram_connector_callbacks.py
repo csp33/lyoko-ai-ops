@@ -205,3 +205,35 @@ async def test_telegram_connector_stop_callback():
 
     streamer.stop.assert_called_once()
     mock_query.edit_message_reply_markup.assert_called_once_with(reply_markup=None)
+
+
+@pytest.mark.asyncio
+async def test_callback_query_expired_approval():
+    """When an approval is no longer pending (handler returns False), it shows an alert and marks expired."""
+    connector = TelegramConnector(
+        bot_token="fake:token", allowed_user_ids={"12345"}, default_chat_id="12345"
+    )
+    # Handler returns False indicating the approval is expired/not found
+    connector.register_approval_handler(lambda resp: False)
+
+    mock_update = MagicMock()
+    mock_update.effective_user.id = 12345
+    mock_update.effective_chat.id = 12345
+    mock_query = MagicMock()
+    mock_query.data = "approve:inc-expired"
+    mock_query.message.message_id = 99
+    mock_query.message.text = "🚨 [APPROVAL REQUIRED]\n\nAction: Restart deployment."
+    mock_query.answer = AsyncMock()
+    mock_query.edit_message_reply_markup = AsyncMock()
+    mock_query.edit_message_text = AsyncMock()
+    mock_update.callback_query = mock_query
+
+    await connector._handle_callback_query(mock_update, MagicMock())
+
+    mock_query.answer.assert_called_once_with(
+        "⏱️ This approval request has expired or is no longer active.",
+        show_alert=True,
+    )
+    mock_query.edit_message_reply_markup.assert_called_once_with(reply_markup=None)
+    mock_query.edit_message_text.assert_called_once()
+    assert "Expired" in mock_query.edit_message_text.call_args[0][0]

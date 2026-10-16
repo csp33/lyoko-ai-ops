@@ -262,6 +262,7 @@ class HermesHarnessRunner(HarnessRunnerInterface):
                 else str(settings.openai_api_key or "")
             )
         base_url = getattr(summary_client, "base_url", None)
+        bridge_timeout = float(getattr(settings, "approval_timeout_seconds", 300) + 60)
 
         return await self._bridge.execute(
             prompt=prompt_text,
@@ -276,4 +277,5 @@ class HermesHarnessRunner(HarnessRunnerInterface):
             on_tool_call=on_bridge_tool_call,
             on_status=on_status,
             on_llm_usage=on_bridge_llm_usage,
+            timeout_seconds=bridge_timeout,
         )

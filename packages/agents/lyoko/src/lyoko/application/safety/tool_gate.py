@@ -1,5 +1,4 @@
-"""Tool-call gate: decides whether an agent's tool call runs, needs approval, or is refused."""
-
+import contextlib
 import fnmatch
 import logging
 import shlex
@@ -17,6 +16,11 @@ logger = logging.getLogger("lyoko.tool_gate")
 
 # Above this size the approval arguments are omitted: the Action/Plan lines describe the change.
 _MAX_ARGUMENTS_PREVIEW_CHARS = 300
+_READ_ONLY_KUBECTL_CMDS = (
+    {"get", "describe", "logs", "log", "top"}
+    | {"explain", "diff", "version"}
+    | {"api-resources", "api-versions", "cluster-info"}
+)
 
 ReadOnlyLookup = Callable[[str], bool | None]
 """Returns an upstream's explicit read-only hint for a tool, or ``None`` when it declared none."""
@@ -26,10 +30,7 @@ class GateMode(StrEnum):
     """What the gate does with a tool that is neither read-only nor auto-approved."""
 
     READ_ONLY = "read_only"
-    """Refuse it. Used while investigating and verifying, when nothing may change."""
-
     APPROVAL = "approval"
-    """Ask the operator before running it. Used while remediating."""
 
 
 class CallOutcome(StrEnum):
@@ -82,6 +83,7 @@ class ToolGate:
         message_thread_id: str | int | None = None,
         plan: str = "",
         approval_manager: ApprovalManagerInterface | None = None,
+        approval_timeout_seconds: float = 300.0,
         chat_manager: ChatServiceInterface | None = None,
         readonly_lookup: ReadOnlyLookup | None = None,
     ) -> None:
@@ -96,6 +98,7 @@ class ToolGate:
         self._message_thread_id = message_thread_id
         self._plan = plan
         self._approval_manager = approval_manager
+        self._approval_timeout_seconds = approval_timeout_seconds
         self._chat_manager = chat_manager
         self._readonly_lookup = readonly_lookup
         self._approval_count = 0
@@ -103,17 +106,19 @@ class ToolGate:
     @staticmethod
     def _is_http_read_only(tool_name: str, arguments: dict[str, Any]) -> bool:
         norm = tool_name.replace(".", "_").replace(":", "_")
-        if norm == "api_request" or norm.endswith("_api_request"):
-            method = str(arguments.get("method") or "GET").upper()
-            return method in ("GET", "HEAD", "OPTIONS")
-        return False
+        if norm != "api_request" and not norm.endswith("_api_request"):
+            return False
+        return str(arguments.get("method") or "GET").upper() in ("GET", "HEAD", "OPTIONS")
 
     @staticmethod
     def _is_kubectl_read_only(tool_name: str, arguments: dict[str, Any]) -> bool:
         norm = tool_name.replace(".", "_").replace(":", "_")
-        if norm not in ("k8s_kubectl", "kubectl", "kubernetes_kubectl"):
+        if norm.startswith(("kubectl ", "k8s_kubectl ")):
+            cmd = tool_name.split(None, 1)[1]
+        elif norm in ("k8s_kubectl", "kubectl", "kubernetes_kubectl"):
+            cmd = arguments.get("command") or arguments.get("cmd") or ""
+        else:
             return False
-        cmd = arguments.get("command") or arguments.get("cmd") or ""
         parts = [
             p
             for p in (shlex.split(cmd) if isinstance(cmd, str) else [str(x) for x in cmd])
@@ -123,23 +128,7 @@ class ToolGate:
             flag = parts.pop(0)
             if flag in ("-n", "--namespace", "-l", "--selector", "--context") and parts:
                 parts.pop(0)
-        return bool(
-            parts
-            and parts[0].lower()
-            in {
-                "get",
-                "describe",
-                "logs",
-                "log",
-                "top",
-                "explain",
-                "diff",
-                "api-resources",
-                "api-versions",
-                "version",
-                "cluster-info",
-            }
-        )
+        return bool(parts and parts[0].lower() in _READ_ONLY_KUBECTL_CMDS)
 
     async def authorize(self, tool_name: str, arguments: dict[str, Any]) -> str | None:
         """Return ``None`` to allow the call, or a refusal message for the agent."""
@@ -221,11 +210,22 @@ class ToolGate:
             message_thread_id=self._message_thread_id,
             reply_to_message_id=self._message_thread_id,
         )
-        response = await self._approval_manager.wait_for_approval(approval_id)
+        response = await self._approval_manager.wait_for_approval(
+            approval_id, timeout=self._approval_timeout_seconds
+        )
 
         if response.approved:
             self._record(tool_name, arguments, CallOutcome.APPROVED)
             return None
+
+        if getattr(response, "action_id", None) == "timeout" and hasattr(
+            self._chat_manager, "expire_approval_request"
+        ):
+            with contextlib.suppress(Exception):
+                await self._chat_manager.expire_approval_request(
+                    approval_id,
+                    reason=f"no approval received within {int(self._approval_timeout_seconds)}s",
+                )
 
         reason = response.reason or "denied by the operator"
         self._record(tool_name, arguments, CallOutcome.DENIED, reason)
@@ -258,6 +258,7 @@ class ToolGateFactory:
             mode=mode,
             read_only_patterns=settings.read_only_tools,
             auto_approved_patterns=settings.auto_approved_tools,
+            approval_timeout_seconds=float(getattr(settings, "approval_timeout_seconds", 300)),
             event_id=event_id,
             origin=IncidentContextFormatter.format_origin(state),
             session_id=state.get("session_id"),

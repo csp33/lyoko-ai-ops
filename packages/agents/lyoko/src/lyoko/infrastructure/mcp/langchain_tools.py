@@ -190,6 +190,14 @@ async def _resolve_tool_name(
 ) -> tuple[str | None, dict[str, Any]]:
     # 1. Direct tool_name provided
     if tool_name:
+        stripped = tool_name.strip()
+        if stripped.startswith(("kubectl ", "k8s_kubectl ")):
+            resolved = "k8s_kubectl"
+            parts = stripped.split(None, 1)
+            if len(parts) > 1 and "command" not in merged:
+                merged["command"] = parts[1]
+            _normalize_args(resolved, merged, original_name=tool_name)
+            return resolved, merged
         norm = tool_name.replace(".", "_").replace(":", "_")
         resolved = _COMMON_ALIASES.get(norm, norm)
         if resolved.startswith("kubernetes_"):
@@ -199,10 +207,24 @@ async def _resolve_tool_name(
         return resolved, merged
 
     # 2. Common aliases for tool name
-    for alias in ("tool", "name", "target_tool", "function"):
+    for alias in ("tool", "name", "target_tool", "function", "tool_name"):
         if alias in merged and isinstance(merged[alias], str):
             val = merged.pop(alias)
-            return val, merged
+            stripped = val.strip()
+            if stripped.startswith(("kubectl ", "k8s_kubectl ")):
+                resolved = "k8s_kubectl"
+                parts = stripped.split(None, 1)
+                if len(parts) > 1 and "command" not in merged:
+                    merged["command"] = parts[1]
+                _normalize_args(resolved, merged, original_name=val)
+                return resolved, merged
+            norm = val.replace(".", "_").replace(":", "_")
+            resolved = _COMMON_ALIASES.get(norm, norm)
+            if resolved.startswith("kubernetes_"):
+                resolved = "k8s_" + resolved.removeprefix("kubernetes_")
+                resolved = _COMMON_ALIASES.get(resolved, resolved)
+            _normalize_args(resolved, merged, original_name=val)
+            return resolved, merged
 
     # 3. Single key matching a nested dictionary: { "ha_get_logs": { "source": "core" } }
     if len(merged) == 1:

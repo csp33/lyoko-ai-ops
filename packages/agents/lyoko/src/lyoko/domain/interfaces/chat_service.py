@@ -64,3 +64,8 @@ class ChatServiceInterface(ABC):
         parse_mode: str = "Markdown",
     ) -> list[SentMessage | None]:
         """Edit a message previously sent via registered connectors."""
+
+    async def expire_approval_request(  # noqa: B027
+        self, incident_id: str, reason: str = "Timed out"
+    ) -> None:
+        """Revoke active approval prompts for an incident and clear interactive buttons."""

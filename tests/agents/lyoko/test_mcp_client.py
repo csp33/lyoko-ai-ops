@@ -536,3 +536,23 @@ async def test_call_tool_resolves_kubernetes_application_and_normalizes_args():
             "apiVersion": "argoproj.io/v1alpha1",
         },
     )
+
+
+@pytest.mark.asyncio
+async def test_call_tool_resolves_kubectl_command_as_tool_name():
+    """Verify passing 'kubectl get pods --namespace home-assistant' as tool_name resolves to k8s_kubectl."""
+    client = FastMCPClient(server_url="http://x/mcp", token="")
+    client.call_tool = AsyncMock(return_value={"status": "success", "content": "pod-1"})
+    tools = {t.name: t for t in client.get_langchain_tools()}
+
+    await tools["gateway_call_tool"].ainvoke(
+        {
+            "tool_name": "kubectl get pods --namespace home-assistant",
+            "arguments": {},
+        }
+    )
+
+    client.call_tool.assert_awaited_once_with(
+        "k8s_kubectl",
+        {"command": "get pods --namespace home-assistant"},
+    )

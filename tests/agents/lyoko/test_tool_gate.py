@@ -386,3 +386,39 @@ async def test_k8s_kubectl_mutation_refused_in_read_only_mode():
     refusal = await gate.authorize("k8s_kubectl", {"command": "delete pod bentopdf -n default"})
     assert refusal is not None
     assert "may change state" in refusal
+
+
+@pytest.mark.asyncio
+async def test_kubectl_cli_as_tool_name_read_only_allowed():
+    gate = _gate(GateMode.READ_ONLY)
+    assert await gate.authorize("kubectl get pods -n default", {}) is None
+    assert await gate.authorize("kubectl get pods --namespace home-assistant", {}) is None
+    assert await gate.authorize("kubectl logs deploy/ha -n home-assistant", {}) is None
+    assert gate.records == []
+
+
+@pytest.mark.asyncio
+async def test_gate_approval_timeout_expires():
+    from unittest.mock import AsyncMock, MagicMock
+
+    from lyoko.application.safety.hitl.manager import ApprovalManager
+
+    chat_manager = MagicMock()
+    chat_manager.broadcast_approval_request = AsyncMock()
+    chat_manager.expire_approval_request = AsyncMock()
+
+    mgr = ApprovalManager(default_timeout_seconds=0.05)
+    gate = _gate(
+        GateMode.APPROVAL,
+        approval_manager=mgr,
+        chat_manager=chat_manager,
+        approval_timeout_seconds=0.05,
+    )
+
+    refusal = await gate.authorize("k8s_kubectl", {"command": "delete pod bentopdf -n default"})
+    assert refusal is not None
+    assert "timed out" in refusal.lower()
+    assert len(gate.records) == 1
+    assert gate.records[0].outcome.value == "denied"
+    assert "timed out" in gate.records[0].reason.lower()
+    chat_manager.expire_approval_request.assert_awaited_once()
