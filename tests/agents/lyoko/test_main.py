@@ -20,7 +20,7 @@ def test_build_llm_adapter_model_override(monkeypatch):
     assert build_llm_adapter().model_name == settings.openai_cheap_model
     assert build_llm_adapter().use_responses_api is True
     assert build_llm_adapter("gpt-4.1").model_name == "gpt-4.1"
-    assert build_llm_adapter(settings.openai_diagnose_model).model_name == "gpt-4.1"
+    assert build_llm_adapter(settings.openai_diagnose_model).model_name == settings.openai_diagnose_model
     assert build_llm_adapter(use_responses_api=False).use_responses_api is False
 
 

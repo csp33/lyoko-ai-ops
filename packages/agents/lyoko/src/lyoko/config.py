@@ -24,7 +24,7 @@ class AgentSettings(BaseSettings):
     # LLM Provider
     openai_api_key: str = Field(default="", description="OpenAI API Key")
     openai_cheap_model: str = Field(
-        default="gpt-4o-mini",
+        default="gpt-4.1-mini",
         validation_alias=AliasChoices(
             "openai_cheap_model",
             "OPENAI_CHEAP_MODEL",
@@ -32,7 +32,7 @@ class AgentSettings(BaseSettings):
         description="Cheaper OpenAI model for chat, remediation, verification, subagents, and domain specialists.",
     )
     openai_diagnose_model: str = Field(
-        default="gpt-4.1",
+        default="o3-mini",
         validation_alias=AliasChoices(
             "openai_diagnose_model",
             "OPENAI_DIAGNOSE_MODEL",
