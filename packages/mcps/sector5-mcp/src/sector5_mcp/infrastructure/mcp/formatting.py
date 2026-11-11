@@ -3,8 +3,29 @@
 from typing import Any
 
 _MAX_DESCRIPTION = 160
+_MAX_PROP_DESCRIPTION = 120
 _MAX_STRING_CONTENT = 12000
 _MAX_LIST_CONTENT = 60
+
+
+def _compact_schema(node: Any) -> Any:
+    """Recursively trim multi-line property descriptions in JSON schemas to save context tokens."""
+    if isinstance(node, list):
+        return [_compact_schema(item) for item in node]
+    if not isinstance(node, dict):
+        return node
+    out: dict[str, Any] = {}
+    for k, v in node.items():
+        if k == "description" and isinstance(v, str):
+            first = v.strip().split("\n")[0].strip()
+            out[k] = (
+                first[:_MAX_PROP_DESCRIPTION] + "..."
+                if len(first) > _MAX_PROP_DESCRIPTION
+                else first
+            )
+        else:
+            out[k] = _compact_schema(v)
+    return out
 
 
 def tool_index(tools: list[Any]) -> list[dict[str, Any]]:
@@ -22,11 +43,12 @@ def tool_index(tools: list[Any]) -> list[dict[str, Any]]:
             if len(first_line) > _MAX_DESCRIPTION
             else first_line
         )
+        raw_params = t.parameters or {"type": "object", "properties": {}}
         entry: dict[str, Any] = {
             "name": t.name,
             "description": short_desc,
             "upstream": str(t.upstream_type),
-            "parameters": t.parameters or {"type": "object", "properties": {}},
+            "parameters": _compact_schema(raw_params),
         }
         # Only surface the hint when the upstream declared one, so a missing key means
         # "unknown" rather than being mistaken for an explicit "not read-only".

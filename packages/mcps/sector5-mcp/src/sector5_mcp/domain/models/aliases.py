@@ -108,6 +108,8 @@ TOOL_ALIASES: dict[str, str] = {
     # Home Assistant
     "ha_list_entities": "ha_get_states",
     "ha_get_entities": "ha_get_states",
+    "ha_get_log": "ha_get_logs",
+    "ha_logs": "ha_get_logs",
     # Grafana / Prometheus
     "grafana_query": "grafana_query_prometheus",
     "grafana_data_query": "grafana_query_prometheus",
@@ -119,6 +121,8 @@ TOOL_ALIASES: dict[str, str] = {
     "grafana_get_datasource_list": "grafana_list_datasources",
     "grafana_get_alerts": "grafana_alerting_rules_read",
     "grafana_list_alerts": "grafana_alerting_rules_read",
+    "grafana_get_alert_rules": "grafana_alerting_rules_read",
+    "grafana_list_alert_rules": "grafana_alerting_rules_read",
     "prometheus_query": "grafana_query_prometheus",
     "prometheus_data_query": "grafana_query_prometheus",
     "prometheus_promql": "grafana_query_prometheus",
@@ -135,7 +139,13 @@ def resolve_canonical_domain(domain: str) -> str:
 
 def resolve_tool_alias(name: str) -> str:
     """Map common hallucinated tool names or variants to their canonical tool name."""
-    raw = name.strip()
+    raw = name.strip().replace(".", "_").replace(":", "_")
+    while "__" in raw:
+        raw = raw.replace("__", "_")
     if raw.startswith("kubernetes_"):
         raw = "k8s_" + raw.removeprefix("kubernetes_")
+    elif raw.startswith("homeassistant_"):
+        raw = "ha_" + raw.removeprefix("homeassistant_")
+    elif raw.startswith("home_assistant_"):
+        raw = "ha_" + raw.removeprefix("home_assistant_")
     return TOOL_ALIASES.get(raw, raw)

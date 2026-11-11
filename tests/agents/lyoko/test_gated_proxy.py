@@ -45,8 +45,14 @@ async def test_proxy_tools_route_through_context():
         await client.call_tool(
             "gateway_call_tool", {"tool_name": "k8s_get_pods", "arguments": {"namespace": "a"}}
         )
+        await client.call_tool("gateway_call_tool", {"command": "get pods -n home-assistant"})
+        await client.call_tool(
+            "gateway_call_tool", {"tool_name": "ha_get_logs", "parameters": {"limit": 10}}
+        )
     assert seen == [
-        ("gateway_call_tool", {"tool_name": "k8s_get_pods", "arguments": {"namespace": "a"}})
+        ("gateway_call_tool", {"tool_name": "k8s_get_pods", "arguments": {"namespace": "a"}}),
+        ("gateway_call_tool", {"command": "get pods -n home-assistant"}),
+        ("gateway_call_tool", {"tool_name": "ha_get_logs", "parameters": {"limit": 10}}),
     ]
 
 

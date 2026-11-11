@@ -5,6 +5,15 @@ from typing import Any
 from lyoko.domain.interfaces.scratchpad import ScratchpadStorageInterface
 from lyoko.domain.models.scratchpad import SmartBufferConfig
 
+_PASSTHROUGH_TOOLS = frozenset(
+    {
+        "gateway_get_domain_tools",
+        "gateway_get_tool_schema",
+        "mcp__lyoko__gateway_get_domain_tools",
+        "mcp__lyoko__gateway_get_tool_schema",
+    }
+)
+
 
 class SmartOutputBufferService:
     """Buffers tool outputs, preserving head and tail context while offloading large payloads."""
@@ -40,7 +49,7 @@ class SmartOutputBufferService:
     ) -> str:
         """Process and bound tool output, offloading oversized payloads to storage if needed."""
         text = str(output)
-        if len(text) <= self._config.max_chars:
+        if tool_name in _PASSTHROUGH_TOOLS or len(text) <= self._config.max_chars:
             return text
 
         head, tail, omitted = self._truncate_head_tail(text)

@@ -6,7 +6,6 @@ from typing import Any
 from fastmcp import FastMCP
 
 from sector5_mcp.application.service import MCPGatewayService
-from sector5_mcp.domain.models.upstream import UpstreamType
 from sector5_mcp.infrastructure.mcp.formatting import shape_tool_content, tool_index
 
 _MAX_DOMAIN_PAGE = 100
@@ -35,7 +34,7 @@ def register_gateway_tools(mcp: FastMCP, service: MCPGatewayService) -> None:
 
     @mcp.tool()
     async def gateway_get_domain_tools(
-        domain: UpstreamType,
+        domain: str,
         limit: int = 50,
         offset: int = 0,
     ) -> dict[str, Any]:
@@ -91,14 +90,16 @@ def register_gateway_tools(mcp: FastMCP, service: MCPGatewayService) -> None:
         }
 
     @mcp.tool()
-    async def gateway_call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    async def gateway_call_tool(
+        tool_name: str, arguments: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Execute any tool across the connected upstream MCP servers with authentication and guardrails.
 
         Args:
             tool_name: Name of the upstream tool to invoke.
             arguments: Dictionary of arguments matching the tool schema.
         """
-        result = await service.execute_tool(tool_name, arguments)
+        result = await service.execute_tool(tool_name, arguments or {})
         content = shape_tool_content(result.content, result.is_error)
         if result.is_error and _is_argument_error(str(result.content)):
             definition = await service.get_tool_definition(tool_name)

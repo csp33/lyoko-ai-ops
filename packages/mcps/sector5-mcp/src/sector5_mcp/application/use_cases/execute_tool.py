@@ -185,4 +185,40 @@ class ExecuteToolUseCase:
                     if alt_name in normalized:
                         normalized["command"] = normalized.pop(alt_name)
                         break
+            ns = normalized.pop("namespace", None)
+            if ns and isinstance(normalized.get("command"), str):
+                cmd_str = normalized["command"]
+                if "-n " not in cmd_str and "--namespace" not in cmd_str:
+                    normalized["command"] = f"{cmd_str} -n {ns}"
+        elif tool_name == "ha_get_logs":
+            if "limit" not in normalized:
+                for alt_name in ("lines", "max_lines", "tail", "count"):
+                    if alt_name in normalized:
+                        normalized["limit"] = normalized.pop(alt_name)
+                        break
+            src = str(normalized.get("source") or "").lower()
+            if (
+                src in ("core", "homeassistant", "ha")
+                or "source" not in normalized
+                and "level" in normalized
+            ):
+                normalized["source"] = "system"
+            valid_ha_log_keys = {
+                "compact",
+                "context_id",
+                "device_id",
+                "end_time",
+                "entity_id",
+                "hours_back",
+                "level",
+                "limit",
+                "offset",
+                "order",
+                "search",
+                "slug",
+                "source",
+                "structured",
+                "top_n",
+            }
+            normalized = {k: v for k, v in normalized.items() if k in valid_ha_log_keys}
         return normalized
