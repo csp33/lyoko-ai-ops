@@ -556,3 +556,41 @@ async def test_call_tool_resolves_kubectl_command_as_tool_name():
         "k8s_kubectl",
         {"command": "get pods --namespace home-assistant"},
     )
+
+
+@pytest.mark.asyncio
+async def test_call_tool_infers_k8s_kubectl_from_command_and_normalizes_double_underscores():
+    """Verify command-only calls infer k8s_kubectl and double underscores/parameters unpack properly."""
+    client = FastMCPClient(server_url="http://x/mcp", token="")
+    client.call_tool = AsyncMock(return_value={"status": "success", "content": "ok"})
+    tools = {t.name: t for t in client.get_langchain_tools()}
+
+    await tools["gateway_call_tool"].ainvoke(
+        {"command": "get pods -o wide", "namespace": "home-assistant"}
+    )
+    client.call_tool.assert_awaited_with(
+        "k8s_kubectl",
+        {"command": "get pods -o wide -n home-assistant"},
+    )
+
+    await tools["gateway_call_tool"].ainvoke(
+        {
+            "tool_name": "kubernetes__list_pods",
+            "arguments": {"namespace": "home-assistant"},
+        }
+    )
+    client.call_tool.assert_awaited_with(
+        "k8s_pods_list",
+        {"namespace": "home-assistant"},
+    )
+
+    await tools["gateway_call_tool"].ainvoke(
+        {
+            "tool_name": "homeassistant__get_logs",
+            "parameters": {"lines": 50, "level": "ERROR", "since_minutes": 15},
+        }
+    )
+    client.call_tool.assert_awaited_with(
+        "ha_get_logs",
+        {"limit": 50, "level": "ERROR", "source": "system"},
+    )

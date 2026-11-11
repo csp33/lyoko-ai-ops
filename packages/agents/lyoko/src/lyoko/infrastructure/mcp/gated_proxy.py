@@ -10,12 +10,26 @@ import logging
 from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.tools.base import Tool, ToolResult
 from lyoko.application.safety.gated_run_context import GatedRunContext
 
 logger = logging.getLogger("lyoko.infrastructure.mcp.gated_proxy")
 
 GATED_MCP_MOUNT_PATH = "/gated-mcp"
 _GATED_MCP_ENDPOINT = "/mcp"
+
+
+class _PermissiveCallTool(Tool):
+    """FastMCP tool accepting both canonical and flattened argument shapes without schema rejection."""
+
+    context: Any = None
+
+    async def run(self, arguments: dict[str, Any]) -> ToolResult:
+        payload = dict(arguments or {})
+        if set(payload.keys()) <= {"tool_name", "arguments"}:
+            payload.setdefault("arguments", {})
+        result = await self.context.call("gateway_call_tool", payload)
+        return ToolResult(content=str(result), structured_content={"result": str(result)})
 
 
 def build_gated_mcp(context: GatedRunContext) -> FastMCP:
@@ -34,12 +48,28 @@ def build_gated_mcp(context: GatedRunContext) -> FastMCP:
         """Get the full parameter schema and description of one gateway tool."""
         return await context.call("gateway_get_tool_schema", {"tool_name": tool_name})
 
-    @mcp.tool
-    async def gateway_call_tool(tool_name: str, arguments: dict[str, Any] | None = None) -> str:
-        """Execute a gateway tool by exact name. State-changing tools require operator approval."""
-        return await context.call(
-            "gateway_call_tool", {"tool_name": tool_name, "arguments": arguments or {}}
+    mcp.add_tool(
+        _PermissiveCallTool(
+            name="gateway_call_tool",
+            description="Execute a gateway tool by exact name. State-changing tools require operator approval.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "tool_name": {
+                        "type": "string",
+                        "description": "Exact name of the tool to execute.",
+                    },
+                    "arguments": {
+                        "type": "object",
+                        "description": "Key-value arguments for the tool.",
+                        "default": {},
+                    },
+                },
+                "additionalProperties": True,
+            },
+            context=context,
         )
+    )
 
     return mcp
 

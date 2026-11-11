@@ -46,3 +46,21 @@ async def test_large_output_offloaded_to_scratchpad_storage(tmp_path: Path):
     created_files = list(tmp_path.glob("scratch_*_k8s_logs.log"))
     assert len(created_files) == 1
     assert created_files[0].read_text(encoding="utf-8") == massive_output
+
+
+@pytest.mark.asyncio
+async def test_discovery_and_schema_tools_are_never_truncated(tmp_path: Path):
+    storage = ScratchpadFileStorage(base_dir=tmp_path)
+    config = SmartBufferConfig(max_chars=200, offload_threshold_chars=500, head_ratio=0.25)
+    buffer = SmartOutputBufferService(storage=storage, config=config)
+
+    catalog_output = "CATALOG_START_" + ("TOOL_SCHEMA_" * 200) + "_CATALOG_END"
+    for tool_name in (
+        "gateway_get_domain_tools",
+        "gateway_get_tool_schema",
+        "mcp__lyoko__gateway_get_domain_tools",
+        "mcp__lyoko__gateway_get_tool_schema",
+    ):
+        result = await buffer.process_output(tool_name, catalog_output, session_id="test-session")
+        assert result == catalog_output
+    assert list(tmp_path.glob("scratch_*")) == []

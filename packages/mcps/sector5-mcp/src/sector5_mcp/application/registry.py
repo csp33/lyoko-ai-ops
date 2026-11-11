@@ -10,6 +10,22 @@ from sector5_mcp.domain.models.upstream import ToolDefinition
 
 logger = logging.getLogger("sector5_mcp.tool_registry")
 
+_K8S_COMPAT_TOOLS = frozenset(
+    {
+        "k8s_pods_get",
+        "k8s_pods_list",
+        "k8s_pods_log",
+        "k8s_resources_get",
+        "k8s_resources_list",
+        "k8s_resources_create_or_update",
+        "k8s_resources_patch",
+        "k8s_resources_delete",
+        "k8s_resources_scale",
+        "k8s_events_list",
+        "k8s_namespaces_list",
+    }
+)
+
 
 class ToolRegistry:
     """Registry coordinating tool discovery, cached routing tables, and catalog queries."""
@@ -80,8 +96,15 @@ class ToolRegistry:
                         self._tool_routing[base_name][1],
                     )
             alias = resolve_tool_alias(cand)
-            if alias != cand and alias in self._tool_routing:
+            if alias in self._tool_routing:
                 return alias, self._tool_routing[alias][0], self._tool_routing[alias][1]
+            if (
+                alias in _K8S_COMPAT_TOOLS
+                and "k8s_kubectl" in self._tool_routing
+                and self.guardrail.is_tool_allowed(alias)
+            ):
+                k8s_upstream_name, k8s_client = self._tool_routing["k8s_kubectl"]
+                return alias, k8s_upstream_name, k8s_client
 
         return None
 

@@ -373,3 +373,75 @@ async def test_call_rejected_for_arguments_returns_the_tool_schema(mock_auth):
     assert "unknown argument" in data["content"]
     assert "entity_id" in data["content"]
     assert "Retry once" in data["content"]
+
+
+@pytest.mark.asyncio
+async def test_gateway_domain_aliases_and_k8s_compat_routing(mock_auth):
+    """Domain aliases work in FastMCP and k8s compatibility tools route to k8s_kubectl upstream."""
+    from sector5_mcp.infrastructure.mcp.server import create_gateway_mcp_server
+
+    mock_ha = MagicMock(spec=UpstreamMCPInterface)
+    mock_ha.list_tools = AsyncMock(
+        return_value=[
+            ToolDefinition(
+                name="ha_get_logs",
+                description="Get Home Assistant logs",
+                parameters={"type": "object"},
+                upstream_type=UpstreamType.HOME_ASSISTANT,
+            )
+        ]
+    )
+    mock_ha.call_tool = AsyncMock(
+        return_value=ToolResult(status="success", content="log entries", is_error=False)
+    )
+
+    mock_k8s = MagicMock(spec=UpstreamMCPInterface)
+    mock_k8s.list_tools = AsyncMock(
+        return_value=[
+            ToolDefinition(
+                name="k8s_kubectl",
+                description="Execute kubectl",
+                parameters={"type": "object"},
+                upstream_type=UpstreamType.KUBERNETES,
+            )
+        ]
+    )
+    mock_k8s.call_tool = AsyncMock(
+        return_value=ToolResult(status="success", content="pod-running", is_error=False)
+    )
+
+    gateway = MCPGatewayService(
+        upstreams={
+            UpstreamType.HOME_ASSISTANT: mock_ha,
+            UpstreamType.KUBERNETES: mock_k8s,
+        },
+        auth_port=mock_auth,
+    )
+    mcp = create_gateway_mcp_server(gateway)
+
+    # Alias 'ha' accepted by FastMCP gateway_get_domain_tools
+    ha_res = await mcp.call_tool("gateway_get_domain_tools", {"domain": "ha"})
+    assert not ha_res.is_error
+    ha_data = ha_res.structured_content.get("result", ha_res.structured_content)
+    assert ha_data["total"] == 1
+
+    # Double-underscore alias 'kubernetes__list_pods' routes to k8s_pods_list on mock_k8s
+    k8s_res = await mcp.call_tool(
+        "gateway_call_tool",
+        {"tool_name": "kubernetes__list_pods", "arguments": {"namespace": "home-assistant"}},
+    )
+    assert not k8s_res.is_error
+    mock_k8s.call_tool.assert_awaited_once_with("k8s_pods_list", {"namespace": "home-assistant"})
+
+    # Double-underscore alias 'homeassistant__get_logs' normalizes arguments and routes to ha_get_logs
+    log_res = await mcp.call_tool(
+        "gateway_call_tool",
+        {
+            "tool_name": "homeassistant__get_logs",
+            "arguments": {"lines": 30, "level": "ERROR", "since_minutes": 15},
+        },
+    )
+    assert not log_res.is_error
+    mock_ha.call_tool.assert_awaited_once_with(
+        "ha_get_logs", {"limit": 30, "level": "ERROR", "source": "system"}
+    )

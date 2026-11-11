@@ -84,7 +84,49 @@ _COMMON_ALIASES: dict[str, str] = {
     "k8s_namespaces": "k8s_namespaces_list",
     "k8s_get_namespaces": "k8s_namespaces_list",
     "k8s_list_namespaces": "k8s_namespaces_list",
+    "ha_get_log": "ha_get_logs",
+    "ha_logs": "ha_get_logs",
+    "ha_list_entities": "ha_get_states",
+    "ha_get_entities": "ha_get_states",
+    "grafana_get_alerts": "grafana_alerting_rules_read",
+    "grafana_list_alerts": "grafana_alerting_rules_read",
+    "grafana_get_alert_rules": "grafana_alerting_rules_read",
+    "grafana_list_alert_rules": "grafana_alerting_rules_read",
 }
+
+_VALID_HA_GET_LOGS_KEYS = frozenset(
+    {
+        "compact",
+        "context_id",
+        "device_id",
+        "end_time",
+        "entity_id",
+        "hours_back",
+        "level",
+        "limit",
+        "offset",
+        "order",
+        "search",
+        "slug",
+        "source",
+        "structured",
+        "top_n",
+    }
+)
+
+
+def _canonicalize_name(raw_name: str) -> str:
+    norm = raw_name.strip().replace(".", "_").replace(":", "_")
+    while "__" in norm:
+        norm = norm.replace("__", "_")
+    resolved = _COMMON_ALIASES.get(norm, norm)
+    if resolved.startswith("kubernetes_"):
+        resolved = "k8s_" + resolved.removeprefix("kubernetes_")
+    elif resolved.startswith("homeassistant_"):
+        resolved = "ha_" + resolved.removeprefix("homeassistant_")
+    elif resolved.startswith("home_assistant_"):
+        resolved = "ha_" + resolved.removeprefix("home_assistant_")
+    return _COMMON_ALIASES.get(resolved, resolved)
 
 
 def _normalize_args(tool: str, args: dict[str, Any], original_name: str = "") -> None:
@@ -180,6 +222,22 @@ def _normalize_args(tool: str, args: dict[str, Any], original_name: str = "") ->
                 if alt in args:
                     args["command"] = args.pop(alt)
                     break
+        ns = args.pop("namespace", None)
+        if ns and isinstance(args.get("command"), str):
+            cmd_str = args["command"]
+            if "-n " not in cmd_str and "--namespace" not in cmd_str:
+                args["command"] = f"{cmd_str} -n {ns}"
+    elif tool == "ha_get_logs":
+        if "limit" not in args:
+            for alt in ("lines", "max_lines", "tail", "count"):
+                if alt in args:
+                    args["limit"] = args.pop(alt)
+                    break
+        if "source" not in args and "level" in args:
+            args["source"] = "system"
+        for k in list(args.keys()):
+            if k not in _VALID_HA_GET_LOGS_KEYS:
+                args.pop(k, None)
 
 
 async def _resolve_tool_name(
@@ -198,11 +256,7 @@ async def _resolve_tool_name(
                 merged["command"] = parts[1]
             _normalize_args(resolved, merged, original_name=tool_name)
             return resolved, merged
-        norm = tool_name.replace(".", "_").replace(":", "_")
-        resolved = _COMMON_ALIASES.get(norm, norm)
-        if resolved.startswith("kubernetes_"):
-            resolved = "k8s_" + resolved.removeprefix("kubernetes_")
-            resolved = _COMMON_ALIASES.get(resolved, resolved)
+        resolved = _canonicalize_name(tool_name)
         _normalize_args(resolved, merged, original_name=tool_name)
         return resolved, merged
 
@@ -218,19 +272,28 @@ async def _resolve_tool_name(
                     merged["command"] = parts[1]
                 _normalize_args(resolved, merged, original_name=val)
                 return resolved, merged
-            norm = val.replace(".", "_").replace(":", "_")
-            resolved = _COMMON_ALIASES.get(norm, norm)
-            if resolved.startswith("kubernetes_"):
-                resolved = "k8s_" + resolved.removeprefix("kubernetes_")
-                resolved = _COMMON_ALIASES.get(resolved, resolved)
+            resolved = _canonicalize_name(val)
             _normalize_args(resolved, merged, original_name=val)
             return resolved, merged
+
+    # 2b. Infer k8s_kubectl when 'command' or 'cmd' is passed without tool_name
+    if ("command" in merged or "cmd" in merged) and set(merged.keys()) <= {
+        "command",
+        "cmd",
+        "namespace",
+    }:
+        resolved = "k8s_kubectl"
+        _normalize_args(resolved, merged, original_name="k8s_kubectl")
+        return resolved, merged
 
     # 3. Single key matching a nested dictionary: { "ha_get_logs": { "source": "core" } }
     if len(merged) == 1:
         only_key, only_val = next(iter(merged.items()))
         if isinstance(only_val, dict):
-            return only_key, only_val
+            resolved = _canonicalize_name(only_key)
+            nested = dict(only_val)
+            _normalize_args(resolved, nested, original_name=only_key)
+            return resolved, nested
 
     # 4. Infer from domain tool catalog if available
     if domain and hasattr(client, "get_domain_catalog"):
@@ -300,6 +363,10 @@ def _build_call_tool(
         merged: dict[str, Any] = {}
         if isinstance(arguments, dict):
             merged.update(arguments)
+        for alt_dict_key in ("parameters", "params", "args"):
+            if isinstance(extra.get(alt_dict_key), dict):
+                for k, v in extra.pop(alt_dict_key).items():
+                    merged.setdefault(k, v)
         for key, value in extra.items():
             merged.setdefault(key, value)
 
