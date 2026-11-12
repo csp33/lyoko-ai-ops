@@ -195,9 +195,9 @@ class EnrichTraceCostUseCase:
 
             if res is None or res.main_cost is None:
                 logger.debug(
-                    "Trace cost for %s unavailable in Langfuse; keeping placeholder", trace_id
+                    "Trace cost for %s unavailable in Langfuse; defaulting to $0.0000", trace_id
                 )
-                return
+                res = TraceCostResult(main_cost=0.0, resolved_trace_id=trace_id)
 
             cost_str = TraceCostService.format_cost_with_breakdown(res.main_cost, res.memory_cost)
             if not cost_str:

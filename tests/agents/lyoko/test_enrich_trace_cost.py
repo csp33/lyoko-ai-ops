@@ -489,3 +489,34 @@ async def test_update_message_cost_async_delayed_memory_arrival():
     second_call_text = mock_chat_manager.edit_message.await_args_list[1].kwargs["text"]
     assert "💸 **Cost:** $0.0022 ·" in first_call_text
     assert "💸 **Cost:** $0.0022 (+$0.0017 mem) ·" in second_call_text
+
+
+@pytest.mark.asyncio
+async def test_update_message_cost_async_replaces_placeholder_with_zero_when_missing():
+    mock_mcp = AsyncMock(spec=MCPClientInterface)
+    mock_mcp.call_tool.return_value = {
+        "status": "success",
+        "content": {"data": []},
+        "is_error": False,
+    }
+    mock_chat_manager = AsyncMock()
+    use_case = EnrichTraceCostUseCase(mcp_client=mock_mcp, tracer=None, enabled=True)
+    initial_text = (
+        "Aborted\n\n💸 **Cost:** calculating... · 🔍 [View Trace](https://example.com/traces/t-0)"
+    )
+
+    await use_case.update_message_cost_async(
+        chat_manager=mock_chat_manager,
+        chat_id="-1001",
+        message_id="55",
+        text_with_placeholder=initial_text,
+        trace_id="t-0",
+        delay_seconds=0.01,
+        max_attempts=1,
+        poll_interval=0.01,
+    )
+
+    mock_chat_manager.edit_message.assert_awaited_once()
+    _, kwargs = mock_chat_manager.edit_message.call_args
+    assert "💸 **Cost:** $0.0000" in kwargs["text"]
+    assert "calculating..." not in kwargs["text"]
