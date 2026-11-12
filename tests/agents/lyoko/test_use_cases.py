@@ -159,3 +159,31 @@ async def test_resolve_incident_use_case_with_skill_matcher():
     # Verify that runner was called with prompt containing matched skill runbook
     called_prompt = mock_runner.run.call_args.kwargs["prompt"]
     assert "Pod CrashLoop Guide" in called_prompt
+
+
+@pytest.mark.asyncio
+async def test_resolve_incident_use_case_formats_empty_exception_message():
+    import httpx
+    from lyoko.application.agents.runner import AgentRunner
+    from lyoko.application.incidents.use_cases.resolve import ResolveIncidentUseCase
+
+    mock_llm = MagicMock(spec=LLMClientInterface)
+    mock_runner = MagicMock(spec=AgentRunner)
+    mock_runner.llm = mock_llm
+    mock_runner.mcp_client = None
+    mock_runner.run = AsyncMock(side_effect=httpx.ConnectTimeout(""))
+
+    uc = ResolveIncidentUseCase(runner=mock_runner)
+    state = {
+        "event_type": "alert",
+        "alert_name": "KubePodCrashLooping",
+        "progress_message_id": "msg-42",
+        "progress_chat_id": "chat-1",
+    }
+    result = await uc.execute(state, config={})
+
+    assert result["root_cause"] == "Resolution failed: ConnectTimeout"
+    assert result["is_resolved"] is False
+    assert result["requires_escalation"] is True
+    assert result["progress_message_id"] == "msg-42"
+    assert result["progress_chat_id"] == "chat-1"

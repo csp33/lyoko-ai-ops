@@ -96,13 +96,16 @@ class ResolveIncidentUseCase:
                 on_status=status_callback(config),
             )
         except Exception as exc:
-            logger.error("Incident resolution failed: %s", exc, exc_info=True)
+            err_detail = str(exc).strip() or type(exc).__name__
+            logger.error("Incident resolution failed: %s", err_detail, exc_info=True)
             return {
-                "root_cause": f"Resolution failed: {exc}",
+                "root_cause": f"Resolution failed: {err_detail}",
                 "action_taken": "Aborted due to error.",
                 "verification": "",
                 "is_resolved": False,
                 "requires_escalation": True,
+                "progress_message_id": progress_msg_id,
+                "progress_chat_id": progress_chat_id,
                 "coordinator_next": CoordinatorNext.NOTIFY,
             }
 
